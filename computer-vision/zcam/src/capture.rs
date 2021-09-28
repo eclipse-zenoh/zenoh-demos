@@ -13,21 +13,20 @@
 //
 use clap::{App, Arg, Values};
 use opencv::{core, prelude::*, videoio};
-use zenoh::net::ResKey::*;
-use zenoh::net::*;
+use zenoh::config;
+use zenoh::prelude::*;
 
-#[async_std::main]
-async fn main() {
+fn main() {
     // initiate logging
     env_logger::init();
 
     let (config, path, resolution, delay) = parse_args();
 
     println!("Openning session...");
-    let session = open(config).await.unwrap();
+    let session = zenoh::open(config).wait().unwrap();
 
-    let reskey = RId(session.declare_resource(&path.into()).await.unwrap());
-    let _publ = session.declare_publisher(&reskey).await.unwrap();
+    let rid = session.register_resource(&path).wait().unwrap();
+    let _publ = session.publishing(rid).wait().unwrap();
 
     #[cfg(feature = "opencv-32")]
     let mut cam = videoio::VideoCapture::new_default(0).unwrap(); // 0 is the default camera
@@ -59,12 +58,12 @@ async fn main() {
         let mut buf = opencv::types::VectorOfu8::new();
         opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();
 
-        session.write(&reskey, buf.to_vec().into()).await.unwrap();
+        session.put(rid, buf.to_vec()).wait().unwrap();
         std::thread::sleep(std::time::Duration::from_millis(delay));
     }
 }
 
-fn parse_args() -> (ConfigProperties, String, Vec<i32>, u64) {
+fn parse_args() -> (config::ConfigProperties, String, Vec<i32>, u64) {
     let args = App::new("zenoh-net videocapture example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")

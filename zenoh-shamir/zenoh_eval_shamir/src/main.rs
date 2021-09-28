@@ -1,33 +1,30 @@
 use clap::{App, Arg};
-use futures::prelude::*;
 use sharks::Sharks;
 use std::convert::TryFrom;
-use zenoh::*;
+use zenoh::prelude::*;
 
-#[async_std::main]
-async fn main() {
+fn main() {
     env_logger::init();
 
     let (config, path, threshold, redundancy) = parse_args();
 
-    let path = &Path::try_from(path).unwrap();
+    println!("Open zenoh session");
+    let session = zenoh::open(config).wait().unwrap();
 
-    let zenoh = Zenoh::new(config.into()).await.unwrap();
-
-    let workspace = zenoh.workspace(None).await.unwrap();
-
-    let mut get_stream = workspace.register_eval(&path.into()).await.unwrap();
+    let mut queryable = session.register_queryable(&path).kind(zenoh::queryable::EVAL).wait().unwrap();
 
     let sharks = Sharks(threshold);
 
-    while let Some(get_request) = get_stream.next().await {
+    while let Ok(query) = queryable.receiver().recv() {
         println!(
-            ">> [zenoh_eval_shamir listener] received get with selector: {}",
-            get_request.selector
+            ">> [zenoh_eval_shamir listener] received query with selector: {}",
+            query.selector()
         );
 
-        let name = get_request
-            .selector
+        let name = query
+            .selector()
+            .parse_value_selector()
+            .unwrap()
             .properties
             .get("name")
             .cloned()
@@ -41,7 +38,7 @@ async fn main() {
             while shares.len() < threshold as usize && index < threshold * redundancy {
                 let share_path = format!("/share/{}{}", index, name);
                 print!("\t>> [zenoh_eval_shamir] Fetching share '{}': ", share_path);
-                if let Some(share) = get_share(&workspace, &share_path).await {
+                if let Some(share) = get_share(&session, &share_path) {
                     shares.push(share);
                     println!(" OK.");
                 }
@@ -65,28 +62,23 @@ async fn main() {
             println!("\t>> [zenoh_eval_shamir] A path starting with a '/' is expected.");
         }
 
-        get_request.reply(path.clone(), secret.into()).await;
+        query.reply(Sample::new(path.clone(), secret));
     }
 
-    get_stream.close().await.unwrap();
-    zenoh.close().await.unwrap();
+    queryable.unregister().wait().unwrap();
+    session.close().wait().unwrap();
 }
 
-async fn get_share(workspace: &Workspace<'_>, path: &str) -> Option<sharks::Share> {
+fn get_share(session: &zenoh::Session, path: &str) -> Option<sharks::Share> {
     let mut share: Option<sharks::Share> = None;
 
     if let Ok(selector) = Selector::try_from(path) {
-        match workspace.get(&selector).await.unwrap().next().await {
-            Some(Data {
-                path: _,
-                value: Value::Raw(0, v),
-                timestamp: _,
-            }) => {
-                let v_bytes = v.get_vec();
+        match session.get(&selector).wait().unwrap().recv() {
+            Ok(reply) => {
+                let v_bytes = reply.data.value.payload.to_vec();
                 share = Some(sharks::Share::try_from(v_bytes.as_slice()).unwrap());
             }
-            Some(_) => println!("Failed to get share '{}'", path),
-            None => println!("Failed to get share '{}': not found", path),
+            Err(_) => println!("Failed to get share '{}': not found", path),
         }
     } else {
         println!("Failed to get value from '{}': not a valid Selector", path);

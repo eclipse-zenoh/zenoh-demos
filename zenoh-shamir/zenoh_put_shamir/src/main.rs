@@ -2,19 +2,15 @@ use clap::{App, Arg};
 use sharks::{Share, Sharks};
 use std::convert::{TryFrom, TryInto};
 use std::str;
-use zenoh::*;
+use zenoh::prelude::*;
 
-#[async_std::main]
-async fn main() {
+fn main() {
     env_logger::init();
 
     let (config, path, value, threshold, redundancy) = parse_args();
 
-    println!("New Zenoh…");
-    let zenoh = Zenoh::new(config.into()).await.unwrap();
-
-    println!("New workspace…");
-    let workspace = zenoh.workspace(None).await.unwrap();
+    println!("Open zenoh session");
+    let session = zenoh::open(config).wait().unwrap();
 
     // 1. Split the secret in as many shares as necessary
     let sharks = Sharks(threshold);
@@ -32,13 +28,13 @@ async fn main() {
 
         println!("Putting share {} of '{}'. ", index, path_share);
         let share_as_bytes: Vec<u8> = share.try_into().unwrap();
-        workspace
-            .put(&path_share.try_into().unwrap(), Value::from(share_as_bytes))
-            .await
+        session
+            .put(&path_share, share_as_bytes)
+            .wait()
             .unwrap();
     }
 
-    zenoh.close().await.unwrap();
+    session.close().wait().unwrap();
 }
 
 fn parse_args() -> (Properties, String, String, u8, u8) {

@@ -11,36 +11,26 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::stream::StreamExt;
 use clap::{App, Arg, Values};
 use opencv::{highgui, prelude::*};
-use zenoh::net::*;
+use zenoh::config;
+use zenoh::prelude::*;
 
-#[async_std::main]
-async fn main() {
+fn main() {
     // initiate logging
     env_logger::init();
     let (config, path) = parse_args();
 
     println!("Openning session...");
-    let session = open(config).await.unwrap();
-    let sub_info = SubInfo {
-        reliability: Reliability::Reliable,
-        mode: SubMode::Push,
-        period: None,
-    };
-    let sub_key = path.clone();
-    let mut sub = session
-        .declare_subscriber(&sub_key.into(), &sub_info)
-        .await
-        .unwrap();
+    let session = zenoh::open(config).wait().unwrap();
+    let mut sub = session.subscribe(&path).wait().unwrap();
 
     let window = &format!("[{}] Press 'q' to quit.", &path);
     highgui::named_window(window, 1).unwrap();
 
-    while let Some(sample) = sub.stream().next().await {
+    while let Ok(sample) = sub.receiver().recv() {
         let decoded = opencv::imgcodecs::imdecode(
-            &opencv::types::VectorOfu8::from_iter(sample.payload.to_vec()),
+            &opencv::types::VectorOfu8::from_iter(sample.value.payload.to_vec()),
             opencv::imgcodecs::IMREAD_COLOR,
         )
         .unwrap();
@@ -56,11 +46,11 @@ async fn main() {
             break;
         }
     }
-    sub.undeclare().await.unwrap();
-    session.close().await.unwrap();
+    sub.unregister().wait().unwrap();
+    session.close().wait().unwrap();
 }
 
-fn parse_args() -> (ConfigProperties, String) {
+fn parse_args() -> (config::ConfigProperties, String) {
     let args = App::new("zenoh-net video display example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
