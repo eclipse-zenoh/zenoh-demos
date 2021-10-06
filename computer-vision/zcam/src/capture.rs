@@ -12,11 +12,14 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use clap::{App, Arg, Values};
+use futures::prelude::*;
+use futures::select;
 use opencv::{core, prelude::*, videoio};
 use zenoh::config;
 use zenoh::prelude::*;
 
-fn main() {
+#[async_std::main]
+async fn main() {
     // initiate logging
     env_logger::init();
 
@@ -27,6 +30,10 @@ fn main() {
 
     let rid = session.register_resource(&path).wait().unwrap();
     let _publ = session.publishing(rid).wait().unwrap();
+    let mut conf_sub = session
+        .subscribe(format!("{}/capture/conf/*", path))
+        .wait()
+        .unwrap();
 
     #[cfg(feature = "opencv-32")]
     let mut cam = videoio::VideoCapture::new_default(0).unwrap(); // 0 is the default camera
@@ -41,25 +48,27 @@ fn main() {
     encode_options.push(90);
 
     loop {
-        let mut frame = core::Mat::default();
-        cam.read(&mut frame).unwrap();
+        select!(
+            _ = async_std::task::sleep(std::time::Duration::from_millis(delay)).fuse() => {
+                let mut frame = core::Mat::default();
+                cam.read(&mut frame).unwrap();
 
-        let mut reduced = Mat::default();
-        opencv::imgproc::resize(
-            &frame,
-            &mut reduced,
-            opencv::core::Size::new(resolution[0], resolution[1]),
-            0.0,
-            0.0,
-            opencv::imgproc::INTER_LINEAR,
-        )
-        .unwrap();
+                let mut reduced = Mat::default();
+                opencv::imgproc::resize(&frame, &mut reduced, opencv::core::Size::new(resolution[0], resolution[1]), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
 
-        let mut buf = opencv::types::VectorOfu8::new();
-        opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();
+                let mut buf = opencv::types::VectorOfu8::new();
+                opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();
 
-        session.put(rid, buf.to_vec()).wait().unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(delay));
+                session.put(rid, buf.to_vec()).wait().unwrap();
+            },
+
+            sample = conf_sub.receiver().next().fuse() => {
+                let sample = sample.unwrap();
+                let conf_key = sample.res_name.split('/').last().unwrap();
+                let conf_val = String::from_utf8_lossy(&sample.value.payload.contiguous()).to_string();
+                let _ = session.config().wait().insert_json(&conf_key, &conf_val);
+            },
+        );
     }
 }
 

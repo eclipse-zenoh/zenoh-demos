@@ -12,11 +12,14 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use clap::{App, Arg, Values};
+use futures::prelude::*;
+use futures::select;
 use opencv::{highgui, prelude::*};
 use zenoh::config;
 use zenoh::prelude::*;
 
-fn main() {
+#[async_std::main]
+async fn main() {
     // initiate logging
     env_logger::init();
     let (config, path) = parse_args();
@@ -24,29 +27,46 @@ fn main() {
     println!("Openning session...");
     let session = zenoh::open(config).wait().unwrap();
     let mut sub = session.subscribe(&path).wait().unwrap();
+    let mut conf_sub = session
+        .subscribe(format!("{}/display/conf/*", path))
+        .wait()
+        .unwrap();
 
     let window = &format!("[{}] Press 'q' to quit.", &path);
     highgui::named_window(window, 1).unwrap();
 
-    while let Ok(sample) = sub.receiver().recv() {
-        let decoded = opencv::imgcodecs::imdecode(
-            &opencv::types::VectorOfu8::from_iter(sample.value.payload.to_vec()),
-            opencv::imgcodecs::IMREAD_COLOR,
-        )
-        .unwrap();
+    loop {
+        select!(
+            sample = sub.receiver().next().fuse() => {
+                let sample = sample.unwrap();
+                let decoded = opencv::imgcodecs::imdecode(
+                    &opencv::types::VectorOfu8::from_iter(sample.value.payload.to_vec()),
+                    opencv::imgcodecs::IMREAD_COLOR,
+                )
+                .unwrap();
 
-        if decoded.size().unwrap().width > 0 {
-            // let mut enlarged = Mat::default().unwrap();
-            // opencv::imgproc::resize(&decoded, &mut enlarged, opencv::core::Size::new(800, 600), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
-            highgui::imshow(window, &decoded).unwrap();
-        }
+                if decoded.size().unwrap().width > 0 {
+                    // let mut enlarged = Mat::default().unwrap();
+                    // opencv::imgproc::resize(&decoded, &mut enlarged, opencv::core::Size::new(800, 600), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
+                    highgui::imshow(window, &decoded).unwrap();
+                }
 
-        if highgui::wait_key(10).unwrap() == 113 {
-            // 'q'
-            break;
-        }
+                if highgui::wait_key(10).unwrap() == 113 {
+                    // 'q'
+                    break;
+                }
+            },
+
+            sample = conf_sub.receiver().next().fuse() => {
+                let sample = sample.unwrap();
+                let conf_key = sample.res_name.split('/').last().unwrap();
+                let conf_val = String::from_utf8_lossy(&sample.value.payload.contiguous()).to_string();
+                let _ = session.config().wait().insert_json(&conf_key, &conf_val);
+            },
+        );
     }
     sub.unregister().wait().unwrap();
+    conf_sub.unregister().wait().unwrap();
     session.close().wait().unwrap();
 }
 
