@@ -29,7 +29,7 @@ extern "C" {
 
 // Zenoh-specific parameters
 #define MODE "client"
-#define PEER "tcp/192.168.0.1:7447"
+#define PEER ""
 #define URI "/rt/turtle1/cmd_vel"
 
 // Measurement specific parameters
@@ -132,7 +132,8 @@ void setup(void) {
     // Initialize Zenoh Session and other parameters
     zn_properties_t *config = zn_config_default();
     zn_properties_insert(config, ZN_CONFIG_MODE_KEY, z_string_make(MODE));
-    zn_properties_insert(config, ZN_CONFIG_PEER_KEY, z_string_make(PEER));
+    if (strcmp(PEER, "") != 0)
+        zn_properties_insert(config, ZN_CONFIG_PEER_KEY, z_string_make(PEER));
 
     s = zn_open(config);
     if (s == NULL)
