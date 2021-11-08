@@ -49,7 +49,3 @@ For instance, you can:
      ```bash
      zenoh-bridge-dds -m client -e tcp/<cloud_ip>:7447
      ```
- * configure Ros2Teleop to connect this remote zenoh router:
-    ```bash
-    python ros2-teleop.py -m client -e tcp/<cloud_ip>:7447
-    ```
