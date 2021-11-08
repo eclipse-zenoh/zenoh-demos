@@ -12,8 +12,9 @@
  *   ADLINK zenoh team, <zenoh@adlink-labs.tech>
  */
 
-#include <Arduino.h>
+#define TURTLESIM 1
 
+#include <Arduino.h>
 #include <WiFi.h>
 
 #include <Wire.h>
@@ -30,13 +31,30 @@ extern "C" {
 // Zenoh-specific parameters
 #define MODE "client"
 #define PEER ""
-#define URI "/rt/turtle1/cmd_vel"
+
+#if TURTLESIM == 1
+    #define URI "/rt/turtle1/cmd_vel"
+#else
+    #define URI "/rt/cmd_vel"
+#endif
 
 // Measurement specific parameters
-#define SCALING_FACTOR 10
-#define MAX_VALUE 3.0
-#define MIN_VALUE -3.0
+#if TURTLESIM == 1
+    #define X_SCALING_FACTOR 10.0
+    #define X_MAX_VALUE 2.00
+    #define X_MIN_VALUE -2.00
+    #define X_ZERO_VALUE 0.5
+#else
+    #define X_SCALING_FACTOR 100.0
+    #define X_MAX_VALUE 0.20
+    #define X_MIN_VALUE -0.20
+    #define X_ZERO_VALUE 0.10
+#endif
 
+#define Y_SCALING_FACTOR 10.0
+#define Y_MAX_VALUE 2.80
+#define Y_MIN_VALUE -2.80
+#define Y_ZERO_VALUE 0.5
 
 /* --------------- Structs -------------- */
 struct Vector3 {
@@ -137,9 +155,7 @@ void setup(void) {
 
     s = zn_open(config);
     if (s == NULL)
-    {
         return;
-    }
 
     znp_start_read_task(s);
     znp_start_lease_task(s);
@@ -147,11 +163,6 @@ void setup(void) {
     unsigned long rid = zn_declare_resource(s, zn_rname(URI));
     reskey = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
     *reskey = zn_rid(rid);
-
-    zn_publisher_t *pub = zn_declare_publisher(s, *reskey);
-    if (pub == NULL) {
-        return;
-    }
     Serial.println("Zenoh Publisher setup finished!");
 
     mpu.update();
@@ -161,20 +172,20 @@ void setup(void) {
 }
 
 void loop() {
-    delay(1000);
+    delay(100);
     mpu.update();
   
-    double linear_x = (mpu.getAccAngleX() - offset_x) / SCALING_FACTOR;
-    double linear_y = (mpu.getAccAngleY() - offset_y) / SCALING_FACTOR;
-    linear_x = min(max(linear_x, MIN_VALUE), MAX_VALUE);
-    if (linear_x < 1 && linear_x > -1)
+    double linear_x = (mpu.getAccAngleX() - offset_x) / X_SCALING_FACTOR;
+    double linear_y = (mpu.getAccAngleY() - offset_y) / Y_SCALING_FACTOR;
+    linear_x = min(max(linear_x, X_MIN_VALUE), X_MAX_VALUE);
+    if (linear_x < X_ZERO_VALUE && linear_x > -X_ZERO_VALUE)
         linear_x = 0;
-    linear_y = min(max(linear_y, MIN_VALUE), MAX_VALUE);
-    if (linear_y < 1 && linear_y > -1)
+    linear_y = min(max(linear_y, Y_MIN_VALUE), Y_MAX_VALUE);
+    if (linear_y < Y_ZERO_VALUE && linear_y > -Y_ZERO_VALUE)
         linear_y = 0;
 
     Twist measure;
-    measure.linear.x = linear_x;
+    measure.linear.x = linear_x * -1;
     measure.linear.y = 0.0;
     measure.linear.z = 0.0;
     measure.angular.x = 0.0;
@@ -184,10 +195,7 @@ void loop() {
     printTwist(&measure);
     Serial.println("");
   
-    if (s == NULL)
-        return;
-
-    if (reskey == NULL)
+    if (s == NULL || reskey == NULL)
         return;
 
     uint8_t twist_serialized_size = 4 + sizeof(double) * 6;
