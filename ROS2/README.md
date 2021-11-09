@@ -3,9 +3,11 @@
 ## Demos in this directory
 
  * Simple ROS2 teleop applications using Eclipse zenoh (more details in [this blog](https://zenoh.io/blog/2021-04-28-ros2-integration/)):
-   * **[zenoh-csharp-teleop](./zenoh-csharp-teleop)**: in **C#**
    * **[zenoh-python-teleop](./zenoh-python-teleop)**: in **Python**
    * **[zenoh-rust-teleop](./zenoh-rust-teleop)**: in **Rust**
+
+ * ROS2 gyroscope-based teleop from a microcontroller using Eclipse zenoh-pico (more details in [this blog](https://zenoh.io/blog/2021-11-09-ros2-zenoh-pico/)):
+   * **[zenoh-pico-teleop-gyro](./zenoh-pico-teleop-gyro)**: in **C**
 
 
 ## Other related demos and blogs
