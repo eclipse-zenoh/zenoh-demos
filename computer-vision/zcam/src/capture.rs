@@ -20,12 +20,12 @@ fn main() {
     // initiate logging
     env_logger::init();
 
-    let (config, path, resolution, delay) = parse_args();
+    let (config, key_expr, resolution, delay) = parse_args();
 
     println!("Openning session...");
     let session = zenoh::open(config).wait().unwrap();
 
-    let rid = session.declare_expr(&path).wait().unwrap();
+    let rid = session.declare_expr(&key_expr).wait().unwrap();
     session.declare_publication(rid).wait().unwrap();
 
     #[cfg(feature = "opencv-32")]
@@ -64,7 +64,7 @@ fn main() {
 }
 
 fn parse_args() -> (Config, String, Vec<i32>, u64) {
-    let args = App::new("zenoh-net videocapture example")
+    let args = App::new("zenoh videocapture example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
                 .possible_values(&["peer", "client"])
@@ -75,7 +75,7 @@ fn parse_args() -> (Config, String, Vec<i32>, u64) {
         ))
         .arg(
             Arg::from_usage(
-                "-p, --path=[PATH] 'The zenoh path on which the video will be published.",
+                "-k, --key=[KEY_EXPR] 'The key expression on which the video will be published.",
             )
             .default_value("/demo/zcam"),
         )
@@ -99,7 +99,7 @@ fn parse_args() -> (Config, String, Vec<i32>, u64) {
         config.peers.extend(peers.map(|p| p.parse().unwrap()))
     }
 
-    let path = args.value_of("path").unwrap();
+    let key_expr = args.value_of("key").unwrap().to_string();
     let resolution = args
         .value_of("resolution")
         .unwrap()
@@ -108,5 +108,5 @@ fn parse_args() -> (Config, String, Vec<i32>, u64) {
         .collect::<Vec<i32>>();
     let delay = args.value_of("delay").unwrap().parse::<u64>().unwrap();
 
-    (config, path.to_string(), resolution, delay)
+    (config, key_expr, resolution, delay)
 }

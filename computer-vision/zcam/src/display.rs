@@ -19,13 +19,13 @@ use zenoh::prelude::*;
 fn main() {
     // initiate logging
     env_logger::init();
-    let (config, path) = parse_args();
+    let (config, key_expr) = parse_args();
 
     println!("Openning session...");
     let session = zenoh::open(config).wait().unwrap();
-    let mut sub = session.subscribe(&path).wait().unwrap();
+    let mut sub = session.subscribe(&key_expr).wait().unwrap();
 
-    let window = &format!("[{}] Press 'q' to quit.", &path);
+    let window = &format!("[{}] Press 'q' to quit.", &key_expr);
     highgui::named_window(window, 1).unwrap();
 
     while let Ok(sample) = sub.receiver().recv() {
@@ -51,24 +51,22 @@ fn main() {
 }
 
 fn parse_args() -> (Config, String) {
-    let args = App::new("zenoh-net video display example")
+    let args = App::new("zenoh video display example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
                 .possible_values(&["peer", "client"])
                 .default_value("peer"),
         )
         .arg(
-            Arg::from_usage(
-                "-p, --path=[path] 'The zenoh path on which the video will be published.",
-            )
-            .default_value("/demo/zcam"),
+            Arg::from_usage("-k, --key=[KEY_EXPR] 'The key expression to subscribe to.")
+                .default_value("/demo/zcam"),
         )
         .arg(Arg::from_usage(
             "-e, --peer=[LOCATOR]...  'Peer locators used to initiate the zenoh session.'",
         ))
         .get_matches();
 
-    let path = args.value_of("path").unwrap();
+    let key_expr = args.value_of("key").unwrap().to_string();
 
     let mut config = Config::default();
     if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
@@ -77,5 +75,5 @@ fn parse_args() -> (Config, String) {
     if let Some(peers) = args.values_of("peer") {
         config.peers.extend(peers.map(|p| p.parse().unwrap()))
     }
-    (config, path.to_string())
+    (config, key_expr)
 }
