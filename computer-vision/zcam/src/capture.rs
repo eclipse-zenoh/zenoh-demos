@@ -11,9 +11,9 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use clap::{App, Arg, Values};
+use clap::{App, Arg};
 use opencv::{core, prelude::*, videoio};
-use zenoh::config;
+use zenoh::config::Config;
 use zenoh::prelude::*;
 
 fn main() {
@@ -25,8 +25,8 @@ fn main() {
     println!("Openning session...");
     let session = zenoh::open(config).wait().unwrap();
 
-    let rid = session.register_resource(&path).wait().unwrap();
-    let _publ = session.publishing(rid).wait().unwrap();
+    let rid = session.declare_expr(&path).wait().unwrap();
+    session.declare_publication(rid).wait().unwrap();
 
     #[cfg(feature = "opencv-32")]
     let mut cam = videoio::VideoCapture::new_default(0).unwrap(); // 0 is the default camera
@@ -63,7 +63,7 @@ fn main() {
     }
 }
 
-fn parse_args() -> (config::ConfigProperties, String, Vec<i32>, u64) {
+fn parse_args() -> (Config, String, Vec<i32>, u64) {
     let args = App::new("zenoh-net videocapture example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
@@ -91,17 +91,12 @@ fn parse_args() -> (config::ConfigProperties, String, Vec<i32>, u64) {
         )
         .get_matches();
 
-    let mut config = config::empty();
-    config.insert(
-        config::ZN_MODE_KEY,
-        String::from(args.value_of("mode").unwrap()),
-    );
-    for peer in args
-        .values_of("peer")
-        .or_else(|| Some(Values::default()))
-        .unwrap()
-    {
-        config.insert(config::ZN_PEER_KEY, String::from(peer));
+    let mut config = Config::default();
+    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
+        config.set_mode(Some(mode)).unwrap();
+    }
+    if let Some(peers) = args.values_of("peer") {
+        config.peers.extend(peers.map(|p| p.parse().unwrap()))
     }
 
     let path = args.value_of("path").unwrap();

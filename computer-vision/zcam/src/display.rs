@@ -11,9 +11,9 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use clap::{App, Arg, Values};
+use clap::{App, Arg};
 use opencv::{highgui, prelude::*};
-use zenoh::config;
+use zenoh::config::Config;
 use zenoh::prelude::*;
 
 fn main() {
@@ -46,11 +46,11 @@ fn main() {
             break;
         }
     }
-    sub.unregister().wait().unwrap();
+    sub.close().wait().unwrap();
     session.close().wait().unwrap();
 }
 
-fn parse_args() -> (config::ConfigProperties, String) {
+fn parse_args() -> (Config, String) {
     let args = App::new("zenoh-net video display example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
@@ -70,17 +70,12 @@ fn parse_args() -> (config::ConfigProperties, String) {
 
     let path = args.value_of("path").unwrap();
 
-    let mut config = config::empty();
-    config.insert(
-        config::ZN_MODE_KEY,
-        String::from(args.value_of("mode").unwrap()),
-    );
-    for peer in args
-        .values_of("peer")
-        .or_else(|| Some(Values::default()))
-        .unwrap()
-    {
-        config.insert(config::ZN_PEER_KEY, String::from(peer));
+    let mut config = Config::default();
+    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
+        config.set_mode(Some(mode)).unwrap();
+    }
+    if let Some(peers) = args.values_of("peer") {
+        config.peers.extend(peers.map(|p| p.parse().unwrap()))
     }
     (config, path.to_string())
 }
