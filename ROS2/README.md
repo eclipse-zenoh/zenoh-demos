@@ -4,6 +4,7 @@
 
  * Simple ROS2 teleop applications using Eclipse zenoh (more details in [this blog](https://zenoh.io/blog/2021-04-28-ros2-integration/)):
    * **[zenoh-python-teleop](./zenoh-python-teleop)**: in **Python**
+   * **[zenoh-rest-teleop](./zenoh-rest-teleop)**: in **HTML / Javascript** via the REST API
    * **[zenoh-rust-teleop](./zenoh-rust-teleop)**: in **Rust**
 
  * ROS2 gyroscope-based teleop from a microcontroller using Eclipse zenoh-pico (more details in [this blog](https://zenoh.io/blog/2021-11-09-ros2-zenoh-pico/)):
