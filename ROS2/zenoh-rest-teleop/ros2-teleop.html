@@ -1,184 +1,224 @@
-<dl>
-    <dd>
-        <p>
-            Drive your ROS2 bot with the arrow keys and spacebar to stop!<br>
-        <form id="connect-form">
-            URL of your zenoh-bridge-dds:
-            <input id="bridge_url" type="text" required value="http://localhost:8000"><br>
-            This will publish Twist messages to:
-            <input id="cmd_vel_res" type="text" required value="/rt/turtle1/cmd_vel"><br>
-            And subscribe to Log messages from:
-            <input id="rosout_res" type="text" required value="/rt/rosout">
-            <input type="submit" value="Subscribe"
-                class="w3-button w3-round w3-border w3-padding-small w3-theme-d1 w3-right w3-section"
-                onclick="return subscribeToRosout();">
-        </form>
-        </p>
-        <p>
-            Linear scale: <input id="linear_scale" type="number" required value="2.0">
-            Angular scale: <input id="angular_scale" type="number" required value="2.0">
-        </p>
-        Received logs from "/rt/rosout":
-        <br>
-        <div style="overflow:auto; height:500px; border:1px solid black;" id="rosout_logs"></div>
-        <script src="https://cdn.jsdelivr.net/npm/bytebuffer@5.0.1"></script>
-        <script src="https://cdn.jsdelivr.net/npm/jscdr@0.0.1"></script>
-        <script>
-            // ROS2 Time type
-            class Time {
-                constructor(sec, nsec) {
-                    this.sec = sec;
-                    this.nsec = nsec;
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        h1 {
+            text-align: center;
+        }
+
+        .column {
+            float: left;
+            width: fit-content;
+            margin-right: 10px;
+            line-height: 150%;
+        }
+
+        /* Clear floats after the columns */
+        .row:after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+    </style>
+</head>
+
+<body>
+    <dl>
+        <dd>
+            <p>
+            <h1>Drive your ROS2 bot with your keyboard's arrow keys!<br>Hit spacebar to stop it.</h1>
+            <form id="connect-form">
+                <div class="row">
+                    <div class="column">
+                        URL of your zenoh-bridge-dds:<br>
+                        This page will publish Twist messages to: <br>
+                        And subscribe to Log messages from:<br>
+                        Extra scope prefixed to keys:
+                    </div>
+                    <div class="column">
+                        <input id="bridge_url" type="text" required value="http://localhost:8000"><br>
+                        <input id="cmd_vel_res" type="text" required value="/rt/turtle1/cmd_vel"><br>
+                        <input id="rosout_res" type="text" required value="/rt/rosout"><br>
+                        <input id="scope" type="text" required value=""><br>
+                        <input type="submit" value="Reset subscription"
+                            class="w3-button w3-round w3-border w3-padding-small w3-theme-d1 w3-right w3-section"
+                            onclick="return subscribeToRosout();"><br>
+                    </div>
+                </div>
+            </form>
+            </p>
+            <p>
+                Linear scale: <input id="linear_scale" type="number" required value="2.0">
+                Angular scale: <input id="angular_scale" type="number" required value="2.0">
+            </p>
+            Received logs from "/rt/rosout":
+            <br>
+            <div style="overflow:auto; height:500px; border:1px solid black;" id="rosout_logs"></div>
+            <script src="https://cdn.jsdelivr.net/npm/bytebuffer@5.0.1"></script>
+            <script src="https://cdn.jsdelivr.net/npm/jscdr@0.0.1"></script>
+            <script>
+                // ROS2 Time type
+                class Time {
+                    constructor(sec, nsec) {
+                        this.sec = sec;
+                        this.nsec = nsec;
+                    }
+
+                    static decode(cdrReader) {
+                        let sec = cdrReader.readInt32();
+                        let nsec = cdrReader.readUint32();
+                        return new Time(sec, nsec);
+                    }
                 }
 
-                static decode(cdrReader) {
-                    let sec = cdrReader.readInt32();
-                    let nsec = cdrReader.readUint32();
-                    return new Time(sec, nsec);
-                }
-            }
+                // ROS2 Log type (received in 'rosout' topic)
+                class Log {
+                    constructor(time, level, name, msg, file, fn, line) {
+                        this.time = time;
+                        this.level = level;
+                        this.name = name;
+                        this.msg = msg;
+                        this.file = file;
+                        this.fn = fn;
+                        this.line = line;
+                    }
 
-            // ROS2 Log type (received in 'rosout' topic)
-            class Log {
-                constructor(time, level, name, msg, file, fn, line) {
-                    this.time = time;
-                    this.level = level;
-                    this.name = name;
-                    this.msg = msg;
-                    this.file = file;
-                    this.fn = fn;
-                    this.line = line;
-                }
-
-                static decode(cdrReader) {
-                    let time = Time.decode(cdrReader);
-                    let level = cdrReader.readByte();
-                    let name = cdrReader.readString();
-                    let msg = cdrReader.readString();
-                    let file = cdrReader.readString();
-                    let fn = cdrReader.readString();
-                    let line = cdrReader.readUint32();
-                    return new Log(time, level, name, msg, file, fn, line);
-                }
-            }
-
-            // ROS2 Vector3 type
-            class Vector3 {
-                constructor(x, y, z) {
-                    this.x = x;
-                    this.y = y;
-                    this.z = z;
+                    static decode(cdrReader) {
+                        let time = Time.decode(cdrReader);
+                        let level = cdrReader.readByte();
+                        let name = cdrReader.readString();
+                        let msg = cdrReader.readString();
+                        let file = cdrReader.readString();
+                        let fn = cdrReader.readString();
+                        let line = cdrReader.readUint32();
+                        return new Log(time, level, name, msg, file, fn, line);
+                    }
                 }
 
-                encode(cdrWriter) {
-                    cdrWriter.writeFloat64(this.x);
-                    cdrWriter.writeFloat64(this.y);
-                    cdrWriter.writeFloat64(this.z);
+                // ROS2 Vector3 type
+                class Vector3 {
+                    constructor(x, y, z) {
+                        this.x = x;
+                        this.y = y;
+                        this.z = z;
+                    }
+
+                    encode(cdrWriter) {
+                        cdrWriter.writeFloat64(this.x);
+                        cdrWriter.writeFloat64(this.y);
+                        cdrWriter.writeFloat64(this.z);
+                    }
                 }
-            }
 
-            // ROS2 Twist type (published in 'cmd_vel' topic)
-            class Twist {
-                constructor(linear, angular) {
-                    this.linear = linear;
-                    this.angular = angular;
+                // ROS2 Twist type (published in 'cmd_vel' topic)
+                class Twist {
+                    constructor(linear, angular) {
+                        this.linear = linear;
+                        this.angular = angular;
+                    }
+
+                    encode(cdrWriter) {
+                        this.linear.encode(cdrWriter);
+                        this.angular.encode(cdrWriter);
+                    }
                 }
 
-                encode(cdrWriter) {
-                    this.linear.encode(cdrWriter);
-                    this.angular.encode(cdrWriter);
-                }
-            }
+                const Http = new XMLHttpRequest();
 
-            const Http = new XMLHttpRequest();
+                function pubTwist(linear, angular) {
+                    // Get scales from HTML
+                    var linear_scale = document.getElementById("linear_scale").value
+                    var angular_scale = document.getElementById("angular_scale").value
 
-            function pubTwist(linear, angular) {
-                // Get scales from HTML
-                var linear_scale = document.getElementById("linear_scale").value
-                var angular_scale = document.getElementById("angular_scale").value
+                    // Create a Twist message
+                    var twist = new Twist(
+                        new Vector3(linear * linear_scale, 0.0, 0.0),
+                        new Vector3(0.0, 0.0, angular * angular_scale));
+                    console.log(twist);
+                    // Since it's going to DDS, encode it using a jscdr.CDRWriter
+                    var writer = new jscdr.CDRWriter();
+                    twist.encode(writer);
 
-                // Create a Twist message
-                var twist = new Twist(
-                    new Vector3(linear * linear_scale, 0.0, 0.0),
-                    new Vector3(0.0, 0.0, angular * angular_scale));
-                console.log(twist);
-                // Since it's going to DDS, encode it using a jscdr.CDRWriter
-                var writer = new jscdr.CDRWriter();
-                twist.encode(writer);
-
-                // Get bridge URL and cmd_vel resource to publish from HTML
-                var bridge_url = document.getElementById("bridge_url").value
-                var cmd_vel_res = document.getElementById("cmd_vel_res").value
-
-                // PUT it to zenoh via its REST API
-                Http.open('PUT', bridge_url + cmd_vel_res, true);
-                Http.setRequestHeader('Content-Type', 'application/octet-stream');
-                Http.send(writer.buf.buffer);
-            }
-
-            function onkeydown(e) {
-                e = e || window.event;
-                console.log("KeyPressed: " + e);
-                if (e.keyCode == '38') {
-                    // up arrow
-                    pubTwist(1.0, 0.0);
-                }
-                else if (e.keyCode == '40') {
-                    // down arrow
-                    pubTwist(-1.0, 0.0);
-                }
-                else if (e.keyCode == '37') {
-                    // left arrow
-                    pubTwist(0.0, 1.0);
-                }
-                else if (e.keyCode == '39') {
-                    // right arrow
-                    pubTwist(0.0, -1.0);
-                }
-                else if (e.keyCode == '32') {
-                    // spacebar
-                    pubTwist(0.0, 0.0);
-                }
-            }
-
-            // register callback on key down
-            document.onkeydown = onkeydown;
-
-            // EventSource receiving Logs
-            var event_source;
-
-            function subscribeToRosout() {
-                if (typeof (EventSource) !== "undefined") {
+                    // Get bridge URL and cmd_vel resource to publish from HTML
                     var bridge_url = document.getElementById("bridge_url").value
-                    var rosout_res = document.getElementById("rosout_res").value
-                    console.log("Subscribe to EventSource: " + bridge_url + rosout_res);
-                    event_source = new EventSource(bridge_url + rosout_res);
-                    event_source.addEventListener("PUT", function (e) {
-                        console.log("Received sample: " + e.data);
-                        // The zenoh REST API sends JSON objects
-                        // that includes "key", "value", "encoding" and "time" (same than a result to GET)
-                        let sample = JSON.parse(e.data)
-                        // The payload buffer is in "value" field, encoded as base64.
-                        // Since it's comming from DDS, we decode it using a jscdr.CDRReader.
-                        let reader = new jscdr.CDRReader(dcodeIO.ByteBuffer.fromBase64(sample.value));
-                        // Decode the buffer as a Log message
-                        let log = Log.decode(reader);
-                        // Add it to "rosout_logs" HTML element
-                        let elem = document.getElementById("rosout_logs");
-                        elem.innerHTML += "[" + log.time.sec + "." + log.time.nsec + "] [" + log.name + "]: " + log.msg + "<br>";
-                        // Auto-scroll to the bottom
-                        elem.scrollTop = elem.scrollHeight;
-                    }, false);
+                    var cmd_vel_res = document.getElementById("cmd_vel_res").value
+                    var scope = document.getElementById("scope").value
 
-                } else {
-                    document.getElementById("rosout_logs").innerHTML = "Sorry, your browser does not support server-sent events...";
+                    // PUT it to zenoh via its REST API
+                    Http.open('PUT', bridge_url + scope + cmd_vel_res, true);
+                    Http.setRequestHeader('Content-Type', 'application/octet-stream');
+                    Http.send(writer.buf.buffer);
                 }
-                return false;
-            }
 
-            // subscribe at page loading
-            subscribeToRosout();
-        </script>
-    </dd>
+                function onkeydown(e) {
+                    e = e || window.event;
+                    console.log("KeyPressed: " + e);
+                    if (e.keyCode == '38') {
+                        // up arrow
+                        pubTwist(1.0, 0.0);
+                    }
+                    else if (e.keyCode == '40') {
+                        // down arrow
+                        pubTwist(-1.0, 0.0);
+                    }
+                    else if (e.keyCode == '37') {
+                        // left arrow
+                        pubTwist(0.0, 1.0);
+                    }
+                    else if (e.keyCode == '39') {
+                        // right arrow
+                        pubTwist(0.0, -1.0);
+                    }
+                    else if (e.keyCode == '32') {
+                        // spacebar
+                        pubTwist(0.0, 0.0);
+                    }
+                }
 
-</dl>
+                // register callback on key down
+                document.onkeydown = onkeydown;
+
+                // EventSource receiving Logs
+                var event_source;
+
+                function subscribeToRosout() {
+                    if (typeof (EventSource) !== "undefined") {
+                        var bridge_url = document.getElementById("bridge_url").value
+                        var rosout_res = document.getElementById("rosout_res").value
+                        var scope = document.getElementById("scope").value
+                        console.log("Subscribe to EventSource: " + bridge_url + scope + rosout_res);
+                        event_source = new EventSource(bridge_url + scope + rosout_res);
+                        event_source.addEventListener("PUT", function (e) {
+                            console.log("Received sample: " + e.data);
+                            // The zenoh REST API sends JSON objects
+                            // that includes "key", "value", "encoding" and "time" (same than a result to GET)
+                            let sample = JSON.parse(e.data)
+                            // The payload buffer is in "value" field, encoded as base64.
+                            // Since it's comming from DDS, we decode it using a jscdr.CDRReader.
+                            let reader = new jscdr.CDRReader(dcodeIO.ByteBuffer.fromBase64(sample.value));
+                            // Decode the buffer as a Log message
+                            let log = Log.decode(reader);
+                            // Add it to "rosout_logs" HTML element
+                            let elem = document.getElementById("rosout_logs");
+                            elem.innerHTML += "[" + log.time.sec + "." + log.time.nsec + "] [" + log.name + "]: " + log.msg + "<br>";
+                            // Auto-scroll to the bottom
+                            elem.scrollTop = elem.scrollHeight;
+                        }, false);
+
+                    } else {
+                        document.getElementById("rosout_logs").innerHTML = "Sorry, your browser does not support server-sent events...";
+                    }
+                    return false;
+                }
+
+                // subscribe at page loading
+                subscribeToRosout();
+            </script>
+        </dd>
+
+    </dl>
+
+</body>
+
+</html>
