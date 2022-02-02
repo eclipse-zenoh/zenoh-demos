@@ -22,7 +22,7 @@ async fn main() {
     env_logger::init();
     let (config, path) = parse_args();
 
-    println!("Openning session...");
+    println!("Opening session...");
     let session = open(config).await.unwrap();
     let sub_info = SubInfo {
         reliability: Reliability::Reliable,
@@ -38,7 +38,7 @@ async fn main() {
     let window = &format!("[{}] Press 'q' to quit.", &path);
     highgui::named_window(window, 1).unwrap();
 
-    while let Some(sample) = sub.stream().next().await {
+    while let Some(sample) = sub.receiver().next().await {
         let decoded = opencv::imgcodecs::imdecode(
             &opencv::types::VectorOfu8::from_iter(sample.payload.to_vec()),
             opencv::imgcodecs::IMREAD_COLOR,

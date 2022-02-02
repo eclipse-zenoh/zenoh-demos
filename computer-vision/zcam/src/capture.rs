@@ -23,7 +23,7 @@ async fn main() {
 
     let (config, path, resolution, delay) = parse_args();
 
-    println!("Openning session...");
+    println!("Opening session...");
     let session = open(config).await.unwrap();
 
     let reskey = RId(session.declare_resource(&path.into()).await.unwrap());
