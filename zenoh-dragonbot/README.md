@@ -1,4 +1,4 @@
-# A TurtleBot demo using solely Zenoh stack
+# DragonBot: A TurtleBot demo using solely Zenoh stack
 
 ## **Requirements**
 
@@ -23,5 +23,5 @@
       ```
  4. Move the sensor to drive the robot
 
-See more use cases in [this blog](https://zenoh.io/blog/).
+See more use cases in [this blog](https://zenoh.io/blog/2022-02-02-dragonbot).
 
