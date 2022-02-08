@@ -9,9 +9,13 @@
 -----
 ## **Usage**
 
- 1. Start the TurtleBot:
+ 1. Start the DragonBot:
       ```bash
-      platformio run -t upload
+      platformio run # On the first run, this is going to fail due to memcmp_P / memcpy_P in WiFi101 library, so need to run the following command:
+      sed -i -e 's/memcmp_P/memcmp/g' .pio/libdeps/opencr/WiFi101/src/WiFiMDNSResponder.cpp
+      sed -i -e 's/memcpy_P/memcpy/g' .pio/libdeps/opencr/WiFi101/src/WiFiMDNSResponder.cpp
+      platformio run # Build again
+      opencr_ld /dev/cu.usbmodemFFFFFFFEFFFF1 115200 .pio/build/opencr/firmware.bin 1 # Upload to board
       ```
  2. Start the Zenoh router:
       ```bash
