@@ -11,23 +11,22 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use clap::{App, Arg, Values};
+use clap::{App, Arg};
 use opencv::{core, prelude::*, videoio};
-use zenoh::net::ResKey::*;
-use zenoh::net::*;
+use zenoh::config::Config;
+use zenoh::prelude::*;
 
-#[async_std::main]
-async fn main() {
+fn main() {
     // initiate logging
     env_logger::init();
 
-    let (config, path, resolution, delay) = parse_args();
+    let (config, key_expr, resolution, delay) = parse_args();
 
-    println!("Opening session...");
-    let session = open(config).await.unwrap();
+    println!("Openning session...");
+    let session = zenoh::open(config).wait().unwrap();
 
-    let reskey = RId(session.declare_resource(&path.into()).await.unwrap());
-    let _publ = session.declare_publisher(&reskey).await.unwrap();
+    let rid = session.declare_expr(&key_expr).wait().unwrap();
+    session.declare_publication(rid).wait().unwrap();
 
     #[cfg(feature = "opencv-32")]
     let mut cam = videoio::VideoCapture::new_default(0).unwrap(); // 0 is the default camera
@@ -59,13 +58,13 @@ async fn main() {
         let mut buf = opencv::types::VectorOfu8::new();
         opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();
 
-        session.write(&reskey, buf.to_vec().into()).await.unwrap();
+        session.put(rid, buf.to_vec()).wait().unwrap();
         std::thread::sleep(std::time::Duration::from_millis(delay));
     }
 }
 
-fn parse_args() -> (ConfigProperties, String, Vec<i32>, u64) {
-    let args = App::new("zenoh-net videocapture example")
+fn parse_args() -> (Config, String, Vec<i32>, u64) {
+    let args = App::new("zenoh videocapture example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
                 .possible_values(&["peer", "client"])
@@ -76,7 +75,7 @@ fn parse_args() -> (ConfigProperties, String, Vec<i32>, u64) {
         ))
         .arg(
             Arg::from_usage(
-                "-p, --path=[PATH] 'The zenoh path on which the video will be published.",
+                "-k, --key=[KEY_EXPR] 'The key expression on which the video will be published.",
             )
             .default_value("/demo/zcam"),
         )
@@ -92,20 +91,15 @@ fn parse_args() -> (ConfigProperties, String, Vec<i32>, u64) {
         )
         .get_matches();
 
-    let mut config = config::empty();
-    config.insert(
-        config::ZN_MODE_KEY,
-        String::from(args.value_of("mode").unwrap()),
-    );
-    for peer in args
-        .values_of("peer")
-        .or_else(|| Some(Values::default()))
-        .unwrap()
-    {
-        config.insert(config::ZN_PEER_KEY, String::from(peer));
+    let mut config = Config::default();
+    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
+        config.set_mode(Some(mode)).unwrap();
+    }
+    if let Some(peers) = args.values_of("peer") {
+        config.peers.extend(peers.map(|p| p.parse().unwrap()))
     }
 
-    let path = args.value_of("path").unwrap();
+    let key_expr = args.value_of("key").unwrap().to_string();
     let resolution = args
         .value_of("resolution")
         .unwrap()
@@ -114,5 +108,5 @@ fn parse_args() -> (ConfigProperties, String, Vec<i32>, u64) {
         .collect::<Vec<i32>>();
     let delay = args.value_of("delay").unwrap().parse::<u64>().unwrap();
 
-    (config, path.to_string(), resolution, delay)
+    (config, key_expr, resolution, delay)
 }

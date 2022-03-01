@@ -11,36 +11,27 @@
 // Contributors:
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
-use async_std::stream::StreamExt;
-use clap::{App, Arg, Values};
+use clap::{App, Arg};
 use opencv::{highgui, prelude::*};
-use zenoh::net::*;
+use zenoh::config::Config;
+use zenoh::net::protocol::io::SplitBuffer;
+use zenoh::prelude::*;
 
-#[async_std::main]
-async fn main() {
+fn main() {
     // initiate logging
     env_logger::init();
-    let (config, path) = parse_args();
+    let (config, key_expr) = parse_args();
 
-    println!("Opening session...");
-    let session = open(config).await.unwrap();
-    let sub_info = SubInfo {
-        reliability: Reliability::Reliable,
-        mode: SubMode::Push,
-        period: None,
-    };
-    let sub_key = path.clone();
-    let mut sub = session
-        .declare_subscriber(&sub_key.into(), &sub_info)
-        .await
-        .unwrap();
+    println!("Openning session...");
+    let session = zenoh::open(config).wait().unwrap();
+    let mut sub = session.subscribe(&key_expr).wait().unwrap();
 
-    let window = &format!("[{}] Press 'q' to quit.", &path);
+    let window = &format!("[{}] Press 'q' to quit.", &key_expr);
     highgui::named_window(window, 1).unwrap();
 
-    while let Some(sample) = sub.receiver().next().await {
+    while let Ok(sample) = sub.receiver().recv() {
         let decoded = opencv::imgcodecs::imdecode(
-            &opencv::types::VectorOfu8::from_iter(sample.payload.to_vec()),
+            &opencv::types::VectorOfu8::from_iter(sample.value.payload.contiguous().into_owned()),
             opencv::imgcodecs::IMREAD_COLOR,
         )
         .unwrap();
@@ -56,41 +47,34 @@ async fn main() {
             break;
         }
     }
-    sub.undeclare().await.unwrap();
-    session.close().await.unwrap();
+    sub.close().wait().unwrap();
+    session.close().wait().unwrap();
 }
 
-fn parse_args() -> (ConfigProperties, String) {
-    let args = App::new("zenoh-net video display example")
+fn parse_args() -> (Config, String) {
+    let args = App::new("zenoh video display example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
                 .possible_values(&["peer", "client"])
                 .default_value("peer"),
         )
         .arg(
-            Arg::from_usage(
-                "-p, --path=[path] 'The zenoh path on which the video will be published.",
-            )
-            .default_value("/demo/zcam"),
+            Arg::from_usage("-k, --key=[KEY_EXPR] 'The key expression to subscribe to.")
+                .default_value("/demo/zcam"),
         )
         .arg(Arg::from_usage(
             "-e, --peer=[LOCATOR]...  'Peer locators used to initiate the zenoh session.'",
         ))
         .get_matches();
 
-    let path = args.value_of("path").unwrap();
+    let key_expr = args.value_of("key").unwrap().to_string();
 
-    let mut config = config::empty();
-    config.insert(
-        config::ZN_MODE_KEY,
-        String::from(args.value_of("mode").unwrap()),
-    );
-    for peer in args
-        .values_of("peer")
-        .or_else(|| Some(Values::default()))
-        .unwrap()
-    {
-        config.insert(config::ZN_PEER_KEY, String::from(peer));
+    let mut config = Config::default();
+    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
+        config.set_mode(Some(mode)).unwrap();
     }
-    (config, path.to_string())
+    if let Some(peers) = args.values_of("peer") {
+        config.peers.extend(peers.map(|p| p.parse().unwrap()))
+    }
+    (config, key_expr)
 }
