@@ -63,7 +63,7 @@ fn parse_args() -> (Config, String) {
                 .default_value("/demo/zcam"),
         )
         .arg(Arg::from_usage(
-            "-e, --peer=[LOCATOR]...  'Peer locators used to initiate the zenoh session.'",
+            "-e, --connect=[LOCATOR]...  'Endpoints to connect to..'",
         ))
         .get_matches();
 
@@ -73,8 +73,11 @@ fn parse_args() -> (Config, String) {
     if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
         config.set_mode(Some(mode)).unwrap();
     }
-    if let Some(peers) = args.values_of("peer") {
-        config.peers.extend(peers.map(|p| p.parse().unwrap()))
+    if let Some(connect) = args.values_of("connect") {
+        config
+            .connect
+            .endpoints
+            .extend(connect.map(|p| p.parse().unwrap()))
     }
     (config, key_expr)
 }
