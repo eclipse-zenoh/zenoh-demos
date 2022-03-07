@@ -51,7 +51,7 @@ def frames_listener(sample):
     chunks = str(sample.key_expr).split('/')
     cam = chunks[-1]
 
-    cams[cam] = bytes(sample.value.get_content())
+    cams[cam] = bytes(sample.value.payload)
 
 
 print('[INFO] Open zenoh session...')
