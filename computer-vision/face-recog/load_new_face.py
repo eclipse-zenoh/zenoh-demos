@@ -89,7 +89,7 @@ while True:
             uri = '{}/vectors/{}/{}'.format(
                 args.prefix, args.name, str(counter))
             print('> Inserting face vector {}'.format(uri))
-            z.put(uri, zenoh.Value.Json(json.dumps(elist)))
+            z.put(uri, json.dumps(elist))
 
     time.sleep(0.05)
 

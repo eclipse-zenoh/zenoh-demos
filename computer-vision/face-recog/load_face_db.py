@@ -45,7 +45,7 @@ try:
     if not z.get(storage_admin_path):
         key_expr = '{}/vectors/**'.format(args.prefix)
         print('Add storage: on {}'.format(key_expr))
-        z.put(storage_admin_path, zenoh.Value.Json(json.dumps({'key_expr': key_expr})))
+        z.put(storage_admin_path, json.dumps({'key_expr': key_expr}))
         time.sleep(1)
 except:
     e = sys.exc_info()[0]
@@ -56,7 +56,7 @@ for k, vs in faces.items():
     for j, v in enumerate(vs):
         uri = '{}/vectors/{}/{}'.format(args.prefix, k, j)
         print('> Inserting face {}'.format(uri))
-        z.put(uri, zenoh.Value.Json(json.dumps(v)))
+        z.put(uri, json.dumps(v))
 
 z.close()
 
