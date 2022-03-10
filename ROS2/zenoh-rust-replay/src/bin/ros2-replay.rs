@@ -59,9 +59,16 @@ async fn main() {
         kind: queryable::STORAGE,
         target: Target::All,
     };
-    let mut replies = session.get(&input).target(tgt).await.unwrap();
+    let mut replies = session
+        .get(&input)
+        .target(tgt)
+        .await
+        .unwrap()
+        .collect::<Vec<Reply>>()
+        .await;
+    replies.sort_by(|a, b| a.data.timestamp.partial_cmp(&b.data.timestamp).unwrap());
     let mut ts = None;
-    while let Some(reply) = replies.next().await {
+    for reply in replies {
         let now = match (ts, reply.data.timestamp) {
             (Some(t1), Some(t2)) => {
                 task::sleep(t2.get_diff_duration(&t1)).await;
@@ -72,15 +79,19 @@ async fn main() {
         };
         ts = reply.data.timestamp;
 
-        let cmd = cdr::deserialize_from::<_, Twist, _>(&*reply.data.value.payload.contiguous(), Infinite)
-            .unwrap();
+        let cmd =
+            cdr::deserialize_from::<_, Twist, _>(&*reply.data.value.payload.contiguous(), Infinite)
+                .unwrap();
         println!(
             "[{}] Replay '{}': '{:?}'",
             now.get_time(),
             reply.data.key_expr.as_str(),
-           cmd
+            cmd
         );
-        session.put(output.as_str(), reply.data.value.payload).await.unwrap();
+        session
+            .put(output.as_str(), reply.data.value.payload)
+            .await
+            .unwrap();
     }
 }
 
