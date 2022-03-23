@@ -14,6 +14,7 @@
 use clap::{App, Arg};
 use opencv::{highgui, prelude::*};
 use zenoh::config::Config;
+use zenoh::net::protocol::io::SplitBuffer;
 use zenoh::prelude::*;
 
 fn main() {
@@ -25,9 +26,6 @@ fn main() {
     let session = zenoh::open(config).wait().unwrap();
     let mut sub = session.subscribe(&key_expr).wait().unwrap();
 
-    let window = &format!("[{}] Press 'q' to quit.", &key_expr);
-    highgui::named_window(window, 1).unwrap();
-
     while let Ok(sample) = sub.receiver().recv() {
         let decoded = opencv::imgcodecs::imdecode(
             &opencv::types::VectorOfu8::from_slice(sample.value.payload.contiguous().as_ref()),
@@ -38,7 +36,7 @@ fn main() {
         if decoded.size().unwrap().width > 0 {
             // let mut enlarged = Mat::default().unwrap();
             // opencv::imgproc::resize(&decoded, &mut enlarged, opencv::core::Size::new(800, 600), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
-            highgui::imshow(window, &decoded).unwrap();
+            highgui::imshow(sample.key_expr.as_str(), &decoded).unwrap();
         }
 
         if highgui::wait_key(10).unwrap() == 113 {
