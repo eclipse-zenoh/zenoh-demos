@@ -96,7 +96,10 @@ fn parse_args() -> (Config, String, Vec<i32>, u64) {
         config.set_mode(Some(mode)).unwrap();
     }
     if let Some(peers) = args.values_of("peer") {
-        config.peers.extend(peers.map(|p| p.parse().unwrap()))
+        config
+            .connect
+            .endpoints
+            .extend(peers.map(|p| p.parse().unwrap()))
     }
 
     let key_expr = args.value_of("key").unwrap().to_string();

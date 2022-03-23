@@ -30,7 +30,7 @@ fn main() {
 
     while let Ok(sample) = sub.receiver().recv() {
         let decoded = opencv::imgcodecs::imdecode(
-            &opencv::types::VectorOfu8::from_iter(sample.value.payload.to_vec()),
+            &opencv::types::VectorOfu8::from_slice(sample.value.payload.contiguous().as_ref()),
             opencv::imgcodecs::IMREAD_COLOR,
         )
         .unwrap();
@@ -73,7 +73,10 @@ fn parse_args() -> (Config, String) {
         config.set_mode(Some(mode)).unwrap();
     }
     if let Some(peers) = args.values_of("peer") {
-        config.peers.extend(peers.map(|p| p.parse().unwrap()))
+        config
+            .connect
+            .endpoints
+            .extend(peers.map(|p| p.parse().unwrap()))
     }
     (config, key_expr)
 }
