@@ -64,11 +64,18 @@ fn parse_args() -> (Config, String) {
         .arg(Arg::from_usage(
             "-e, --peer=[LOCATOR]...  'Peer locators used to initiate the zenoh session.'",
         ))
+        .arg(Arg::from_usage(
+            "-c, --config=[FILE]      'A configuration file.'",
+        ))
         .get_matches();
 
     let key_expr = args.value_of("key").unwrap().to_string();
 
-    let mut config = Config::default();
+    let mut config = if let Some(conf_file) = args.value_of("config") {
+        Config::from_file(conf_file).unwrap()
+    } else {
+        Config::default()
+    };
     if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
         config.set_mode(Some(mode)).unwrap();
     }

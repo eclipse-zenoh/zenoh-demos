@@ -89,9 +89,16 @@ fn parse_args() -> (Config, String, Vec<i32>, u64) {
             Arg::from_usage("-d, --delay=[DELAY] 'The delay between each frame in milliseconds.")
                 .default_value("40"),
         )
+        .arg(Arg::from_usage(
+            "-c, --config=[FILE]      'A configuration file.'",
+        ))
         .get_matches();
 
-    let mut config = Config::default();
+    let mut config = if let Some(conf_file) = args.value_of("config") {
+        Config::from_file(conf_file).unwrap()
+    } else {
+        Config::default()
+    };
     if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
         config.set_mode(Some(mode)).unwrap();
     }
