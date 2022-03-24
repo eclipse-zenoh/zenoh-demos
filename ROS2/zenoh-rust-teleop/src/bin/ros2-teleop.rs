@@ -23,9 +23,9 @@ use futures::prelude::*;
 use futures::select;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
-use zenoh::Session;
 use zenoh::config::Config;
 use zenoh::prelude::*;
+use zenoh::Session;
 
 #[derive(Serialize, PartialEq)]
 struct Vector3 {
