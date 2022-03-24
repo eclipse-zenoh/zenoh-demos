@@ -233,8 +233,8 @@ fn parse_args() -> (Config, String, String, f64, f64) {
 
     let cmd_vel = args.value_of("cmd_vel").unwrap().to_string();
     let rosout = args.value_of("rosout").unwrap().to_string();
-    let angular_scale: f64 = args.value_of("angular_scale").unwrap().parse().unwrap();
     let linear_scale: f64 = args.value_of("linear_scale").unwrap().parse().unwrap();
+    let angular_scale: f64 = args.value_of("angular_scale").unwrap().parse().unwrap();
 
-    (config, cmd_vel, rosout, angular_scale, linear_scale)
+    (config, cmd_vel, rosout, linear_scale, angular_scale)
 }
