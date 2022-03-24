@@ -17,7 +17,6 @@ from datetime import datetime
 import argparse
 import curses
 import zenoh
-from zenoh.net import config, SubInfo, Reliability, SubMode
 from pycdr import cdr
 from pycdr.types import int8, int32, uint32, float64
 
@@ -63,16 +62,16 @@ def main(stdscr):
                         choices=['peer', 'client'],
                         type=str,
                         help='The zenoh session mode.')
-    parser.add_argument('--peer', '-e', dest='peer',
-                        metavar='LOCATOR',
+    parser.add_argument('--connect', '-e', dest='connect',
+                        metavar='ENDPOINT',
                         action='append',
                         type=str,
-                        help='Peer locators used to initiate the zenoh session.')
-    parser.add_argument('--listener', '-l', dest='listener',
-                        metavar='LOCATOR',
+                        help='zenoh endpoints to connect to.')
+    parser.add_argument('--listen', '-l', dest='listen',
+                        metavar='ENDPOINT',
                         action='append',
                         type=str,
-                        help='Locators to listen on.')
+                        help='zenoh endpoints to listen on.')
     parser.add_argument('--config', '-c', dest='config',
                         metavar='FILE',
                         type=str,
@@ -95,14 +94,13 @@ def main(stdscr):
                         help='The linear scale.')
 
     args = parser.parse_args()
-    conf = zenoh.config_from_file(
-        args.config) if args.config is not None else {}
+    conf = zenoh.config_from_file(args.config) if args.config is not None else zenoh.Config()
     if args.mode is not None:
-        conf["mode"] = args.mode
-    if args.peer is not None:
-        conf["peer"] = ",".join(args.peer)
-    if args.listener is not None:
-        conf["listener"] = ",".join(args.listener)
+        conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
+    if args.connect is not None:
+        conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(args.connect))
+    if args.listen is not None:
+        conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(args.listen))
     cmd_vel = args.cmd_vel
     rosout = args.rosout
     angular_scale = args.angular_scale
@@ -114,23 +112,22 @@ def main(stdscr):
     zenoh.init_logger()
 
     print("Openning session...")
-    session = zenoh.net.open(conf)
+    session = zenoh.open(conf)
 
     print("Subscriber on '{}'...".format(rosout))
-    sub_info = SubInfo(Reliability.Reliable, SubMode.Push)
 
     def rosout_callback(sample):
         log = Log.deserialize(sample.payload)
         print('[{}.{}] [{}]: {}'.format(log.stamp.sec,
                                         log.stamp.nanosec, log.name, log.msg))
 
-    sub = session.declare_subscriber(rosout, sub_info, rosout_callback)
+    sub = session.subscribe(rosout, rosout_callback)
 
     def pub_twist(linear, angular):
         print("Pub twist: {} - {}".format(linear, angular))
         t = Twist(linear=Vector3(x=linear, y=0.0, z=0.0),
                   angular=Vector3(x=0.0, y=0.0, z=angular))
-        session.write(cmd_vel, t.serialize())
+        session.put(cmd_vel, t.serialize())
 
     print("Waiting commands with arrow keys or space bar to stop. Press ESC or 'q' to quit.")
     while True:
@@ -146,7 +143,7 @@ def main(stdscr):
         elif c == 27 or c == ord('q'):
             break
 
-    sub.undeclare()
+    sub.close()
     session.close()
 
 
