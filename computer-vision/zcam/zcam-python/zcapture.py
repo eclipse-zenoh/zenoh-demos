@@ -10,8 +10,8 @@ import json
 CAMERA_ID                   = 0
 
 parser = argparse.ArgumentParser(
-    prog='capture_video',
-    description='zenoh face recognition example face detector')
+    prog='zcapture',
+    description='zenoh video capture example')
 parser.add_argument('-m', '--mode', type=str, choices=['peer', 'client'],
                     help='The zenoh session mode.')
 parser.add_argument('-e', '--peer', type=str, metavar='LOCATOR', action='append',

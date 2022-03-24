@@ -6,8 +6,8 @@ import numpy as np
 import json
 
 parser = argparse.ArgumentParser(
-    prog='detect_faces',
-    description='zenoh face recognition example face detector')
+    prog='zdisplay',
+    description='zenoh video display example')
 parser.add_argument('-m', '--mode', type=str, choices=['peer', 'client'],
                     help='The zenoh session mode.')
 parser.add_argument('-e', '--peer', type=str, metavar='LOCATOR', action='append',
