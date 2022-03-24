@@ -23,8 +23,9 @@ use futures::prelude::*;
 use futures::select;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
-use zenoh::prelude::*;
 use zenoh::Session;
+use zenoh::config::Config;
+use zenoh::prelude::*;
 
 #[derive(Serialize, PartialEq)]
 struct Vector3 {
@@ -130,7 +131,7 @@ async fn main() {
                 let sample = sample.unwrap();
                 // copy to be removed if possible
                 // let buf = sample.payload.to_vec();
-                match cdr::deserialize_from::<_, Log, _>(sample.value.payload, cdr::size::Infinite) {
+                match cdr::deserialize_from::<_, Log, _>(&sample.value.payload.contiguous()[..], cdr::size::Infinite) {
                     Ok(log) => {
                         println!("{}", log);
                         std::io::stdout().execute(MoveToColumn(0)).unwrap();
@@ -179,14 +180,14 @@ async fn main() {
     crossterm::terminal::disable_raw_mode().unwrap();
 }
 
-fn parse_args() -> (Properties, String, String, f64, f64) {
+fn parse_args() -> (Config, String, String, f64, f64) {
     let args = App::new("zenoh-net sub example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE]  'The zenoh session mode (peer by default).")
                 .possible_values(&["peer", "client"]),
         )
         .arg(Arg::from_usage(
-            "-e, --peer=[LOCATOR]...   'Peer locators used to initiate the zenoh session.'",
+            "-e, --connect=[LOCATOR]...   'Peer locators used to initiate the zenoh session.'",
         ))
         .arg(Arg::from_usage(
             "-l, --listener=[LOCATOR]...   'Locators to listen on.'",
@@ -210,17 +211,24 @@ fn parse_args() -> (Properties, String, String, f64, f64) {
         .get_matches();
 
     let mut config = if let Some(conf_file) = args.value_of("config") {
-        Properties::from(std::fs::read_to_string(conf_file).unwrap())
+        Config::from_file(conf_file).unwrap()
     } else {
-        Properties::default()
+        Config::default()
     };
-    for key in ["mode", "peer", "listener"].iter() {
-        if let Some(value) = args.values_of(key) {
-            config.insert(key.to_string(), value.collect::<Vec<&str>>().join(","));
-        }
+    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
+        config.set_mode(Some(mode)).unwrap();
     }
-    if args.is_present("no-multicast-scouting") {
-        config.insert("multicast_scouting".to_string(), "false".to_string());
+    if let Some(values) = args.values_of("connect") {
+        config
+            .connect
+            .endpoints
+            .extend(values.map(|v| v.parse().unwrap()))
+    }
+    if let Some(values) = args.values_of("listen") {
+        config
+            .listen
+            .endpoints
+            .extend(values.map(|v| v.parse().unwrap()))
     }
 
     let cmd_vel = args.value_of("cmd_vel").unwrap().to_string();
