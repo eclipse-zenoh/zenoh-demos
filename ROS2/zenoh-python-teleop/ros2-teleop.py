@@ -56,8 +56,8 @@ def main(stdscr):
 
     # --- Command line argument parsing --- --- --- --- --- ---
     parser = argparse.ArgumentParser(
-        prog='zn_sub',
-        description='zenoh-net sub example')
+        prog='ros2-teleop',
+        description='zenoh ros2 teleop example')
     parser.add_argument('--mode', '-m', dest='mode',
                         choices=['peer', 'client'],
                         type=str,
