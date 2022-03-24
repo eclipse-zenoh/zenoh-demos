@@ -64,7 +64,7 @@ fn main() {
 }
 
 fn parse_args() -> (Config, String, Vec<i32>, u64) {
-    let args = App::new("zenoh videocapture example")
+    let args = App::new("zenoh video capture example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
                 .possible_values(&["peer", "client"])
