@@ -14,7 +14,6 @@
 use clap::{App, Arg};
 use opencv::{highgui, prelude::*};
 use zenoh::config::Config;
-use zenoh::net::protocol::io::SplitBuffer;
 use zenoh::prelude::*;
 
 fn main() {
