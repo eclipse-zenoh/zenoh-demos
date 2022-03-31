@@ -62,7 +62,7 @@ def faces_listener(sample):
     if cam not in cams:
         cams[cam] = {}
 
-    cams[cam][face] = sample.payload
+    cams[cam][face] = bytes(sample.payload)
 
 
 print('[INFO] Open zenoh session...')
@@ -82,7 +82,7 @@ while True:
     for cam in list(cams):
         faces = cams[cam]
         for face in list(faces):
-            npImage = np.load(io.BytesIO(faces[face]), allow_pickle=True)
+            npImage = np.frombuffer(faces[face], dtype=np.uint8)
             matImage = cv2.imdecode(npImage, 1)
             rgb = cv2.cvtColor(matImage, cv2.COLOR_BGR2RGB)
 

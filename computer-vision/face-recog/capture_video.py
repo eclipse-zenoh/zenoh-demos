@@ -57,11 +57,9 @@ while True:
     frame = imutils.resize(raw, width=500)
 
     _, jpeg = cv2.imencode('.jpg', frame, jpeg_opts)
-    buf = io.BytesIO()
-    np.save(buf, jpeg, allow_pickle=True)
 
     # print('[DEBUG] Put frame: {}/cams/{}'.format(args.prefix, cam_id))
-    z.put('{}/cams/{}'.format(args.prefix, cam_id), buf.getvalue())
+    z.put('{}/cams/{}'.format(args.prefix, cam_id), jpeg.tobytes())
 
     time.sleep(args.delay)
 

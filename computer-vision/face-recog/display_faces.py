@@ -45,12 +45,12 @@ def faces_listener(sample):
     if face not in cams[cam]:
         cams[cam][face] = {'img': b'', 'name': '', 'time': 0}
 
-    cams[cam][face]['img'] = sample.payload
+    cams[cam][face]['img'] = bytes(sample.payload)
     cams[cam][face]['time'] = time.time()
 
 
 def names_listener(sample):
-    # print('[DEBUG] Received name: {} {} => {}', sample.key_expr, sample.value.payload)
+    # print('[DEBUG] Received name: {} {} => {}', sample.key_expr, sample.payload)
     chunks = str(sample.key_expr).split('/')
     cam = chunks[-3]
     face = int(chunks[-2])
@@ -82,7 +82,7 @@ while True:
         vbuf = np.zeros((250, 1000, 3), np.uint8)
         for face in list(faces):
             if faces[face]['time'] > now - 0.2:
-                npImage = np.load(io.BytesIO(faces[face]['img']), allow_pickle=True)
+                npImage = np.frombuffer(faces[face]['img'], dtype=np.uint8)
                 matImage = cv2.imdecode(npImage, 1)
                 resImage = imutils.resize(matImage, width=200)
                 h, w, _ = resImage.shape

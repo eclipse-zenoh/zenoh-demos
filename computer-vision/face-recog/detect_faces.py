@@ -51,7 +51,7 @@ def frames_listener(sample):
     chunks = str(sample.key_expr).split('/')
     cam = chunks[-1]
 
-    cams[cam] = bytes(sample.value.payload)
+    cams[cam] = bytes(sample.payload)
 
 
 print('[INFO] Open zenoh session...')
@@ -66,7 +66,7 @@ sub = z.subscribe(args.prefix + '/cams/*', frames_listener)
 
 while True:
     for cam in list(cams):
-        npImage = np.load(io.BytesIO(cams[cam]), allow_pickle=True)
+        npImage = np.frombuffer(cams[cam], dtype=np.uint8)
         matImage = cv2.imdecode(npImage, 1)
 
         gray = cv2.cvtColor(matImage, cv2.COLOR_BGR2GRAY)
@@ -83,11 +83,9 @@ while True:
                             int(left):int(right)]
             face = imutils.resize(face, width=args.width)
             _, jpeg = cv2.imencode('.jpg', face, jpeg_opts)
-            buf = io.BytesIO()
-            np.save(buf, jpeg, allow_pickle=True)
 
             # print('[DEBUG] Put detected face: {}/faces/{}/{}'.format(args.prefix, cam, i))
-            z.put('{}/faces/{}/{}'.format(args.prefix, cam, i), buf.getvalue())
+            z.put('{}/faces/{}/{}'.format(args.prefix, cam, i), jpeg.tobytes())
 
     time.sleep(args.delay)
 
