@@ -41,9 +41,9 @@ fn main() {
             let mut shares: Vec<sharks::Share> = Vec::with_capacity(threshold as usize);
             let mut index = 0;
             while shares.len() < threshold as usize && index < threshold * redundancy {
-                let share_path = format!("/share/{}{}", index, name);
-                print!("\t>> [zenoh_eval_shamir] Fetching share '{}': ", share_path);
-                if let Some(share) = get_share(&session, &share_path) {
+                let share_expr = format!("/share/{}{}", index, name);
+                print!("\t>> [zenoh_eval_shamir] Fetching share '{}': ", share_expr);
+                if let Some(share) = get_share(&session, &share_expr) {
                     shares.push(share);
                     println!(" OK.");
                 }
@@ -64,7 +64,7 @@ fn main() {
                 println!("\t>> [zenoh_eval_shamir] Sending back reconstructed secret.");
             }
         } else {
-            println!("\t>> [zenoh_eval_shamir] A path starting with a '/' is expected.");
+            println!("\t>> [zenoh_eval_shamir] A key expression starting with a '/' is expected.");
         }
 
         query.reply(Sample::new(key_expr.clone(), secret));
