@@ -1,5 +1,5 @@
 [package]
-name        = "zenoh_eval_shamir"
+name        = "zenoh_queryable_shamir"
 version     = "0.0.1"
 authors     = ["Julien Loudet <julien.loudet@adlinktech.com>"]
 license     = " EPL-2.0 OR Apache-2.0"

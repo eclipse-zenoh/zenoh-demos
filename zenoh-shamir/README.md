@@ -22,7 +22,7 @@ Launch the following command inside this folder:
 cargo build
 ```
 
-It will create two executables: `./target/debug/zenoh_put_shamir` and `./target/debug/zenoh_eval_shamir`.
+It will create two executables: `./target/debug/zenoh_put_shamir` and `./target/debug/zenoh_queryable_shamir`.
 
 
 ### How to run
@@ -49,7 +49,7 @@ What happens is:
 
 This means that we need subscribers for the paths `/share/0/**`, …, `/share/3/**`. Note that, for now, it is not possible to modify the base path (`/share/{{i}}`) as it was hardcoded in both executables.
 
-With just this setup, it is possible to retrieve the shares and manually reconstruct the secret. But, as we can easily automate that part with an eval, this is exactly what `./target/debug/zenoh_eval_shamir` does: it tries to fetch enough shares in order to reconstruct the secret.
+With just this setup, it is possible to retrieve the shares and manually reconstruct the secret. But, as we can easily automate that part with a queryable, this is exactly what `./target/debug/zenoh_queryable_shamir` does: it tries to fetch enough shares in order to reconstruct the secret.
 
 #### Starting the router(s)
 
@@ -74,10 +74,10 @@ For the purpose of having a distributed setting, we will consider that `threshol
 ./target/debug/zenoh_put_shamir -p "/demo/secret" -v "s3cr3t" -t 2 -r 2
 ```
 
-#### Registering the Eval
+#### Registering the Queryable
 
 ```
-./target/debug/zenoh_eval_shamir -p "/shamir" -t 2 -r 2
+./target/debug/zenoh_queryable_shamir -p "/shamir" -t 2 -r 2
 ```
 
 #### GET the secret back

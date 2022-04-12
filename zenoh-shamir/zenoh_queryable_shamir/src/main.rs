@@ -12,17 +12,13 @@ fn main() {
     println!("Open zenoh session");
     let session = zenoh::open(config).wait().unwrap();
 
-    let mut queryable = session
-        .queryable(&key_expr)
-        .kind(zenoh::queryable::EVAL)
-        .wait()
-        .unwrap();
+    let mut queryable = session.queryable(&key_expr).wait().unwrap();
 
     let sharks = Sharks(threshold);
 
     while let Ok(query) = queryable.receiver().recv() {
         println!(
-            ">> [zenoh_eval_shamir listener] received query with selector: {}",
+            ">> [zenoh_queryable_shamir listener] received query with selector: {}",
             query.selector()
         );
 
@@ -42,7 +38,10 @@ fn main() {
             let mut index = 0;
             while shares.len() < threshold as usize && index < threshold * redundancy {
                 let share_expr = format!("/share/{}{}", index, name);
-                print!("\t>> [zenoh_eval_shamir] Fetching share '{}': ", share_expr);
+                print!(
+                    "\t>> [zenoh_queryable_shamir] Fetching share '{}': ",
+                    share_expr
+                );
                 if let Some(share) = get_share(&session, &share_expr) {
                     shares.push(share);
                     println!(" OK.");
@@ -57,14 +56,16 @@ fn main() {
                     shares.len(),
                     threshold
                 );
-                println!("\t>> [zenoh_eval_shamir] {}. Aborting.", secret);
+                println!("\t>> [zenoh_queryable_shamir] {}. Aborting.", secret);
             } else {
                 // Reconstruct the secret
                 secret = String::from_utf8(sharks.recover(&shares).unwrap()).unwrap();
-                println!("\t>> [zenoh_eval_shamir] Sending back reconstructed secret.");
+                println!("\t>> [zenoh_queryable_shamir] Sending back reconstructed secret.");
             }
         } else {
-            println!("\t>> [zenoh_eval_shamir] A key expression starting with a '/' is expected.");
+            println!(
+                "\t>> [zenoh_queryable_shamir] A key expression starting with a '/' is expected."
+            );
         }
 
         query.reply(Sample::new(key_expr.clone(), secret));
@@ -93,7 +94,7 @@ fn get_share(session: &zenoh::Session, path: &str) -> Option<sharks::Share> {
 }
 
 fn parse_args() -> (Config, String, u8, u8) {
-    let args = App::new("zenoh + shamir eval example")
+    let args = App::new("zenoh + shamir queryable example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE]  'The zenoh session mode (peer by default).")
                 .possible_values(&["peer", "client"]),
@@ -111,8 +112,8 @@ fn parse_args() -> (Config, String, u8, u8) {
             "--no-multicast-scouting 'Disable the multicast-based scouting mechanism.'",
         ))
         .arg(
-            Arg::from_usage("-k, --key=[KEYEXPR]        'The key expression matching queries to evaluate.'")
-                .default_value("/demo/example/zenoh-shamir-eval"),
+            Arg::from_usage("-k, --key=[KEYEXPR]        'The key expression matching queries to reply to.'")
+                .default_value("/demo/example/zenoh-shamir-queryable"),
         )
         .arg(
             Arg::from_usage("-t, --threshold=[INTEGER]...   'The numbers of different shares needed to reconstruct the secret.'")

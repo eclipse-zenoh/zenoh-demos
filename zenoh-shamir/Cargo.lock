@@ -2659,12 +2659,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "zenoh_eval_shamir"
+name = "zenoh_put_shamir"
 version = "0.0.1"
 dependencies = [
  "async-std",
  "clap",
- "env_logger 0.8.3",
+ "env_logger 0.9.0",
  "futures",
  "log",
  "sharks",
@@ -2672,12 +2672,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "zenoh_put_shamir"
+name = "zenoh_queryable_shamir"
 version = "0.0.1"
 dependencies = [
  "async-std",
  "clap",
- "env_logger 0.9.0",
+ "env_logger 0.8.3",
  "futures",
  "log",
  "sharks",
