@@ -115,10 +115,6 @@ fn parse_args() -> (Config, String, u8, u8) {
                 .default_value("/demo/example/zenoh-shamir-eval"),
         )
         .arg(
-            Arg::from_usage("-v, --value=[VALUE]      'The value of the resource to put.'")
-                .default_value("Enigm@"),
-        )
-        .arg(
             Arg::from_usage("-t, --threshold=[INTEGER]...   'The numbers of different shares needed to reconstruct the secret.'")
                 .default_value("2")
         )
