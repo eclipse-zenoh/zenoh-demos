@@ -34,14 +34,6 @@ BH1750 lightMeter(0x23);
 zn_session_t *s = NULL;
 zn_reskey_t *reskey = NULL;
 
-char *serialize_float_little_endian(float val, char *buf)
-{
-    long long *c_val = (long long*)&val;
-    for (int i = 0; i < sizeof(float); ++i, ++buf)
-       *buf = 0xFF & (*c_val >> (i * 8));
-
-    return buf;
-}
 
 void setup()
 {
@@ -101,14 +93,16 @@ void loop()
     if (s == NULL || reskey == NULL)
         return;
 
-    float lux = lightMeter.readLightLevel();
+    int lux = (int) lightMeter.readLightLevel();
     Serial.print("Light: ");
     Serial.print(lux);
     Serial.println(" lx");
 
-    char buf[sizeof(float)];
-    serialize_float_little_endian(lux, buf);
-    zn_write(s, *reskey, (const uint8_t *)buf, sizeof(buf));
+    char buf[6];
+    itoa(lux, buf, 10);
+
+    zn_write_ext(s, *reskey, (const uint8_t *)buf, strlen(buf), 7, Z_DATA_KIND_DEFAULT, zn_congestion_control_t_BLOCK);
+
 
     Serial.print("Published value ");
     Serial.print(lux);
