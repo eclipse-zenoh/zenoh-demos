@@ -1,16 +1,16 @@
-/*
- * Copyright (c) 2017, 2021 ADLINK Technology Inc.
- *
- * This program and the accompanying materials are made available under the
- * terms of the Eclipse Public License 2.0 which is available at
- * http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
- * which is available at https://www.apache.org/licenses/LICENSE-2.0.
- *
- * SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
- *
- * Contributors:
- *   ADLINK zenoh team, <zenoh@adlink-labs.tech>
- */
+//
+// Copyright (c) 2022 ZettaScale Technology
+//
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+// which is available at https://www.apache.org/licenses/LICENSE-2.0.
+//
+// SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+//
+// Contributors:
+//   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
+//
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -18,17 +18,22 @@
 #include <Wire.h>
 #include <MPU6050_tockn.h>
 
+// For ROS2 types
+#include <geometry_msgs/Twist.h>
+
+
 extern "C" {
     #include "zenoh-pico.h"
 }
 
 // WiFi-specific parameters
+
 #define SSID "SSID"
 #define PASS "PASS"
 
 // Zenoh-specific parameters
 #define MODE "client"
-#define PEER ""
+#define PEER "tcp/192.168.86.239:7447"
 
 #define URI "/rt/cmd_vel"
 
@@ -38,54 +43,18 @@ extern "C" {
 #define X_MIN_VALUE -0.20
 #define X_ZERO_VALUE 0.10
 #define Y_SCALING_FACTOR 10.0
-#define Y_MAX_VALUE 2.80
-#define Y_MIN_VALUE -2.80
+#define Y_MAX_VALUE 2.50
+#define Y_MIN_VALUE -2.50
 #define Y_ZERO_VALUE 0.5
 
-/* --------------- Structs -------------- */
-struct Vector3 {
-    double x;
-    double y;
-    double z;
-};
 
-struct Twist {
-    Vector3 linear;
-    Vector3 angular;
-};
+#define CONTROL_MOTOR_SPEED_FREQUENCY 30 //hz
 
-/* -------- Serialize Functions --------- */
-char *serialize_float_as_f64_little_endian(double val, char *buf)
-{
-    long long *c_val = (long long*)&val;
-    for (int i = 0; i < sizeof(double); ++i, ++buf)
-       *buf = 0xFF & (*c_val >> (i * 8));
 
-    return buf;
-}
 
-char *serialize_vector3(Vector3 *v, char *buf)
-{
-    buf = serialize_float_as_f64_little_endian(v->x, buf);
-    buf = serialize_float_as_f64_little_endian(v->y, buf);
-    buf = serialize_float_as_f64_little_endian(v->z, buf);
-
-    return buf;
-}
-
-void serialize_twist(Twist *t, char *buf)
-{
-    // Serialize Twist header for little endian
-    *(buf++) = 0x00;
-    *(buf++) = 0x01;
-    *(buf++) = 0x00;
-    *(buf++) = 0x00;
-    buf = serialize_vector3(&t->linear, buf);
-    buf = serialize_vector3(&t->angular, buf);
-}
 
 /* ---------- Print Functions ----------- */
-void printVector(struct Vector3 *v)
+void printVector(geometry_msgs::Vector3 *v)
 {
     Serial.print("X: ");
     Serial.print(v->x);
@@ -95,7 +64,7 @@ void printVector(struct Vector3 *v)
     Serial.print(v->z);
 }
 
-void printTwist(struct Twist *t)
+void printTwist(geometry_msgs::Twist *t)
 {
     Serial.print("Linear ");
     printVector(&t->linear);
@@ -140,8 +109,11 @@ void setup(void) {
         zn_properties_insert(config, ZN_CONFIG_PEER_KEY, z_string_make(PEER));
 
     s = zn_open(config);
-    if (s == NULL)
-        return;
+    if (s == NULL) {
+        Serial.println("Unable to initialize zenoh session");
+        while(true);
+    }
+
 
     znp_start_read_task(s);
     znp_start_lease_task(s);
@@ -151,6 +123,8 @@ void setup(void) {
     *reskey = zn_rid(rid);
     Serial.println("Zenoh Publisher setup finished!");
 
+    delay(5000);
+
     mpu.update();
     offset_x = mpu.getAccAngleX();
     offset_y = mpu.getAccAngleY();
@@ -158,7 +132,7 @@ void setup(void) {
 }
 
 void loop() {
-    delay(100);
+    delay(1000 / CONTROL_MOTOR_SPEED_FREQUENCY);
     mpu.update();
 
     double linear_x = (mpu.getAccAngleX() - offset_x) / X_SCALING_FACTOR;
@@ -170,22 +144,27 @@ void loop() {
     if (linear_y < Y_ZERO_VALUE && linear_y > -Y_ZERO_VALUE)
         linear_y = 0;
 
-    Twist measure;
-    measure.linear.x = linear_x * -1;
-    measure.linear.y = 0.0;
-    measure.linear.z = 0.0;
-    measure.angular.x = 0.0;
-    measure.angular.y = 0.0;
-    measure.angular.z = linear_y;
+    // Reusing micro-ROS(1) types
+    geometry_msgs::Twist cmd_vel_msg;
 
-    printTwist(&measure);
+
+
+    cmd_vel_msg.linear.x = linear_x;
+    cmd_vel_msg.linear.y = 0.0;
+    cmd_vel_msg.linear.z = 0.0;
+    cmd_vel_msg.angular.x = 0.0;
+    cmd_vel_msg.angular.y = 0.0;
+    cmd_vel_msg.angular.z = linear_y;
+
+    printTwist(&cmd_vel_msg);
     Serial.println("");
 
     if (s == NULL || reskey == NULL)
         return;
 
     uint8_t twist_serialized_size = 4 + sizeof(double) * 6;
-    char buf[twist_serialized_size];
-    serialize_twist(&measure, buf);
+    unsigned char buf[twist_serialized_size];
+    cmd_vel_msg.serialize(buf);
+
     zn_write(s, *reskey, (const uint8_t *)buf, twist_serialized_size);
 }
