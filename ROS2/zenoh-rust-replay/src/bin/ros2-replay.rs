@@ -16,11 +16,10 @@ use cdr::Infinite;
 use clap::{App, Arg};
 use futures::prelude::*;
 use serde_derive::Deserialize;
+use zenoh::buf::reader::HasReader;
 use zenoh::config::Config;
-use zenoh::net::protocol::io::SplitBuffer;
 use zenoh::query::*;
 use zenoh::queryable;
-
 #[derive(Deserialize, Debug, PartialEq)]
 struct Vector3 {
     x: f64,
@@ -47,7 +46,7 @@ async fn main() {
     let mut input = iscope;
     input.push_str(cmd_vel.as_str());
     if !input.is_empty() {
-        input.push_str("?");
+        input.push('?');
         input.push_str(filter.as_str());
     }
 
@@ -66,10 +65,10 @@ async fn main() {
         .unwrap()
         .collect::<Vec<Reply>>()
         .await;
-    replies.sort_by(|a, b| a.data.timestamp.partial_cmp(&b.data.timestamp).unwrap());
+    replies.sort_by(|a, b| a.sample.timestamp.partial_cmp(&b.sample.timestamp).unwrap());
     let mut ts = None;
     for reply in replies {
-        let now = match (ts, reply.data.timestamp) {
+        let now = match (ts, reply.sample.timestamp) {
             (Some(t1), Some(t2)) => {
                 task::sleep(t2.get_diff_duration(&t1)).await;
                 t2
@@ -77,19 +76,19 @@ async fn main() {
             (None, Some(t2)) => t2,
             _ => panic!(),
         };
-        ts = reply.data.timestamp;
+        ts = reply.sample.timestamp;
 
         let cmd =
-            cdr::deserialize_from::<_, Twist, _>(&*reply.data.value.payload.contiguous(), Infinite)
+            cdr::deserialize_from::<_, Twist, _>(reply.sample.value.payload.reader(), Infinite)
                 .unwrap();
         println!(
             "[{}] Replay '{}': '{:?}'",
             now.get_time(),
-            reply.data.key_expr.as_str(),
+            reply.sample.key_expr.as_str(),
             cmd
         );
         session
-            .put(output.as_str(), reply.data.value.payload)
+            .put(output.as_str(), reply.sample.value.payload)
             .await
             .unwrap();
     }
