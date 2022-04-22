@@ -38,7 +38,8 @@ async fn main() {
     // Initiate logging
     env_logger::init();
 
-    let (config, cmd_vel, iscope, oscope, filter) = parse_args();
+    let (config, cmd_vel, iscope, oscope, opath, filter, angular_scale, linear_scale) =
+        parse_args();
 
     println!("Opening session...");
     let session = zenoh::open(config).await.unwrap();
@@ -50,8 +51,13 @@ async fn main() {
         input.push_str(filter.as_str());
     }
 
-    let mut output = oscope;
-    output.push_str(cmd_vel.as_str());
+    let output = if let Some(path) = opath {
+        path
+    } else {
+        let mut output = oscope;
+        output.push_str(cmd_vel.as_str());
+        output
+    };
 
     println!("Sending Query '{}'...", input);
     let tgt = QueryTarget {
@@ -78,13 +84,20 @@ async fn main() {
         };
         ts = reply.sample.timestamp;
 
-        let cmd =
+        let mut cmd =
             cdr::deserialize_from::<_, Twist, _>(reply.sample.value.payload.reader(), Infinite)
                 .unwrap();
+        cmd.linear.x *= linear_scale;
+        cmd.linear.y *= linear_scale;
+        cmd.linear.z *= linear_scale;
+        cmd.angular.x *= angular_scale;
+        cmd.angular.y *= angular_scale;
+        cmd.angular.z *= angular_scale;
         println!(
-            "[{}] Replay '{}': '{:?}'",
+            "[{}] Replay from '{}' to '{}':\n     '{:?}'",
             now.get_time(),
-            reply.sample.key_expr.as_str(),
+            reply.sample.key_expr,
+            output,
             cmd
         );
         session
@@ -94,7 +107,16 @@ async fn main() {
     }
 }
 
-fn parse_args() -> (Config, String, String, String, String) {
+fn parse_args() -> (
+    Config,
+    String,
+    String,
+    String,
+    Option<String>,
+    String,
+    f64,
+    f64,
+) {
     let args = App::new("zenoh-net sub example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode (peer by default).")
@@ -120,8 +142,16 @@ fn parse_args() -> (Config, String, String, String, String) {
         )
         .arg(
             Arg::from_usage("-o, --output-scope=[String] 'A string added as prefix to all routed DDS topics when mapped to a zenoh resource.'")
-                .required(true),
+                .default_value(""),
         )
+        .arg(
+            Arg::from_usage("--output-path=[String] 'A complete overwrite of the output zenoh resrouce (option -o will be ignored).'"),
+        )
+        .arg(
+            Arg::from_usage("-a, --angular_scale=[FLOAT] 'The angular scale.'")
+                .default_value("1.0"),
+        )
+        .arg(Arg::from_usage("-x, --linear_scale=[FLOAT] 'The linear scale.").default_value("1.0"))
         .get_matches();
 
     let mut config = if let Some(conf_file) = args.value_of("config") {
@@ -151,7 +181,19 @@ fn parse_args() -> (Config, String, String, String, String) {
     let cmd_vel = args.value_of("cmd_vel").unwrap().to_string();
     let iscope = args.value_of("input-scope").unwrap().to_string();
     let oscope = args.value_of("output-scope").unwrap().to_string();
+    let opath = args.value_of("output-path").map(|s| s.to_string());
     let filter = args.value_of("filter").unwrap().to_string();
+    let angular_scale: f64 = args.value_of("angular_scale").unwrap().parse().unwrap();
+    let linear_scale: f64 = args.value_of("linear_scale").unwrap().parse().unwrap();
 
-    (config, cmd_vel, iscope, oscope, filter)
+    (
+        config,
+        cmd_vel,
+        iscope,
+        oscope,
+        opath,
+        filter,
+        angular_scale,
+        linear_scale,
+    )
 }
