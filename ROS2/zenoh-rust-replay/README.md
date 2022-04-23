@@ -21,7 +21,7 @@ cargo build
 
 A simple reply client replaying Twists via zenoh, bridged to ROS2.
 
- 1. Start the zenoh router:
+ 1. Start the zenoh router on a host running the InfluxDB 1.8 service:
       ```bash
       zenohd -c zenoh-influxdb.json5
       ```
@@ -47,22 +47,23 @@ A simple reply client replaying Twists via zenoh, bridged to ROS2.
       ```
  7. Replay the first turtlesim commands to the second turtlesim
       ```bash
-      ./target/debug/ros2-replay -o /replay
+      ./target/debug/ros2-replay
       ```
 
 See more use cases in [this blog](https://zenoh.io/blog/2021-04-28-ros2-integration/).
 
 **Notes**:
 
-See all options accepted by Ros2TReplay with:
+See all options accepted by Ros2Replay with:
   ```bash
   ./target/debug/ros2-replay -h
   ```
 
-By default ros2-replay replays Twist messages on topic `/rt/turtle1/cmd_vel` (for turtlesim).
-For other robot, change the topic using the `--cmd_vel` option:
+By default ros2-replay retrieves Twist messages that were published on `/rt/turtle1/cmd_vel` (for turtlesim)
+and replay them back on `/replay/rt/turtle1/cmd_vel`.
+For other robots, change the originan and replay paths using respectively the `--input-path` and `--output-path` options:
   ```bash
-  ./target/debug/ros2-replay --cmd_vel /rt/my_robot/cmd_vel
+  ./target/debug/ros2-replay --input-path /bot1/rt/cmd_vel --output-path /bot2/rt/cmd_vel
   ```
 
 Both zenoh router and Replay can be deployed in different networks than the robot. Only the zenoh/DDS bridge has to run in the same network than the robot (for DDS communication via UDP multicast).  
@@ -74,5 +75,5 @@ For instance, you can:
      ```
  * configure Ros2Teleop to connect this remote zenoh router:
     ```bash
-    ./target/debug/ros2-replay -m client -e tcp/<cloud_ip>:7447 -o /replay
+    ./target/debug/ros2-replay -m client -e tcp/<cloud_ip>:7447
     ```
