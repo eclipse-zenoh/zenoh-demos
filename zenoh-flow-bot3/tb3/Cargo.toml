@@ -1,0 +1,47 @@
+#
+# Copyright (c) 2022 ZettaScale Technology
+#
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+# which is available at https://www.apache.org/licenses/LICENSE-2.0.
+#
+# SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+#
+# Contributors:
+#   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
+#
+
+[package]
+name = "tb3"
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/eclipse-zenoh/zenoh-demos"
+homepage = "http://zenoh.io"
+authors = ["gabrik <gabriele.baldoni@gmail.com>", "Julien Loudet <julien.l@zettascale.tech>"]
+license = " EPL-2.0 OR Apache-2.0"
+categories = ["network-programming"]
+description = "Zenoh Flow Turtlebot3"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+async-std = { version = "=1.11.0", features = ["attributes","unstable"] }
+zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", branch = "master" }
+dynamixel2 = { git = "https://github.com/gabrik/dynamixel2-rs",  branch = "feat/async-smol", default-features = false, features = ["log","async_smol"] }
+zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", branch="master" }
+
+
+[lib]
+name = "tb3"
+crate-type=["cdylib"]
+path="src/lib.rs"
+
+[package.metadata.zenohflow]
+id = "Tb3"
+kind = "operator"
+inputs=[ {id ="Tick", type="usize"}]
+outputs=[ {id ="RobotData", type="robot"}]
+

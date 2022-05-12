@@ -1,0 +1,106 @@
+flow: TB3-Flow
+sources:
+  - id: Gamepad
+    uri: file://./target/release/libsource_gamepad.dylib
+    output:
+      id: gamepad-input
+      type: gamepad-input
+    period:
+      length: 100
+      unit: ms
+  - id: Lidar
+    uri: file:///home/ubuntu/zf-bot/liblidar.so
+    period:
+      length: 100
+      unit: ms
+    configuration:
+      #serial: /dev/tty.usbmodemFFFFFFFEFFFF1
+      serial: /dev/ttyUSB0
+      baudrate: 230400
+    output:
+      id: Scan
+      type: LaserScan
+  - id : Tick
+    period:
+      length: 100
+      unit: ms
+    uri: file:///home/ubuntu/zf-bot/libtick.so
+    output:
+        id: Tick
+        type: usize
+operators:
+  - id: Twist
+    uri: file://./target/release/liboperator_twist.dylib
+    inputs:
+      - id: gamepad-input
+        type: gamepad-input
+    outputs:
+      - id: twist
+        type: twist
+  - id : TB3
+    configuration:
+      #serial: /dev/tty.usbmodemFFFFFFFEFFFF1
+      serial: /dev/ttyACM0
+      baudrate: 115200
+    uri: file:///home/ubuntu/zf-bot/libtb3.so
+    outputs:
+        - id: Robot
+          type: robot
+    inputs:
+        - id : Tick
+          type: usize
+        - id: Twist
+          type: twist
+
+sinks:
+  - id : RobotSink
+    uri: file://./target/release/librobot_sink.dylib
+    input:
+        id: Data
+        type: robot
+  - id : LidarSink
+    uri: file://./target/release/liblidar_sink.dylib
+    input:
+        id: Data
+        type: LaserScan
+links:
+- from:
+    node: Gamepad
+    output: gamepad-input
+  to:
+    node: Twist
+    input: gamepad-input
+- from:
+    node: Twist
+    output: twist
+  to:
+    node: TB3
+    input: Twist
+- from:
+    node: Tick
+    output: Tick
+  to:
+    node: TB3
+    input: Tick
+- from:
+    node: TB3
+    output: Robot
+  to:
+    node: RobotSink
+    input: Data
+- from:
+    node: Lidar
+    output: Scan
+  to:
+    node: LidarSink
+    input: Data
+
+
+mapping:
+  Lidar: robot
+  Gamepad: ws
+  Tick: robot
+  Twist: ws
+  TB3: robot
+  RobotSink: ws
+  LidarSink: ws
