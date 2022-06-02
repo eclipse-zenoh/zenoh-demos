@@ -14,11 +14,11 @@
 
 [package]
 name = "lidar-sink"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2018"
 repository = "https://github.com/eclipse-zenoh/zenoh-demos"
 homepage = "http://zenoh.io"
-authors = ["gabrik <gabriele.baldoni@gmail.com>", "Julien Loudet <julien.l@zettascale.tech>"]
+authors = ["gabrik <gabriele.baldoni@gmail.com>", "Julien Loudet <julien.loudet@zettascale.tech>"]
 license = " EPL-2.0 OR Apache-2.0"
 categories = ["network-programming"]
 description = "Zenoh Flow Turtlebot3"
@@ -28,9 +28,9 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", branch = "master" }
+zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", tag = "v0.3.0" }
 async-trait = "0.1"
-zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", branch="master" }
+zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", tag = "v0.3.0" }
 
 
 [lib]

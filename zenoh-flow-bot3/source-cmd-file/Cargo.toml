@@ -14,15 +14,15 @@
 
 [package]
 name = "source-cmd-file"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2018"
 
 [dependencies]
 async-std = { version = "=1.11.0", features = ["attributes","unstable"] }
 async-trait = "0.1"
 gilrs = "0.8.2"
-zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", branch = "master"}
-zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", branch="master" }
+zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", tag = "v0.3.0"}
+zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", tag = "v0.3.0" }
 
 [lib]
 name = "source_cmd_file"

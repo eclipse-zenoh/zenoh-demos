@@ -14,11 +14,11 @@
 
 [package]
 name = "operator-twist"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2018"
 
 [dependencies]
-zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", branch = "master"}
+zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", tag = "v0.3.0"}
 types = { path = "../types" }
 
 [lib]
