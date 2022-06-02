@@ -15,7 +15,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-m', '--mode', type=str, choices=['peer', 'client'],
                     help='The zenoh session mode.')
 parser.add_argument('-e', '--connect', type=str, metavar='ENDPOINT', action='append',
-                    help='zenoh endpoints to listen on.')
+                    help='zenoh endpoints to connect to.')
 parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='append',
                     help='zenoh endpoints to listen on.')
 parser.add_argument('-w', '--width', type=int, default=500,
