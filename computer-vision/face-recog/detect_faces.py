@@ -87,6 +87,9 @@ while True:
 
             # print('[DEBUG] Put detected face: {}/faces/{}/{}'.format(args.prefix, cam, i))
             z.put('{}/faces/{}/{}'.format(args.prefix, cam, i), jpeg.tobytes())
+            z.put('{}/faces/{}/{}/box'.format(args.prefix, cam, i),
+                json.dumps({'left': int(left), 'right': int(right), 'top': int(top), 'bottom': int(bottom)}),
+                encoding=zenoh.KnownEncoding.AppJson)
 
     time.sleep(args.delay)
 
