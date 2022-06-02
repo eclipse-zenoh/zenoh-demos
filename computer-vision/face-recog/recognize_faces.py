@@ -3,6 +3,7 @@ import time
 import io
 import ast
 import cv2
+import json
 import numpy as np
 import face_recognition
 import zenoh
@@ -12,10 +13,10 @@ parser = argparse.ArgumentParser(
     description='zenoh face recognition example')
 parser.add_argument('-m', '--mode', type=str, choices=['peer', 'client'],
                     help='The zenoh session mode.')
-parser.add_argument('-e', '--peer', type=str, metavar='LOCATOR', action='append',
-                    help='Peer locators used to initiate the zenoh session.')
-parser.add_argument('-l', '--listener', type=str, metavar='LOCATOR', action='append',
-                    help='Locators to listen on.')
+parser.add_argument('-e', '--connect', type=str, metavar='ENDPOINT', action='append',
+                    help='zenoh endpoints to connect to.')
+parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='append',
+                    help='zenoh endpoints to listen on.')
 parser.add_argument('-p', '--prefix', type=str, default='/demo/facerecog',
                     help='The resources prefix')
 parser.add_argument('-d', '--delay', type=float, default=0.2,
@@ -26,11 +27,11 @@ parser.add_argument('-c', '--config', type=str, metavar='FILE',
 args = parser.parse_args()
 conf = zenoh.config_from_file(args.config) if args.config is not None else zenoh.Config()
 if args.mode is not None:
-    conf.insert_json5("mode", json.dumps(args.mode))
-if args.peer is not None:
-    conf.insert_json5("peers", json.dumps(args.peer))
-if args.listener is not None:
-    conf.insert_json5("listeners", json.dumps(args.listener))
+    conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
+if args.connect is not None:
+    conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(args.connect))
+if args.listen is not None:
+    conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(args.listen))
 
 data = {}
 data['encodings'] = []
