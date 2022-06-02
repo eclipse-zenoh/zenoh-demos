@@ -27,7 +27,7 @@ python3 zdisplay.py -k /rt/*/cams/* -m client -e tcp/127.0.0.1:7447
 
 Teleoperate the robot using zenoh-demos/ROS2/zenoh-python-teleop or zenoh-demos/ROS2/zenoh-rust-teleop:
 ```
-python3 ros2-teleop.py -m client -e tcp/127.0.0.1:7447 --cmd_vel=/rt/turtle1/cmd_vel -a 100.0 -x 20.0
+python3 ros2-teleop.py -m client -e tcp/127.0.0.1:7447 --cmd_vel=/rt/turtle1/cmd_vel -a 200.0 -x 20.0
 ```
 
 
