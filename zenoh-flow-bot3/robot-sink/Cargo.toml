@@ -29,7 +29,7 @@ readme = "README.md"
 [dependencies]
 zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", tag = "v0.3.0" }
 async-trait = "0.1"
-zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", tag = "v0.3.0" }
+zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", tag = "v0.3.1" }
 
 
 [lib]

@@ -31,7 +31,7 @@ readme = "README.md"
 async-std = { version = "=1.11.0", features = ["attributes","unstable"] }
 zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", tag = "v0.3.0" }
 dynamixel2 = { git = "https://github.com/gabrik/dynamixel2-rs",  branch = "feat/async-smol", default-features = false, features = ["log","async_smol"] }
-zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", tag = "v0.3.0" }
+zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", tag = "v0.3.1" }
 
 
 [lib]
