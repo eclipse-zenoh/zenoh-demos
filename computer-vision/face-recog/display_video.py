@@ -61,7 +61,6 @@ z = zenoh.open(conf)
 
 detector = cv2.CascadeClassifier(args.cascade)
 
-print('[INFO] Start detection')
 sub = z.subscribe(args.prefix + '/cams/*', frames_listener)
 
 while True:
