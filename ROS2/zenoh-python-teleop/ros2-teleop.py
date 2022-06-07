@@ -17,6 +17,7 @@ from datetime import datetime
 import argparse
 import curses
 import zenoh
+import json
 from pycdr import cdr
 from pycdr.types import int8, int32, uint32, float64
 
