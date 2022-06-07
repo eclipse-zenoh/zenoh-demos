@@ -62,32 +62,37 @@ impl Source for GamepadSource {
         let mut line = String::new();
         state.reader.read_line(&mut line)?;
         match line.as_str() {
-            "left\n" => {
+            "left\n" | "left" => {
                 state.input.left_trigger = 0.0;
                 state.input.right_trigger = 0.0;
                 state.input.left_stick_x = -1.0;
             }
-            "right\n" => {
+            "right\n" | "right"  => {
                 state.input.left_trigger = 0.0;
                 state.input.right_trigger = 0.0;
                 state.input.left_stick_x = 1.0;
             }
-            "forward\n" => {
+            "forward\n" | "forward" => {
                 state.input.left_trigger = 0.0;
                 state.input.right_trigger = 1.0;
                 state.input.left_stick_x = 0.0;
             }
-            "backward\n" => {
+            "backward\n" | "backward"  => {
                 state.input.left_trigger = 1.0;
                 state.input.right_trigger = 0.0;
                 state.input.left_stick_x = 0.0;
             }
-            "stop\n" => {
+            "stop\n" | "stop" => {
                 state.input.left_trigger = 0.0;
                 state.input.right_trigger = 0.0;
                 state.input.left_stick_x = 0.0;
             }
-            line => println!("I read {line} so I do know what to do..."),
+            _ => {
+                // If unknown command stop the robot
+                state.input.left_trigger = 0.0;
+                state.input.right_trigger = 0.0;
+                state.input.left_stick_x = 0.0;
+            },
         }
 
         Ok(Data::from(state.input))
