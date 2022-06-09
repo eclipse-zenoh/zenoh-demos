@@ -34,11 +34,8 @@ pub struct GamepadSource;
 
 impl Node for GamepadSource {
     fn initialize(&self, configuration: &Option<Configuration>) -> ZFResult<State> {
-
         let file = match configuration {
-            Some(c) => {
-                File::open(c["file"].as_str().unwrap()).unwrap()
-            },
+            Some(c) => File::open(c["file"].as_str().unwrap()).unwrap(),
             None => File::open("/tmp/commands-flow.txt")?,
         };
 
@@ -67,7 +64,7 @@ impl Source for GamepadSource {
                 state.input.right_trigger = 0.0;
                 state.input.left_stick_x = -1.0;
             }
-            "right\n" | "right"  => {
+            "right\n" | "right" => {
                 state.input.left_trigger = 0.0;
                 state.input.right_trigger = 0.0;
                 state.input.left_stick_x = 1.0;
@@ -77,7 +74,7 @@ impl Source for GamepadSource {
                 state.input.right_trigger = 1.0;
                 state.input.left_stick_x = 0.0;
             }
-            "backward\n" | "backward"  => {
+            "backward\n" | "backward" => {
                 state.input.left_trigger = 1.0;
                 state.input.right_trigger = 0.0;
                 state.input.left_stick_x = 0.0;
@@ -92,7 +89,7 @@ impl Source for GamepadSource {
                 state.input.left_trigger = 0.0;
                 state.input.right_trigger = 0.0;
                 state.input.left_stick_x = 0.0;
-            },
+            }
         }
 
         Ok(Data::from(state.input))

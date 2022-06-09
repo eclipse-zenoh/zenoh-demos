@@ -31,7 +31,7 @@ opt-level = 0
 
 
 [profile.release]
-debug=true
+# debug=true
 lto="fat"
 codegen-units=1
 opt-level=3

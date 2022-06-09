@@ -58,11 +58,15 @@ sinks:
     input:
         id: Data
         type: robot
+    configuration:
+      file : /tmp/robot-info.log
   - id : LidarSink
     uri: file:///home/ato/zf-bot/liblidar_sink.so
     input:
         id: Data
         type: LaserScan
+    configuration:
+      file : /tmp/robot-lidar.log
 links:
 - from:
     node: Gamepad

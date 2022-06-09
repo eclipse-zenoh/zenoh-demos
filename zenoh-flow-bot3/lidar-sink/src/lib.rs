@@ -13,6 +13,9 @@
 //
 
 use async_trait::async_trait;
+use zenoh::config::Config;
+use zenoh::prelude::*;
+use zenoh::Session;
 use zenoh_flow::async_std::sync::{Arc, Mutex};
 use zenoh_flow::runtime::message::DataMessage;
 use zenoh_flow::zenoh_flow_derive::ZFState;
@@ -29,18 +32,37 @@ struct LaserSink;
 #[derive(ZFState, Clone, Debug)]
 struct SinkState {
     pub file: Option<Arc<Mutex<File>>>,
+    pub zsession: Option<Arc<Session>>,
 }
 
 impl SinkState {
     pub fn new(configuration: &Option<Configuration>) -> Self {
-        let file = match configuration {
+        let (file, zsession) = match configuration {
             Some(c) => {
-                let f = File::create(c["file"].as_str().unwrap()).unwrap();
-                Some(Arc::new(Mutex::new(f)))
+                let file = match c["file"].as_str() {
+                    Some(f) => Some(Arc::new(Mutex::new(File::create(f).unwrap()))),
+                    None => None,
+                };
+
+                let zsession = match c["locator"].as_str() {
+                    Some(l) => {
+                        let mut zconfig = Config::default();
+                        zconfig
+                            .set_mode(Some(zenoh::config::WhatAmI::Client))
+                            .unwrap();
+                        zconfig.connect.endpoints.push(l.parse().unwrap());
+
+                        Some(Arc::new(zenoh::open(zconfig).wait().unwrap()))
+                    }
+                    None => None,
+                };
+
+                (file, zsession)
             }
-            None => None,
+            None => (None, None),
         };
-        Self { file }
+
+        Self { file, zsession }
     }
 }
 
@@ -69,6 +91,10 @@ impl Sink for LaserSink {
                 writeln!(&mut guard, "#######").unwrap();
                 guard.sync_all().unwrap();
             }
+        }
+        if let Some(zsession) = &state.zsession {
+            let serialized = serde_json::to_string(&data.0).unwrap();
+            zsession.put("/zf-bot/lidar", serialized).await.unwrap();
         }
         Ok(())
     }

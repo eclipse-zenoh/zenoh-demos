@@ -30,7 +30,8 @@ readme = "README.md"
 zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", tag = "v0.3.0" }
 async-trait = "0.1"
 zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", tag = "v0.3.1" }
-
+serde_json = { version = "1.0"}
+zenoh = { git = "https://github.com/eclipse-zenoh/zenoh" }
 
 [lib]
 name = "robot_sink"
