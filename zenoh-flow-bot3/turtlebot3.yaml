@@ -1,7 +1,7 @@
 flow: TB3-Flow
 sources:
   - id: Gamepad
-    uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/libsource_gamepad.dylib
+    uri: file:///home/ato/zf-bot/libsource_gamepad.so
     output:
       id: gamepad-input
       type: gamepad-input
@@ -30,7 +30,7 @@ sources:
         type: usize
 operators:
   - id: Twist
-    uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/liboperator_twist.dylib
+    uri: file:///home/ato/zf-bot/liboperator_twist.so
     inputs:
       - id: gamepad-input
         type: gamepad-input
@@ -54,12 +54,12 @@ operators:
 
 sinks:
   - id : RobotSink
-    uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/librobot_sink.dylib
+    uri: file:///home/ato/zf-bot/librobot_sink.so
     input:
         id: Data
         type: robot
   - id : LidarSink
-    uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/liblidar_sink.dylib
+    uri: file:///home/ato/zf-bot/liblidar_sink.so
     input:
         id: Data
         type: LaserScan
