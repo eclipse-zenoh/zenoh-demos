@@ -20,7 +20,6 @@
                 var source = new EventSource("http://localhost:8000/demo/random");
                 source.addEventListener("PUT", function(e) {
                     sample = JSON.parse(e.data);
-                    legend = chart.store.state.legend.data;
                     if (!series[sample.key]) {series[sample.key] = {value: [], checked: true};} 
                     series[sample.key].value.push([new Date(sample.time.split('/')[0]), sample.value]);
                 }, false);
@@ -30,6 +29,7 @@
                         series[key].value = series[key].value.filter(x => x[0] > (now - 10000))
                     }
                     chart.setData({ series: Object.keys(series).map(name => {return {name, data: series[name].value}})});
+                    legend = chart.store.state.legend.data;
                     for (l of legend) {
                         chart.store.state.legend.data.find(data => data.label === l.label).checked = l.checked;
                     }
