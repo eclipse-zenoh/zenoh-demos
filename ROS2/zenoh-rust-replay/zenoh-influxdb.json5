@@ -1,0 +1,24 @@
+{
+  plugins: {
+    rest: {
+      http_port: 8000,
+    },
+    storage_manager: {
+      volumes: {
+        influxdb: {
+          url: "http://localhost:8086",
+        }
+      },
+      storages: {
+        ros2: {
+ 	        key_expr: "/rt/*/cmd_vel",
+          volume: {
+            id: "influxdb",
+            db: "ROS2",
+            create_db: true
+          }
+        },
+      }
+    }
+  }
+}

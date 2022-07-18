@@ -64,14 +64,14 @@ fn main() {
 }
 
 fn parse_args() -> (Config, String, Vec<i32>, u64) {
-    let args = App::new("zenoh video capture example")
+    let args = App::new("zenoh videocapture example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
                 .possible_values(&["peer", "client"])
                 .default_value("peer"),
         )
         .arg(Arg::from_usage(
-            "-e, --peer=[LOCATOR]...  'Peer locators used to initiate the zenoh session.'",
+            "-e, --connect=[LOCATOR]...  'Endpoints to connect to.'",
         ))
         .arg(
             Arg::from_usage(
@@ -94,19 +94,15 @@ fn parse_args() -> (Config, String, Vec<i32>, u64) {
         ))
         .get_matches();
 
-    let mut config = if let Some(conf_file) = args.value_of("config") {
-        Config::from_file(conf_file).unwrap()
-    } else {
-        Config::default()
-    };
+    let mut config = Config::default();
     if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
         config.set_mode(Some(mode)).unwrap();
     }
-    if let Some(peers) = args.values_of("peer") {
+    if let Some(connect) = args.values_of("connect") {
         config
             .connect
             .endpoints
-            .extend(peers.map(|p| p.parse().unwrap()))
+            .extend(connect.map(|p| p.parse().unwrap()))
     }
 
     let key_expr = args.value_of("key").unwrap().to_string();

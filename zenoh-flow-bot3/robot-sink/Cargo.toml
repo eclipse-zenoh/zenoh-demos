@@ -1,0 +1,44 @@
+#
+# Copyright (c) 2022 ZettaScale Technology
+#
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+# which is available at https://www.apache.org/licenses/LICENSE-2.0.
+#
+# SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+#
+# Contributors:
+#   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
+#
+
+[package]
+name = "robot-sink"
+version = "0.3.0"
+edition = "2018"
+repository = "https://github.com/eclipse-zenoh/zenoh-demos"
+homepage = "http://zenoh.io"
+authors = ["gabrik <gabriele.baldoni@gmail.com>", "Julien Loudet <julien.loudet@zettascale.tech>"]
+license = " EPL-2.0 OR Apache-2.0"
+categories = ["network-programming"]
+description = "Zenoh Flow Turtlebot3"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", tag = "v0.3.0" }
+async-trait = "0.1"
+zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", tag = "v0.3.1" }
+serde_json = { version = "1.0"}
+zenoh = { git = "https://github.com/eclipse-zenoh/zenoh" }
+
+[lib]
+name = "robot_sink"
+crate-type=["cdylib"]
+path="src/lib.rs"
+
+[package.metadata.zenohflow]
+id = "robot-sink"
+kind = "sink"
+inputs=[ {id ="Data", type="RobotInfo"}]
