@@ -19,7 +19,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use zenoh::config::{Config, ValidatedMap};
 use zenoh::net::protocol::io::SplitBuffer;
-use zenoh::prelude::*;
+use zenoh::prelude::sync::SyncResolve;
 
 mod addresses;
 use addresses::*;
@@ -126,13 +126,12 @@ fn main() {
     update_config(&mut config, &endpoints, &bssid);
 
     println!("[INFO] Open zenoh session...");
-    let session = zenoh::open(config).wait().unwrap();
+    let session = zenoh::open(config).res().unwrap();
 
-    let heartbeat_key = session
-        .declare_expr(&format!("{}/heartbeat", prefix))
-        .wait()
+    let heartbeat_pubsliher = session
+        .declare_publisher(format!("{}/heartbeat", prefix))
+        .res()
         .unwrap();
-    session.declare_publication(heartbeat_key).wait().unwrap();
 
     println!("[INFO] Connect to motor...");
     let mut cmd = match dynamixel2::Bus::open(serial, 115200, Duration::from_secs(3)) {
@@ -141,8 +140,8 @@ fn main() {
             Some((
                 bus,
                 session
-                    .subscribe(&format!("{}/cmd_vel", prefix))
-                    .wait()
+                    .declare_subscriber(&format!("{}/cmd_vel", prefix))
+                    .res()
                     .unwrap(),
             ))
         }
@@ -154,11 +153,10 @@ fn main() {
 
     println!("[INFO] Open camera...");
     let mut camera = {
-        let cam_key = session
-            .declare_expr(&format!("{}/cams/0", prefix))
-            .wait()
+        let camer_publisher = session
+            .declare_publisher(format!("{}/cams/0", prefix))
+            .res()
             .unwrap();
-        session.declare_publication(cam_key).wait().unwrap();
         #[cfg(feature = "opencv-32")]
         let cam = videoio::VideoCapture::new_default(0).unwrap();
         #[cfg(not(feature = "opencv-32"))]
@@ -167,7 +165,7 @@ fn main() {
             let mut encode_options = opencv::types::VectorOfi32::new();
             encode_options.push(opencv::imgcodecs::IMWRITE_JPEG_QUALITY);
             encode_options.push(quality);
-            Some((cam, encode_options, cam_key))
+            Some((cam, encode_options, camer_publisher))
         } else {
             println!("[WARN] Unable to open camera!");
             None
@@ -195,9 +193,9 @@ fn main() {
             let _ = bus.write_u32(200, CMD_VELOCITY_ANGULAR_Z, (twist.angular.z as i32) as u32);
         }
 
-        let _ = session.put(heartbeat_key, count as i64).wait();
+        heartbeat_pubsliher.put(count as i64).res().unwrap();
 
-        if let Some((cam, encode_options, cam_key)) = &mut camera {
+        if let Some((cam, encode_options, cam_pub)) = &mut camera {
             let mut frame = core::Mat::default();
             cam.read(&mut frame).unwrap();
 
@@ -213,7 +211,7 @@ fn main() {
             .unwrap();
             let mut buf = opencv::types::VectorOfu8::new();
             opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, encode_options).unwrap();
-            session.put(*cam_key, buf.to_vec()).wait().unwrap();
+            cam_pub.put(buf.to_vec()).res().unwrap();
         }
 
         let new_bssid = get_bssid().unwrap_or_else(|| "default".to_string());

@@ -1,8 +1,11 @@
 use clap::{App, Arg};
 use sharks::Sharks;
+use std::borrow::Cow;
 use std::convert::TryFrom;
 use zenoh::config::Config;
-use zenoh::prelude::*;
+use zenoh::prelude::sync::SyncResolve;
+use zenoh::prelude::{Sample, SplitBuffer};
+use zenoh::selector::Selector;
 
 fn main() {
     env_logger::init();
@@ -10,13 +13,13 @@ fn main() {
     let (config, key_expr, threshold, redundancy) = parse_args();
 
     println!("Open zenoh session");
-    let session = zenoh::open(config).wait().unwrap();
+    let session = zenoh::open(config).res().unwrap();
 
-    let mut queryable = session.queryable(&key_expr).wait().unwrap();
+    let queryable = session.declare_queryable(&key_expr).res().unwrap();
 
     let sharks = Sharks(threshold);
 
-    while let Ok(query) = queryable.receiver().recv() {
+    while let Ok(query) = queryable.recv() {
         println!(
             ">> [zenoh_queryable_shamir listener] received query with selector: {}",
             query.selector()
@@ -24,12 +27,11 @@ fn main() {
 
         let name = query
             .selector()
-            .parse_value_selector()
-            .unwrap()
-            .properties
+            .value_selector_map()
             .get("name")
             .cloned()
-            .unwrap_or_else(|| "Rust!".to_string());
+            .unwrap_or_else(|| Cow::from("Rust!"))
+            .into_owned();
 
         let mut secret = "Error".to_string();
 
@@ -68,20 +70,29 @@ fn main() {
             );
         }
 
-        query.reply(Sample::new(key_expr.clone(), secret));
+        query
+            .reply(Ok(Sample::try_from(key_expr.clone(), secret).unwrap()))
+            .res()
+            .unwrap();
     }
 
-    queryable.close().wait().unwrap();
-    session.close().wait().unwrap();
+    queryable.undeclare().res().unwrap();
+    session.close().res().unwrap();
 }
 
 fn get_share(session: &zenoh::Session, path: &str) -> Option<sharks::Share> {
     let mut share: Option<sharks::Share> = None;
 
     if let Ok(selector) = Selector::try_from(path) {
-        match session.get(&selector).wait().unwrap().recv() {
+        match session.get(&selector).res().unwrap().recv() {
             Ok(reply) => {
-                let v_bytes = reply.sample.value.payload.contiguous();
+                let v_bytes = reply
+                    .sample
+                    .unwrap()
+                    .value
+                    .payload
+                    .contiguous()
+                    .into_owned();
                 share = Some(sharks::Share::try_from(v_bytes.as_ref()).unwrap());
             }
             Err(_) => println!("Failed to get share '{}': not found", path),
@@ -113,7 +124,7 @@ fn parse_args() -> (Config, String, u8, u8) {
         ))
         .arg(
             Arg::from_usage("-k, --key=[KEYEXPR]        'The key expression matching queries to reply to.'")
-                .default_value("/demo/example/zenoh-shamir-queryable"),
+                .default_value("demo/example/zenoh-shamir-queryable"),
         )
         .arg(
             Arg::from_usage("-t, --threshold=[INTEGER]...   'The numbers of different shares needed to reconstruct the secret.'")

@@ -25,20 +25,20 @@
         </header>
         <form id="Config" class="w3-container w3-hide">
             <label for="scope">Extra scope prefixed to keys:</label>
-            <input id="scope" class="w3-input w3-border w3-padding-small" type="text" required value="/bot1"><br/>
+            <input id="scope" class="w3-input w3-border w3-padding-small" type="text" required value="bot1"><br/>
             <label for="cmd_vel_res">Publish Twist messages to:</label>
-            <input id="cmd_vel_res" class="w3-input w3-border w3-padding-small" type="text" required value="/rt/cmd_vel"><br/>
+            <input id="cmd_vel_res" class="w3-input w3-border w3-padding-small" type="text" required value="rt/cmd_vel"><br/>
             <label for="linear_scale">Linear scale:</label>
             <input id="linear_scale" class="w3-input w3-border w3-padding-small" type="number" required value="0.2"><br/>
             <label for="angular_scale">Angular scale:</label>
             <input id="angular_scale" class="w3-input w3-border w3-padding-small" type="number" required value="2.6"><br/>
             <label for="imu_res">Subscribe to Acceleration from:</label>
-            <input id="imu_res" class="w3-input w3-border w3-padding-small" type="text" required value="/rt/imu"><br/>
+            <input id="imu_res" class="w3-input w3-border w3-padding-small" type="text" required value="rt/imu"><br/>
             <input type="submit" class="w3-btn w3-green" value="Reset acceleration subscription"
                 onclick="return subscribeToImu();"><br/>
             <br/>
             <label for="rosout_res">Subscribe to Log messages from:</label>
-            <input id="rosout_res" class="w3-input w3-border w3-padding-small" type="text" required value="/rt/rosout"><br/>
+            <input id="rosout_res" class="w3-input w3-border w3-padding-small" type="text" required value="rt/rosout"><br/>
             <input type="submit" class="w3-btn w3-green" value="Reset log subscription"
                 onclick="return subscribeToRosout();"><br/>
             <br/>

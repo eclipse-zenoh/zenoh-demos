@@ -17,14 +17,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-zenoh = {git = "https://github.com/eclipse-zenoh/zenoh", default-features = false, features = [
-    "transport_tcp",
-    "transport_udp",
-]}
+zenoh = { git = "https://github.com/eclipse-zenoh/zenoh", branch = "api-changes", default-features = false, features = ["transport_tcp", "transport_udp", ] }
 cdr = "0.2.4"
-clap = "2.33.3"
+clap = "3.2.12"
 dynamixel2 = "0.3.1"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
-opencv = "0.63.0"
+opencv = "0.66.0"

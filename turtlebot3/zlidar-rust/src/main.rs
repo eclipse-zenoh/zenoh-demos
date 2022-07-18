@@ -6,6 +6,7 @@ use serde_big_array::BigArray;
 use std::f32::consts::PI;
 use std::time::SystemTime;
 use zenoh::config::Config;
+use zenoh::prelude::r#async::AsyncResolve;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Time {
@@ -71,19 +72,18 @@ async fn main() {
     let mut port = LFCDLaser::new(port, baud_rate).unwrap();
 
     println!("Opening session...");
-    let session = zenoh::open(config).await.unwrap();
+    let session = zenoh::open(config).res().await.unwrap();
 
+    let publisher = session.declare_publisher(key).res().await.unwrap();
     loop {
         let laser_scan: LaserScan = port.read().await.unwrap().into();
-        println!("Putting Data ('{key:?}': {laser_scan:?})...");
-        session
-            .put(
-                &key,
-                cdr::serialize::<_, _, CdrLe>(&laser_scan, Infinite).unwrap(),
-            )
+        println!("Putting Data '{}': {:?}", publisher.key_expr(), laser_scan);
+        publisher
+            .put(cdr::serialize::<_, _, CdrLe>(&laser_scan, Infinite).unwrap())
+            .res()
             .await
             .unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(delay));
+        async_std::task::sleep(std::time::Duration::from_millis(delay)).await;
     }
 }
 

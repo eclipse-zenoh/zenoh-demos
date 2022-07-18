@@ -14,7 +14,7 @@
 use clap::{App, Arg};
 use opencv::{core, prelude::*, videoio};
 use zenoh::config::Config;
-use zenoh::prelude::*;
+use zenoh::prelude::sync::SyncResolve;
 
 fn main() {
     // initiate logging
@@ -23,10 +23,9 @@ fn main() {
     let (config, key_expr, resolution, delay) = parse_args();
 
     println!("Openning session...");
-    let session = zenoh::open(config).wait().unwrap();
+    let session = zenoh::open(config).res().unwrap();
 
-    let rid = session.declare_expr(&key_expr).wait().unwrap();
-    session.declare_publication(rid).wait().unwrap();
+    let zpub = session.declare_publisher(&key_expr).res().unwrap();
 
     #[cfg(feature = "opencv-32")]
     let mut cam = videoio::VideoCapture::new_default(0).unwrap(); // 0 is the default camera
@@ -58,7 +57,7 @@ fn main() {
         let mut buf = opencv::types::VectorOfu8::new();
         opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();
 
-        session.put(rid, buf.to_vec()).wait().unwrap();
+        zpub.put(buf.to_vec()).res().unwrap();
         std::thread::sleep(std::time::Duration::from_millis(delay));
     }
 }

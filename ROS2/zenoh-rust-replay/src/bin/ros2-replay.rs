@@ -20,8 +20,8 @@ use serde_derive::{Deserialize, Serialize};
 use zenoh::buf::reader::HasReader;
 use zenoh::buf::ZBuf;
 use zenoh::config::Config;
+use zenoh::prelude::r#async::AsyncResolve;
 use zenoh::query::*;
-use zenoh::queryable;
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
 struct Vector3 {
@@ -45,31 +45,32 @@ async fn main() {
         parse_args();
 
     println!("Opening session...");
-    let session = zenoh::open(config).await.unwrap();
+    let session = zenoh::open(config).res().await.unwrap();
+    let publisher = session.declare_publisher(pub_expr).res().await.unwrap();
 
     // Get stored publications
     println!("Sending Query '{}'...", query_selector);
-    let tgt = QueryTarget {
-        kind: queryable::STORAGE,
-        target: Target::All,
-    };
     let mut replies = session
         .get(&query_selector)
-        .target(tgt)
+        .target(QueryTarget::All)
+        .res()
         .await
         .unwrap()
-        .collect::<Vec<Reply>>()
+        .stream()
+        .filter_map(|r| async { r.sample.ok() })
+        .collect::<Vec<_>>()
         .await;
+
     // Sort publications by timestamps
-    replies.sort_by(|a, b| a.sample.timestamp.partial_cmp(&b.sample.timestamp).unwrap());
+    replies.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
 
     if replies.is_empty() {
-        println!("No publication found - nothing to replay.");
+        println!("No publications found - nothing to replay.");
         return;
     }
 
-    let first_ts = replies.first().unwrap().sample.timestamp.unwrap();
-    let last_ts = replies.last().unwrap().sample.timestamp.unwrap();
+    let first_ts = replies.first().unwrap().timestamp.unwrap();
+    let last_ts = replies.last().unwrap().timestamp.unwrap();
     println!(
         "Replay {} publications that were made between {} and {} ",
         replies.len(),
@@ -87,9 +88,9 @@ async fn main() {
     );
 
     let mut ts = None;
-    for reply in replies {
+    for s in replies {
         // compute time difference and sleep (*time_scale)
-        let now = match (ts, reply.sample.timestamp) {
+        let now = match (ts, s.timestamp) {
             (Some(t1), Some(t2)) => {
                 task::sleep(t2.get_diff_duration(&t1).mul_f64(time_scale)).await;
                 t2
@@ -97,26 +98,22 @@ async fn main() {
             (None, Some(t2)) => t2,
             _ => panic!(),
         };
-        ts = reply.sample.timestamp;
+        ts = s.timestamp;
 
         println!(
             "[{}] Replay publication from '{}' to '{}'",
             now.get_time(),
-            reply.sample.key_expr,
-            pub_expr
+            s.key_expr,
+            publisher.key_expr()
         );
 
         if is_twist {
             // payload is a Twist, apply scales and replay
-            let new_payload =
-                transform_twist(&reply.sample.value.payload, linear_scale, angular_scale);
-            session.put(pub_expr.as_str(), new_payload).await.unwrap();
+            let new_payload = transform_twist(&s.value.payload, linear_scale, angular_scale);
+            publisher.put(new_payload).res().await.unwrap();
         } else {
             // replay payload unchanged
-            session
-                .put(pub_expr.as_str(), reply.sample.value.payload)
-                .await
-                .unwrap();
+            publisher.put(s.value.payload).res().await.unwrap();
         }
     }
 }
@@ -134,7 +131,7 @@ fn transform_twist(payload: &ZBuf, linear_scale: f64, angular_scale: f64) -> Vec
 }
 
 fn parse_args() -> (Config, String, String, f64, bool, f64, f64) {
-    let args = App::new("zenoh-net sub example")
+    let args = App::new("ros2-replay")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode (peer by default).")
                 .possible_values(&["peer", "client"]),
@@ -146,16 +143,16 @@ fn parse_args() -> (Config, String, String, f64, bool, f64, f64) {
             "-c, --config=[FILE] 'A configuration file.'",
         ))
         .arg(
-            Arg::from_usage("-f, --filter=[String] 'The 'filter' for querying. E.g. \"starttime=now()-1m;stoptime=now()\"'")
-                .default_value("(starttime=0)"),
+            Arg::from_usage("-f, --filter=[String] 'The 'filter' for querying. E.g. \"_time=[now(-1h)]\"'")
+                .default_value("_time=[..now()]"),
         )
         .arg(
             Arg::from_usage("-i, --input-path=[String] 'A complete overwrite of the input zenoh resrouce (option -i will be ignored).'")
-                .default_value("/rt/turtle1/cmd_vel"),
+                .default_value("rt/turtle1/cmd_vel"),
         )
         .arg(
             Arg::from_usage("-o, --output-path=[String] 'A complete overwrite of the output zenoh resrouce (option -o will be ignored).'")
-                .default_value("/replay/rt/turtle1/cmd_vel"),
+                .default_value("replay/rt/turtle1/cmd_vel"),
         )
         .arg(Arg::from_usage("-t, --time-scale=[FLOAT] 'The time scale (i.e. multiplier of time interval between each re-publication).").default_value("1.0"))
         .arg(Arg::from_usage("-w, --twist 'The data is a ROS2 Twist message. --angular-scale and --linear-scale will appli"))

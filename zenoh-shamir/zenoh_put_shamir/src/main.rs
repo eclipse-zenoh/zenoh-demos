@@ -2,7 +2,7 @@ use clap::{App, Arg};
 use sharks::{Share, Sharks};
 use std::convert::TryInto;
 use zenoh::config::Config;
-use zenoh::prelude::*;
+use zenoh::prelude::sync::SyncResolve;
 
 fn main() {
     env_logger::init();
@@ -10,7 +10,7 @@ fn main() {
     let (config, key_expr, value, threshold, redundancy) = parse_args();
 
     println!("Open zenoh session");
-    let session = zenoh::open(config).wait().unwrap();
+    let session = zenoh::open(config).res().unwrap();
 
     // 1. Split the secret in as many shares as necessary
     let sharks = Sharks(threshold);
@@ -28,10 +28,10 @@ fn main() {
 
         println!("Putting share {} of '{}'. ", index, share_expr);
         let share_as_bytes: Vec<u8> = share.try_into().unwrap();
-        session.put(&share_expr, share_as_bytes).wait().unwrap();
+        session.put(&share_expr, share_as_bytes).res().unwrap();
     }
 
-    session.close().wait().unwrap();
+    session.close().res().unwrap();
 }
 
 fn parse_args() -> (Config, String, String, u8, u8) {
@@ -54,7 +54,7 @@ fn parse_args() -> (Config, String, String, u8, u8) {
         ))
         .arg(
             Arg::from_usage("-k, --key=[KEYEXPR]        'The key expression to write.'")
-                .default_value("/demo/example/zenoh-shamir-put"),
+                .default_value("demo/example/zenoh-shamir-put"),
         )
         .arg(
             Arg::from_usage("-v, --value=[VALUE]      'The value of the resource to put.'")

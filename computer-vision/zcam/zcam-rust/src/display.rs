@@ -14,7 +14,8 @@
 use clap::{App, Arg};
 use opencv::{highgui, prelude::*};
 use zenoh::config::Config;
-use zenoh::prelude::*;
+use zenoh::prelude::sync::SyncResolve;
+use zenoh::prelude::SplitBuffer;
 
 fn main() {
     // initiate logging
@@ -22,10 +23,10 @@ fn main() {
     let (config, key_expr) = parse_args();
 
     println!("Openning session...");
-    let session = zenoh::open(config).wait().unwrap();
-    let mut sub = session.subscribe(&key_expr).wait().unwrap();
+    let session = zenoh::open(config).res().unwrap();
+    let sub = session.declare_subscriber(&key_expr).res().unwrap();
 
-    while let Ok(sample) = sub.receiver().recv() {
+    while let Ok(sample) = sub.recv() {
         let decoded = opencv::imgcodecs::imdecode(
             &opencv::types::VectorOfu8::from_slice(sample.value.payload.contiguous().as_ref()),
             opencv::imgcodecs::IMREAD_COLOR,
@@ -43,8 +44,8 @@ fn main() {
             break;
         }
     }
-    sub.close().wait().unwrap();
-    session.close().wait().unwrap();
+    sub.undeclare().res().unwrap();
+    session.close().res().unwrap();
 }
 
 fn parse_args() -> (Config, String) {

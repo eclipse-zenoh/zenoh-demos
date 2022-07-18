@@ -25,8 +25,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::fmt;
 use zenoh::buf::reader::HasReader;
 use zenoh::config::Config;
-use zenoh::prelude::*;
-use zenoh::Session;
+use zenoh::{prelude::r#async::AsyncResolve, publication::Publisher};
 
 #[derive(Serialize, PartialEq)]
 struct Vector3 {
@@ -68,7 +67,7 @@ impl fmt::Display for Log {
     }
 }
 
-async fn pub_twist(session: &Session, cmd_key: ExprId, linear: f64, angular: f64) {
+async fn pub_twist(publisher: &Publisher<'_>, linear: f64, angular: f64) {
     let twist = Twist {
         linear: Vector3 {
             x: linear,
@@ -83,7 +82,7 @@ async fn pub_twist(session: &Session, cmd_key: ExprId, linear: f64, angular: f64
     };
 
     let encoded = cdr::serialize::<_, _, CdrLe>(&twist, Infinite).unwrap();
-    if let Err(e) = session.put(cmd_key, encoded).await {
+    if let Err(e) = publisher.put(encoded).res().await {
         log::warn!("Error writing to zenoh: {}", e);
     }
 }
@@ -96,13 +95,13 @@ async fn main() {
     let (config, cmd_vel, rosout, linear_scale, angular_scale) = parse_args();
 
     println!("Opening session...");
-    let session = zenoh::open(config).await.unwrap();
+    let session = zenoh::open(config).res().await.unwrap();
 
     println!("Subscriber on {}", rosout);
-    let mut subscriber = session.subscribe(rosout).await.unwrap();
+    let subscriber = session.declare_subscriber(rosout).res().await.unwrap();
 
     // Declare the Key Expression corresponding to "cmd_vel" topic for wire efficiency at publications
-    let cmd_key = session.declare_expr(cmd_vel).await.unwrap();
+    let publisher = session.declare_publisher(cmd_vel).res().await.unwrap();
 
     // Keyboard event read loop, sending each to an async_std channel
     // Note: enable raw mode for direct processing of key pressed, without having to hit ENTER...
@@ -131,7 +130,7 @@ async fn main() {
     loop {
         select!(
             // On sample received by the subsriber
-            sample = subscriber.receiver().next().fuse() => {
+            sample = subscriber.recv_async().fuse() => {
                 let sample = sample.unwrap();
                 // copy to be removed if possible
                 // let buf = sample.payload.to_vec();
@@ -147,28 +146,42 @@ async fn main() {
             // On keyboard event received from the async_std channel
             event = key_receiver.recv().fuse() => {
                 match event {
-                    Ok(Event::Key(KeyEvent { code: KeyCode::Up, modifiers: _ })) => {
-                        pub_twist(&session, cmd_key, 1.0 * linear_scale, 0.0).await
-                    },
-                    Ok(Event::Key(KeyEvent { code: KeyCode::Down, modifiers: _ })) => {
-                        pub_twist(&session, cmd_key, -1.0 * linear_scale, 0.0).await
-                    },
-                    Ok(Event::Key(KeyEvent { code: KeyCode::Left, modifiers: _ })) => {
-                        pub_twist(&session, cmd_key, 0.0, 1.0 * angular_scale).await
-                    },
-                    Ok(Event::Key(KeyEvent { code: KeyCode::Right, modifiers: _ })) => {
-                        pub_twist(&session, cmd_key, 0.0, -1.0 * angular_scale).await
-                    },
-                    Ok(Event::Key(KeyEvent { code: KeyCode::Char(' '), modifiers: _ })) => {
-                        pub_twist(&session, cmd_key, 0.0, 0.0).await
-                    },
-                    Ok(Event::Key(KeyEvent { code: KeyCode::Esc, modifiers: _ })) |
-                    Ok(Event::Key(KeyEvent { code: KeyCode::Char('q'), modifiers: _ })) => {
-                        break
-                    },
-                    Ok(Event::Key(KeyEvent { code: KeyCode::Char('c'), modifiers })) => {
-                        if modifiers.contains(KeyModifiers::CONTROL) { break }
-                    },
+                    Ok(Event::Key(KeyEvent {
+                        code: KeyCode::Up,
+                        modifiers: _,
+                    })) => pub_twist(&publisher, 1.0 * linear_scale, 0.0).await,
+                    Ok(Event::Key(KeyEvent {
+                        code: KeyCode::Down,
+                        modifiers: _,
+                    })) => pub_twist(&publisher, -1.0 * linear_scale, 0.0).await,
+                    Ok(Event::Key(KeyEvent {
+                        code: KeyCode::Left,
+                        modifiers: _,
+                    })) => pub_twist(&publisher, 0.0, 1.0 * angular_scale).await,
+                    Ok(Event::Key(KeyEvent {
+                        code: KeyCode::Right,
+                        modifiers: _,
+                    })) => pub_twist(&publisher, 0.0, -1.0 * angular_scale).await,
+                    Ok(Event::Key(KeyEvent {
+                        code: KeyCode::Char(' '),
+                        modifiers: _,
+                    })) => pub_twist(&publisher, 0.0, 0.0).await,
+                    Ok(Event::Key(KeyEvent {
+                        code: KeyCode::Esc,
+                        modifiers: _,
+                    }))
+                    | Ok(Event::Key(KeyEvent {
+                        code: KeyCode::Char('q'),
+                        modifiers: _,
+                    })) => break,
+                    Ok(Event::Key(KeyEvent {
+                        code: KeyCode::Char('c'),
+                        modifiers,
+                    })) => {
+                        if modifiers.contains(KeyModifiers::CONTROL) {
+                            break;
+                        }
+                    }
                     Ok(_) => (),
                     Err(e) => {
                         log::warn!("Input error: {}", e);
@@ -179,7 +192,12 @@ async fn main() {
     }
 
     // Stop robot at exit
-    pub_twist(&session, cmd_key, 0.0, 0.0).await;
+    pub_twist(&publisher, 0.0, 0.0).await;
+
+    subscriber.undeclare().res().await.unwrap();
+    publisher.undeclare().res().await.unwrap();
+    // session.undeclare(cmd_key).res().await.unwrap();
+    session.close().res().await.unwrap();
 
     crossterm::terminal::disable_raw_mode().unwrap();
 }
@@ -201,11 +219,11 @@ fn parse_args() -> (Config, String, String, f64, f64) {
         ))
         .arg(
             Arg::from_usage("--cmd_vel=[topic] 'The 'cmd_vel' ROS2 topic'")
-                .default_value("/rt/turtle1/cmd_vel"),
+                .default_value("rt/turtle1/cmd_vel"),
         )
         .arg(
             Arg::from_usage("--rosout=[topic] 'The 'rosout' ROS2 topic'")
-                .default_value("/rt/rosout"),
+                .default_value("rt/rosout"),
         )
         .arg(
             Arg::from_usage("-a, --angular_scale=[FLOAT] 'The angular scale.'")
