@@ -25,73 +25,78 @@ extern "C" {
 
 // Zenoh-specific parameters
 #define MODE "client"
-#define PEER "tcp/10.0.0.1:7447"
+#define PEER ""
 
-#define URI "/paris/saint-aubin/office/rooms/jl-gb/sensor/luminosity"
+#define KEYEXPR "paris/saint-aubin/office/rooms/jl-gb/sensor/luminosity"
 
 BH1750 lightMeter(0x23);
 
-zn_session_t *s = NULL;
-zn_reskey_t *reskey = NULL;
-
+z_owned_publisher_t pub;
 
 void setup()
 {
+    // Initialize Serial for debug
     Serial.begin(115200);
-    Wire.begin();
-
-    lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
-    Serial.println("Light sensor up and running");
-
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(SSID, PASS);
-
-    // Keep trying until connected
-    Serial.print("Trying to connect to WiFi...");
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        Serial.print(".");
+    while (!Serial) {
         delay(1000);
     }
-    Serial.println("connected!");
-    delay(1000);
 
-    zn_properties_t *config = zn_config_default();
-    zn_properties_insert(config, ZN_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0)
-        zn_properties_insert(config, ZN_CONFIG_PEER_KEY, z_string_make(PEER));
+    // Set WiFi in STA mode and trigger attachment
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(SSID, PASS);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(1000);
+    }
+    Serial.println("Connected to WiFi!");
 
-    s = zn_open(config);
-    if (s == NULL)
-    {
-        Serial.println("Error while opening zenoh session...exiting!");
-        return;
+    // Initialize BH1750 sensor
+    Serial.print("Detecting MPU6050 sensor...");
+    Wire.begin();
+    lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
+    Serial.println("OK");
+
+    // Initialize Zenoh Session and other parameters
+    z_owned_config_t config = zp_config_default();
+    zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
+    if (strcmp(PEER, "") != 0) {
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
     }
 
-    znp_start_read_task(s);
-    znp_start_lease_task(s);
-
-    unsigned long rid = zn_declare_resource(s, zn_rname(URI));
-    reskey = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *reskey = zn_rid(rid);
-
-    zn_publisher_t *pub = zn_declare_publisher(s, *reskey);
-    if (pub == NULL)
-    {
-        Serial.println("Error while declaring zenoh-pico publisher...exiting!");
-        return;
+    // Open Zenoh session
+    Serial.print("Opening Zenoh Session...");
+    z_owned_session_t s = z_open(z_config_move(&config));
+    if (!z_session_check(&s)) {
+        Serial.println("Unable to open session!\n");
+        while(1);
     }
+    Serial.println("OK");
 
-    Serial.println("Setup finished!");
+    // Start the receive and the session lease loop for zenoh-pico
+    zp_start_read_task(z_session_loan(&s));
+    zp_start_lease_task(z_session_loan(&s));
+
+    // Declare Zenoh publisher
+    Serial.print("Declaring publisher for ");
+    Serial.print(KEYEXPR);
+    Serial.println("...");
+    pub = z_declare_publisher(z_session_loan(&s), z_keyexpr(KEYEXPR), NULL);
+    if (!z_publisher_check(&pub)) {
+        Serial.println("Unable to declare publisher for key expression!\n");
+        while(1);
+    }
+    Serial.println("OK");
+    Serial.println("Zenoh setup finished!");
+
+    delay(300);
 }
 
 void loop()
 {
-    if (lightMeter.measurementReady() == false)
-        return;
+    delay(1000);
 
-    if (s == NULL || reskey == NULL)
+    if (lightMeter.measurementReady() == false) {
         return;
+    }
 
     int lux = (int) lightMeter.readLightLevel();
     Serial.print("Light: ");
@@ -101,13 +106,8 @@ void loop()
     char buf[6];
     itoa(lux, buf, 10);
 
-    zn_write_ext(s, *reskey, (const uint8_t *)buf, strlen(buf), 7, Z_DATA_KIND_DEFAULT, zn_congestion_control_t_BLOCK);
-
-
-    Serial.print("Published value ");
-    Serial.print(lux);
-    Serial.print(" in key expr ");
-    Serial.println(URI);
-    delay(1000);
+    if (z_publisher_put(z_publisher_loan(&pub), (const uint8_t *)buf, sizeof(buf), NULL) < 0) {
+        Serial.println("Error while publishing data");
+    }
 }
 
