@@ -29,7 +29,7 @@ extern "C" {
 #define MODE "client"
 #define PEER ""
 
-#define URI "/factory1/room42/distance"
+#define KEYEXPR "factory1/room42/distance"
 
 #define RANGER_PIN 17
 #define BUZZER_PIN 16
@@ -37,19 +37,22 @@ extern "C" {
 Ultrasonic ranger(RANGER_PIN);
 bool buzz_state = false;
 
-zn_session_t *s = NULL;
-zn_reskey_t *reskey = NULL;
+z_owned_publisher_t pub;
 
 void setup(void)
 {
+    // Initialize Serial for debug
     Serial.begin(115200);
-    while (!Serial)
-        delay(10);
+    while (!Serial) {
+        delay(1000);
+    }
 
+    // Set WiFi in STA mode and trigger attachment
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, PASS);
-    while (WiFi.status() != WL_CONNECTED)
+    while (WiFi.status() != WL_CONNECTED) {
         delay(1000);
+    }
     Serial.println("Connected to WiFi!");
 
     // Buzzer initialization
@@ -57,24 +60,38 @@ void setup(void)
     digitalWrite(BUZZER_PIN, buzz_state);
 
     // Initialize Zenoh Session and other parameters
-    zn_properties_t *config = zn_config_default();
-    zn_properties_insert(config, ZN_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0)
-        zn_properties_insert(config, ZN_CONFIG_PEER_KEY, z_string_make(PEER));
+    z_owned_config_t config = zp_config_default();
+    zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
+    if (strcmp(PEER, "") != 0) {
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
+    }
 
-    s = zn_open(config);
-    if (s == NULL)
-        return;
+    // Open Zenoh session
+    Serial.print("Opening Zenoh Session...");
+    z_owned_session_t s = z_open(z_config_move(&config));
+    if (!z_session_check(&s)) {
+        Serial.println("Unable to open session!\n");
+        while(1);
+    }
+    Serial.println("OK");
 
-    znp_start_read_task(s);
-    znp_start_lease_task(s);
+    // Start the receive and the session lease loop for zenoh-pico
+    zp_start_read_task(z_session_loan(&s));
+    zp_start_lease_task(z_session_loan(&s));
 
-    unsigned long rid = zn_declare_resource(s, zn_rname(URI));
-    reskey = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *reskey = zn_rid(rid);
-    Serial.println("Setup finished!");
+    // Declare Zenoh publisher
+    Serial.print("Declaring publisher for ");
+    Serial.print(KEYEXPR);
+    Serial.println("...");
+    pub = z_declare_publisher(z_session_loan(&s), z_keyexpr(KEYEXPR), NULL);
+    if (!z_publisher_check(&pub)) {
+        Serial.println("Unable to declare publisher for key expression!\n");
+        while(1);
+    }
+    Serial.println("OK");
+    Serial.println("Zenoh setup finished!");
 
-    delay(1000);
+    delay(300);
 }
 
 void loop()
@@ -84,9 +101,6 @@ void loop()
     Serial.print(distance_in_cm); // [0, 350]
     Serial.println(" cm");
 
-    if (s == NULL || reskey == NULL)
-        goto RET;
-
     // Beep / Buzzer
     buzz_state = !buzz_state;
     if (distance_in_cm > 50)
@@ -95,7 +109,9 @@ void loop()
 
     // Publish the distance
     itoa(distance_in_cm, buf, 10);
-    zn_write_ext(s, *reskey, (const uint8_t *)buf, strlen(buf), Z_ENCODING_APP_INTEGER, Z_DATA_KIND_DEFAULT, zn_congestion_control_t_BLOCK);
+    if (z_publisher_put(z_publisher_loan(&pub), (const uint8_t *)buf, sizeof(buf), NULL) < 0) {
+        Serial.println("Error while publishing data");
+    }
 
 RET:
     int sleep = distance_in_cm * 10;
