@@ -30,7 +30,7 @@ extern "C" {
 #define MODE "client"
 #define PEER ""
 
-#define URI "/rt/cmd_vel"
+#define KEYEXPR "rt/cmd_vel"
 
 // Measurement specific parameters
 #define X_SCALING_FACTOR 100.0
@@ -43,13 +43,15 @@ extern "C" {
 #define Y_ZERO_VALUE 0.5
 
 /* --------------- Structs -------------- */
-struct Vector3 {
+struct Vector3
+{
     double x;
     double y;
     double z;
 };
 
-struct Twist {
+struct Twist
+{
     Vector3 linear;
     Vector3 angular;
 };
@@ -58,8 +60,9 @@ struct Twist {
 char *serialize_float_as_f64_little_endian(double val, char *buf)
 {
     long long *c_val = (long long*)&val;
-    for (int i = 0; i < sizeof(double); ++i, ++buf)
+    for (int i = 0; i < sizeof(double); ++i, ++buf) {
        *buf = 0xFF & (*c_val >> (i * 8));
+    }
 
     return buf;
 }
@@ -109,55 +112,77 @@ void printTwist(struct Twist *t)
 /* -------------------------------------- */
 
 MPU6050 mpu(Wire);
-zn_session_t *s = NULL;
-zn_reskey_t *reskey = NULL;
 double offset_x = 0.0;
 double offset_y = 0.0;
 
-void setup(void) {
+z_owned_publisher_t pub;
+
+void setup(void)
+{
     // Initialize Serial for debug
     Serial.begin(115200);
-    while (!Serial)
-        delay(10);
+    while (!Serial) {
+        delay(1000);
+    }
 
     // Set WiFi in STA mode and trigger attachment
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, PASS);
-    while (WiFi.status() != WL_CONNECTED)
+    while (WiFi.status() != WL_CONNECTED) {
         delay(1000);
+    }
     Serial.println("Connected to WiFi!");
 
-    // Initialize MPU6050
+    // Initialize and calibrate0 MPU6050
+    Serial.print("Detecting MPU6050 sensor...");
     Wire.begin();
     mpu.begin();
     mpu.calcGyroOffsets(true);
-    Serial.println("MPU6050 Found!");
+    Serial.println("OK");
 
-    // Initialize Zenoh Session and other parameters
-    zn_properties_t *config = zn_config_default();
-    zn_properties_insert(config, ZN_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0)
-        zn_properties_insert(config, ZN_CONFIG_PEER_KEY, z_string_make(PEER));
-
-    s = zn_open(config);
-    if (s == NULL)
-        return;
-
-    znp_start_read_task(s);
-    znp_start_lease_task(s);
-
-    unsigned long rid = zn_declare_resource(s, zn_rname(URI));
-    reskey = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *reskey = zn_rid(rid);
-    Serial.println("Zenoh Publisher setup finished!");
-
+    Serial.print("Calibrating MPU6050 sensor...");
     mpu.update();
     offset_x = mpu.getAccAngleX();
     offset_y = mpu.getAccAngleY();
-    delay(1000);
+    Serial.println("OK");
+
+    delay(300);
+
+    // Initialize Zenoh Session and other parameters
+    z_owned_config_t config = zp_config_default();
+    zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
+    if (strcmp(PEER, "") != 0) {
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
+    }
+
+    // Open Zenoh session
+    Serial.print("Opening Zenoh Session...");
+    z_owned_session_t s = z_open(z_config_move(&config));
+    if (!z_session_check(&s)) {
+        Serial.println("Unable to open session!\n");
+        while(1);
+    }
+    Serial.println("OK");
+
+    // Start the receive and the session lease loop for zenoh-pico
+    zp_start_read_task(z_session_loan(&s));
+    zp_start_lease_task(z_session_loan(&s));
+
+    // Declare Zenoh publisher
+    Serial.print("Declaring publisher for ");
+    Serial.print(KEYEXPR);
+    Serial.println("...");
+    pub = z_declare_publisher(z_session_loan(&s), z_keyexpr(KEYEXPR), NULL);
+    if (!z_publisher_check(&pub)) {
+        Serial.println("Unable to declare publisher for key expression!\n");
+        while(1);
+    }
+    Serial.println("OK");
+    Serial.println("Zenoh setup finished!");
 }
 
-void loop() {
+void loop()
+{
     delay(100);
     mpu.update();
 
@@ -181,11 +206,10 @@ void loop() {
     printTwist(&measure);
     Serial.println("");
 
-    if (s == NULL || reskey == NULL)
-        return;
-
     uint8_t twist_serialized_size = 4 + sizeof(double) * 6;
     char buf[twist_serialized_size];
     serialize_twist(&measure, buf);
-    zn_write(s, *reskey, (const uint8_t *)buf, twist_serialized_size);
+    if (z_publisher_put(z_publisher_loan(&pub), (const uint8_t *)buf, twist_serialized_size, NULL) < 0) {
+        Serial.println("Error while publishing data");
+    }
 }
