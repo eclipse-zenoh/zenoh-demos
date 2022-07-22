@@ -106,6 +106,8 @@ void setup(void)
     }
     Serial.println("OK");
 
+    delay(300);
+
     // Declare Zenoh publisher
     Serial.print("Declaring publisher for ");
     Serial.print(KEYEXPR_GREEN_LIGHT);
@@ -117,6 +119,7 @@ void setup(void)
     }
     Serial.println("OK");
 
+    delay(300);
 
     z_owned_closure_sample_t callback = z_closure_sample(data_handler, NULL, NULL);
     printf("Declaring Subscriber on '%s'...\n", KEYEXPR_DISTANCE);

@@ -204,7 +204,6 @@ void setup(void)
         while(1);
     }
     Serial.println("OK");
-    Serial.println("Zenoh setup finished!");
 
     delay(300);
 
@@ -217,6 +216,8 @@ void setup(void)
         exit(-1);
     }
     Serial.println("OK");
+
+    delay(300);
 
     z_owned_closure_sample_t callback_green = z_closure_sample(fence_green_callback, NULL, NULL);
     printf("Declaring Subscriber on '%s'...\n", KEYEXPR_GREEN_LIGHT);

@@ -205,8 +205,9 @@ void loop()
     double linear_x = (mpu.getAccAngleX() - offset_x) / X_SCALING_FACTOR;
     double linear_y = (mpu.getAccAngleY() - offset_y) / Y_SCALING_FACTOR;
     linear_x = min(max(linear_x, X_MIN_VALUE), X_MAX_VALUE);
-    if (linear_x < X_ZERO_VALUE && linear_x > -X_ZERO_VALUE)
+    if (linear_x < X_ZERO_VALUE && linear_x > -X_ZERO_VALUE) {
         linear_x = 0;
+    }
     linear_y = min(max(linear_y, Y_MIN_VALUE), Y_MAX_VALUE);
     if (linear_y < Y_ZERO_VALUE && linear_y > -Y_ZERO_VALUE) {
         linear_y = 0;

@@ -86,7 +86,8 @@ void setup()
         while(1);
     }
     Serial.println("OK");
-    Serial.println("Zenoh setup finished!");
+
+    delay(300);
 
     Serial.print("Declaring publisher for ");
     Serial.print(KEYEXPR_HUMIDITY);
