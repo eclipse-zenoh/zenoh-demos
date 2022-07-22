@@ -50,7 +50,7 @@ void setup()
     Serial.println("Connected to WiFi!");
 
     // Initialize BH1750 sensor
-    Serial.print("Detecting MPU6050 sensor...");
+    Serial.print("Detecting BH1750 sensor...");
     Wire.begin();
     lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
     Serial.println("OK");
