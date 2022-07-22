@@ -1,19 +1,38 @@
+//
+// Copyright (c) 2022 ZettaScale Technology
+//
+// This program and the accompanying materials are made available under the
+// terms of the Eclipse Public License 2.0 which is available at
+// http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+// which is available at https://www.apache.org/licenses/LICENSE-2.0.
+//
+// SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+//
+// Contributors:
+//   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
+//
+
 #include <SPI.h>
 #include <WiFi101.h>
 
-extern "C"
-{
+extern "C" {
     #include "zenoh-pico.h"
 }
 
 #include "turtlebot3_motor_driver.h"
 
-#define SSID "SSID"
-#define PASS "PASS"
+// WiFi-specific parameters
+#define SSID "ATOPlay"
+#define PASS "A70L@bsR0ck5!!"
+
+// Zenoh-specific parameters
 #define MODE "client"
 #define PEER ""
 
-typedef struct TB3ModelInfo{
+#define KEYEXPR_CMD_VEL "rt/cmd_vel"
+
+typedef struct TB3ModelInfo
+{
     const char* model_str;
     uint32_t model_info;
     uint16_t model_motor_rpm;
@@ -23,21 +42,18 @@ typedef struct TB3ModelInfo{
     float robot_radius;
 } TB3ModelInfo;
 
-static const TB3ModelInfo burger_info = {
-    "Burger",
-    1,
-    61,
-    0.033,
-    0.160,
-    0.080,
-    0.105,
-};
+static const TB3ModelInfo burger_info = { "Burger",
+                                          1,
+                                          61,
+                                          0.033,
+                                          0.160,
+                                          0.080,
+                                          0.105 };
 
 static float max_linear_velocity, min_linear_velocity;
 static float max_angular_velocity, min_angular_velocity;
 static float goal_velocity[VelocityType::TYPE_NUM_MAX] = {0.0, 0.0};
 
-zn_session_t *zn = NULL;
 bool led_status = true;
 static Turtlebot3MotorDriver motor_driver;
 
@@ -102,13 +118,15 @@ char *deserialize_twist(twist_t *t, char *buf)
     return buf;
 }
 
-void commandVelocityCallback(const zn_sample_t *sample, const void *arg)
+z_owned_session_t s;
+
+void commandVelocityCallback(const z_sample_t *sample, void *arg)
 {
     (void)(arg); // Unused argument
     led_status = !led_status;
 
     twist_t cmd_vel_msg;
-    deserialize_twist(&cmd_vel_msg, (char*)sample->value.val);
+    deserialize_twist(&cmd_vel_msg, (char*)sample->payload.start);
   
     Serial.println("commandVelocityCallback");
     Serial.print("  X:");
@@ -120,80 +138,76 @@ void commandVelocityCallback(const zn_sample_t *sample, const void *arg)
     goal_velocity[VelocityType::ANGULAR] = constrain((float)(cmd_vel_msg.angular.z), min_angular_velocity, max_angular_velocity);
 }
 
-int wifiInit()
-{
-    // Required to remap interrupt pin with opencr
-    WiFi.setPins(10, digitalPinToInterrupt(7), 5, -1); 
-    
-    if (WiFi.status() == WL_NO_SHIELD)
-        return -1;
-  
-    WiFi.begin(SSID, PASS);
-}
-
-zn_session_t *zenohInit()
-{
-    zn_properties_t *config = zn_config_default();
-    zn_properties_insert(config, ZN_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0)
-        zn_properties_insert(config, ZN_CONFIG_PEER_KEY, z_string_make(PEER));
-  
-    zn_session_t *s = zn_open(config);
-    
-    return s;
-}
-
 void setup()
 {
+    // Initialize Serial for debug
     Serial.begin(115200);
-    delay(5000);
-
-    // Initialize WiFi module and connect to network
-    if (wifiInit() < 0)
-    {
-        Serial.println("WiFi shield not present");
-        while (true);
+    while (!Serial) {
+        delay(1000);
     }
-    Serial.println("WiFi Connected!");  
 
-    // Establish zenoh session
-    Serial.println("Session initializing...");
-    zn = zenohInit();
-    if (zn == NULL)
-    {
-        Serial.println("Error establishing zenoh session!"); 
-        while(true);
+    // Set WiFi in STA mode and trigger attachment    
+    WiFi.setPins(10, digitalPinToInterrupt(7), 5, -1); // Required to remap interrupt pin with opencr
+    if (WiFi.status() == WL_NO_SHIELD) {
+        while(1);
     }
-    Serial.println("Session initializing...done");
+    WiFi.begin(SSID, PASS);
+    Serial.println("Connected to WiFi!");
 
-    zn_subscriber_t *cmd_vel_sub = zn_declare_subscriber(zn, zn_rname("/rt/cmd_vel"), zn_subinfo_default(), commandVelocityCallback, NULL);
-
+    Serial.print("Initialize robot leds...");
     pinMode(BDPIN_LED_USER_4, OUTPUT);
     pinMode(BDPIN_LED_USER_1, OUTPUT);
+    Serial.println("OK");
 
-    // Initialize motors drivers
-    int ret = motor_driver.init();
-    if (ret == false)
-    {
+    Serial.print("Initialize to the motor drivers...");
+    if (!motor_driver.init()) {
         Serial.println("Failing to initialize the motor drivers");
-        while(true);
+        while(1);
     }
+    Serial.println("OK");
 
-    Serial.println("Success to initialize to the motor drivers");
+    Serial.print("Connecting to the motor drivers...");
     delay(1000);
-    if (motor_driver.is_connected() == false)
+    if (!motor_driver.is_connected())
     {
         Serial.println("Failing to connect to the motor drivers");
-        while(true);
+        while(1);
     }
     motor_driver.set_torque(true);
-    Serial.println("Successed to initialize and connect the motor drivers");
+    Serial.println("OK");
 
     max_linear_velocity = burger_info.wheel_radius * 2 * PI * burger_info.model_motor_rpm / 60;
     min_linear_velocity = -max_linear_velocity;
     max_angular_velocity = max_linear_velocity / burger_info.turning_radius;
     min_angular_velocity = -max_angular_velocity;
     digitalWrite(BDPIN_LED_USER_1, LOW);
+
+    // Initialize Zenoh Session and other parameters
+    z_owned_config_t config = zp_config_default();
+    zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
+    if (strcmp(PEER, "") != 0) {
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
+    }
+
+    // Open Zenoh session
+    Serial.print("Opening Zenoh Session...");
+    s = z_open(z_config_move(&config));
+    if (!z_session_check(&s)) {
+        Serial.println("Unable to open session!\n");
+        while(1);
+    }
+    Serial.println("OK");
+
+    z_owned_closure_sample_t callback = z_closure_sample(commandVelocityCallback, NULL, NULL);
+    printf("Declaring Subscriber on '%s'...\n", KEYEXPR_CMD_VEL);
+    z_owned_subscriber_t sub_cmd_vel = z_declare_subscriber(z_session_loan(&s), z_keyexpr(KEYEXPR_CMD_VEL), z_closure_sample_move(&callback), NULL);
+    if (!z_subscriber_check(&sub_cmd_vel))
+    {
+        printf("Unable to declare subscriber.\n");
+        while(1);
+    }
+    Serial.println("OK");
+    Serial.println("Zenoh setup finished!");
 }
 
 void loop()
@@ -204,12 +218,11 @@ void loop()
     digitalWrite(BDPIN_LED_USER_4, led_status);
 
     // Read Zenoh Message
-    znp_read(zn);
+    zp_read(z_session_loan(&s));
 
     // Send Keep Alive
-    znp_send_keep_alive(zn);
+    zp_send_keep_alive(z_session_loan(&s));
 
     // Spin over the hardware
     motor_driver.control_motors(burger_info.wheel_separation, goal_velocity[VelocityType::LINEAR], goal_velocity[VelocityType::ANGULAR]);
 }
-
