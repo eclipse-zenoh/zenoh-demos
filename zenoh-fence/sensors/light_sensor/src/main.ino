@@ -27,23 +27,21 @@ extern "C" {
 #define MODE "client"
 #define PEER ""
 
-#define D_URI "/factory1/room42/distance"
-#define L_R_URI "/factory1/room42/led/red"
-#define L_G_URI "/factory1/room42/led/green"
+#define KEYEXPR_DISTANCE "factory1/room42/distance"
+#define KEYEXPR_RED_LIGHT "factory1/room42/led/red"
+#define KEYEXPR_GREEN_LIGHT "factory1/room42/led/green"
 
 #define R_PIN 25
 #define G_PIN 26
 #define B_PIN 27
 
-zn_session_t *s = NULL;
-zn_reskey_t *l_r_reskey = NULL;
-zn_reskey_t *l_g_reskey = NULL;
+z_owned_publisher_t pub_red;
+z_owned_publisher_t pub_green;
 
 int distance_in_cm = 0;
-
-void distance_callback(const zn_sample_t *sample, const void *arg)
+void data_handler(const z_sample_t *sample, void *arg)
 {
-    std::string val((const char*)sample->value.val, sample->value.len);
+    std::string val((const char*)sample->payload.start, sample->payload.len);
     distance_in_cm = std::stoi(val, NULL, 10);
 
     Serial.println(distance_in_cm);
@@ -58,14 +56,18 @@ void setColor(int red, int green, int blue)
 
 void setup(void)
 {
+    // Initialize Serial for debug
     Serial.begin(115200);
-    while (!Serial)
-        delay(10);
+    while (!Serial) {
+        delay(1000);
+    }
 
+    // Set WiFi in STA mode and trigger attachment
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, PASS);
-    while (WiFi.status() != WL_CONNECTED)
+    while (WiFi.status() != WL_CONNECTED) {
         delay(1000);
+    }
     Serial.println("Connected to WiFi!");
 
     // Light/Led initialization
@@ -74,39 +76,65 @@ void setup(void)
     pinMode(B_PIN, OUTPUT);
 
     // Initialize Zenoh Session and other parameters
-    zn_properties_t *config = zn_config_default();
-    zn_properties_insert(config, ZN_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0)
-        zn_properties_insert(config, ZN_CONFIG_PEER_KEY, z_string_make(PEER));
+    z_owned_config_t config = zp_config_default();
+    zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
+    if (strcmp(PEER, "") != 0) {
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
+    }
 
-    s = zn_open(config);
-    if (s == NULL)
-        return;
+    // Open Zenoh session
+    Serial.print("Opening Zenoh Session...");
+    z_owned_session_t s = z_open(z_config_move(&config));
+    if (!z_session_check(&s)) {
+        Serial.println("Unable to open session!\n");
+        while(1);
+    }
+    Serial.println("OK");
 
-    znp_start_read_task(s);
-    znp_start_lease_task(s);
+    // Start the receive and the session lease loop for zenoh-pico
+    zp_start_read_task(z_session_loan(&s));
+    zp_start_lease_task(z_session_loan(&s));
 
-    l_r_reskey = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *l_r_reskey = zn_rid(zn_declare_resource(s, zn_rname(L_R_URI)));
+    // Declare Zenoh publisher
+    Serial.print("Declaring publisher for ");
+    Serial.print(KEYEXPR_RED_LIGHT);
+    Serial.println("...");
+    pub_red = z_declare_publisher(z_session_loan(&s), z_keyexpr(KEYEXPR_RED_LIGHT), NULL);
+    if (!z_publisher_check(&pub_red)) {
+        Serial.println("Unable to declare publisher for key expression!\n");
+        while(1);
+    }
+    Serial.println("OK");
 
-    l_g_reskey = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *l_g_reskey = zn_rid(zn_declare_resource(s, zn_rname(L_G_URI)));
+    // Declare Zenoh publisher
+    Serial.print("Declaring publisher for ");
+    Serial.print(KEYEXPR_GREEN_LIGHT);
+    Serial.println("...");
+    pub_green = z_declare_publisher(z_session_loan(&s), z_keyexpr(KEYEXPR_GREEN_LIGHT), NULL);
+    if (!z_publisher_check(&pub_green)) {
+        Serial.println("Unable to declare publisher for key expression!\n");
+        while(1);
+    }
+    Serial.println("OK");
 
-    zn_reskey_t d_reskey = zn_rid(zn_declare_resource(s, zn_rname(D_URI)));
-    zn_subscriber_t *sub = zn_declare_subscriber(s, d_reskey, zn_subinfo_default(), distance_callback, NULL);
-    if (sub == NULL)
-        return;
 
-    Serial.println("Setup finished!");
+    z_owned_closure_sample_t callback = z_closure_sample(data_handler, NULL, NULL);
+    printf("Declaring Subscriber on '%s'...\n", KEYEXPR_DISTANCE);
+    z_owned_subscriber_t sub = z_declare_subscriber(z_session_loan(&s), z_keyexpr(KEYEXPR_DISTANCE), z_closure_sample_move(&callback), NULL);
+    if (!z_subscriber_check(&sub))
+    {
+        printf("Unable to declare subscriber.\n");
+        exit(-1);
+    }
+    Serial.println("OK");
+    Serial.println("Zenoh setup finished!");
 
-    delay(1000);
+    delay(300);
 }
 
 void loop()
 {
     delay(200);
-    if (s == NULL || l_r_reskey == NULL || l_g_reskey == NULL)
-        goto RET;
 
     int is_red;
     int is_green;
@@ -125,10 +153,14 @@ void loop()
 
     char buf[2];
     itoa(is_red, buf, 10);
-    zn_write_ext(s, *l_r_reskey, (const uint8_t *)buf, strlen(buf), Z_ENCODING_APP_INTEGER, Z_DATA_KIND_DEFAULT, zn_congestion_control_t_BLOCK);
+    if (z_publisher_put(z_publisher_loan(&pub_red), (const uint8_t *)buf, sizeof(buf), NULL) < 0) {
+        Serial.println("Error while publishing data");
+    }
 
     itoa(is_green, buf, 10);
-    zn_write_ext(s, *l_g_reskey, (const uint8_t *)buf, strlen(buf), Z_ENCODING_APP_INTEGER, Z_DATA_KIND_DEFAULT, zn_congestion_control_t_BLOCK);
+    if (z_publisher_put(z_publisher_loan(&pub_green), (const uint8_t *)buf, sizeof(buf), NULL) < 0) {
+        Serial.println("Error while publishing data");
+    }
 
 RET:
     delay(100);
