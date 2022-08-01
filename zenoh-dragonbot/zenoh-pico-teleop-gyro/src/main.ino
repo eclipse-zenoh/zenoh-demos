@@ -18,7 +18,7 @@
 #include <Wire.h>
 #include <MPU6050_tockn.h>
 
-// For ROS2 types
+// For ROS types
 #include <geometry_msgs/Twist.h>
 
 
@@ -28,14 +28,14 @@ extern "C" {
 
 // WiFi-specific parameters
 
-#define SSID "SSID"
-#define PASS "PASS"
+#define SSID "NAME"
+#define PASS "PASSWORD"
 
 // Zenoh-specific parameters
 #define MODE "client"
-#define PEER "tcp/192.168.86.239:7447"
+#define PEER "tcp/192.168.86.57:7447"
 
-#define URI "/rt/cmd_vel"
+#define URI "rt/cmd_vel"
 
 // Measurement specific parameters
 #define X_SCALING_FACTOR 100.0
@@ -78,16 +78,17 @@ void printTwist(geometry_msgs::Twist *t)
 /* -------------------------------------- */
 
 MPU6050 mpu(Wire);
-zn_session_t *s = NULL;
-zn_reskey_t *reskey = NULL;
+z_owned_session_t s;
+z_owned_publisher_t pub_sensor_state;
 double offset_x = 0.0;
 double offset_y = 0.0;
 
 void setup(void) {
     // Initialize Serial for debug
     Serial.begin(115200);
-    while (!Serial)
-        delay(10);
+
+    // while (!Serial)
+    //     delay(10);
 
     // Set WiFi in STA mode and trigger attachment
     WiFi.mode(WIFI_STA);
@@ -103,24 +104,25 @@ void setup(void) {
     Serial.println("MPU6050 Found!");
 
     // Initialize Zenoh Session and other parameters
-    zn_properties_t *config = zn_config_default();
-    zn_properties_insert(config, ZN_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0)
-        zn_properties_insert(config, ZN_CONFIG_PEER_KEY, z_string_make(PEER));
-
-    s = zn_open(config);
-    if (s == NULL) {
-        Serial.println("Unable to initialize zenoh session");
-        while(true);
+    z_owned_config_t config = zp_config_default();
+    zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
+    if (strcmp(PEER, "") != 0) {
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
     }
 
+    s = z_open(z_config_move(&config));
+    if (!z_session_check(&s)) {
+        Serial.print("Unable to open session!\n");
+        while(1);
+    }
 
-    znp_start_read_task(s);
-    znp_start_lease_task(s);
+    zp_start_read_task(z_session_loan(&s));
+    zp_start_lease_task(z_session_loan(&s));
 
-    unsigned long rid = zn_declare_resource(s, zn_rname(URI));
-    reskey = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *reskey = zn_rid(rid);
+    pub_sensor_state = z_declare_publisher(z_session_loan(&s), z_keyexpr(URI), NULL);
+    if (!z_publisher_check(&pub_sensor_state)) {
+        while(1);
+    }
     Serial.println("Zenoh Publisher setup finished!");
 
     delay(5000);
@@ -159,12 +161,8 @@ void loop() {
     printTwist(&cmd_vel_msg);
     Serial.println("");
 
-    if (s == NULL || reskey == NULL)
-        return;
-
     uint8_t twist_serialized_size = 4 + sizeof(double) * 6;
     unsigned char buf[twist_serialized_size];
     cmd_vel_msg.serialize(buf);
-
-    zn_write(s, *reskey, (const uint8_t *)buf, twist_serialized_size);
+    z_publisher_put(z_publisher_loan(&pub_sensor_state), (const uint8_t *)buf, twist_serialized_size, NULL);
 }

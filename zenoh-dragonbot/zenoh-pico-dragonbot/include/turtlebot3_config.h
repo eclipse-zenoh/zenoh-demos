@@ -47,12 +47,12 @@ extern "C"
 * WiFi and Zenoh configuration
 *******************************************************************************/
 
-#define SSID "SSID"
-#define PASS "PASS"
+#define SSID "NAME"
+#define PASS "PASSWORD"
 
 
 #define MODE "client"
-#define PEER "tcp/192.168.86.239:7447"
+#define PEER "tcp/192.168.86.57:7447"
 
 
 /*******************************************************************************
@@ -129,57 +129,49 @@ static const TB3ModelInfo burger_info = {
 /*******************************************************************************
 * Zenoh Key Expression Subscriptions
 *******************************************************************************/
-#define CMD_VEL "/rt/cmd_vel"
-#define SOUND "/rt/sound"
-#define MOTOR_POWER "/rt/motor_power"
-#define RESET "/rt/reset"
+#define CMD_VEL "rt/cmd_vel"
+#define SOUND "rt/sound"
+#define MOTOR_POWER "rt/motor_power"
+#define RESET "rt/reset"
 
 /*******************************************************************************
 * Zenoh Key Expression Publications
 *******************************************************************************/
-#define SENSOR_STATE "/rt/sensor_state"
-#define FIRMWARE_VERSION "/rt/firmware_version"
-#define IMU "/rt/imu"
-#define CMD_VEL_RC100 "/rt/cmd_vel_rc100"
-#define ODOM "/rt/odom"
-#define JOINT_STATES "/rt/joint_states"
-#define BATTERY_STATE "/rt/battery_state"
-#define MAGNETIC_FIELD "/rt/magnetic_field"
-#define BROADCAST_TF "/rt/tf"
+#define SENSOR_STATE "rt/sensor_state"
+#define FIRMWARE_VERSION "rt/firmware_version"
+#define IMU "rt/imu"
+#define CMD_VEL_RC100 "rt/cmd_vel_rc100"
+#define ODOM "rt/odom"
+#define JOINT_STATES "rt/joint_states"
+#define BATTERY_STATE "rt/battery_state"
+#define MAGNETIC_FIELD "rt/magnetic_field"
+#define BROADCAST_TF "rt/tf"
 
 /*******************************************************************************
-* Zenoh ResKey Subscriptions
+* Zenoh Publishers
 *******************************************************************************/
-zn_reskey_t *rk_cmd_vel = NULL;
-zn_reskey_t *rk_sound = NULL;
-zn_reskey_t *rk_motor_power = NULL;
-zn_reskey_t *rk_reset = NULL;
-
-/*******************************************************************************
-* Zenoh ResKey Publications
-*******************************************************************************/
-zn_reskey_t *rk_sensor_state = NULL;
-zn_reskey_t *rk_firmware_version = NULL;
-zn_reskey_t *rk_imu = NULL;
-zn_reskey_t *rk_cmd_vel_rc100 = NULL;
-zn_reskey_t *rk_odom = NULL;
-zn_reskey_t *rk_joint_states = NULL;
-zn_reskey_t *rk_battery_state = NULL;
-zn_reskey_t *rk_magnetic_field = NULL;
-zn_reskey_t *rk_broadcast_tf = NULL;
+z_owned_publisher_t pub_sensor_state;
+z_owned_publisher_t pub_firmware_version;
+z_owned_publisher_t pub_imu;
+z_owned_publisher_t pub_cmd_vel_rc100;
+z_owned_publisher_t pub_odom;
+z_owned_publisher_t pub_joint_states;
+z_owned_publisher_t pub_battery_state;
+z_owned_publisher_t pub_magnetic_field;
+z_owned_publisher_t pub_broadcast_tf;
 
 /*******************************************************************************
 * Zenoh Subscribers
 *******************************************************************************/
-zn_subscriber_t *cmd_vel_sub = NULL;
-zn_subscriber_t *sound_sub = NULL;
-zn_subscriber_t *motor_power_sub = NULL;
-zn_subscriber_t *reset_sub = NULL;
+z_owned_subscriber_t sub_cmd_vel;
+z_owned_subscriber_t sub_sound;
+z_owned_subscriber_t sub_motor_power;
+z_owned_subscriber_t sub_reset;
 
 /*******************************************************************************
 * Zenoh Session and global variables
 *******************************************************************************/
-zn_session_t *zn = NULL;
+z_owned_session_t s;
 bool led_1_status = false;
 bool led_2_status = true;
 bool led_3_status = true;
@@ -225,22 +217,22 @@ sensor_msgs::MagneticField mag_msg;
 /*******************************************************************************
 * Subscribers callbacks
 *******************************************************************************/
-void resetCallback(const zn_sample_t *sample, const void *arg);
-void motorPowerCallback(const zn_sample_t *sample, const void *arg);
-void soundCallback(const zn_sample_t *sample, const void *arg);
-void commandVelocityCallback(const zn_sample_t *sample, const void *arg);
+void resetCallback(const z_sample_t *sample, void *arg);
+void motorPowerCallback(const z_sample_t *sample, void *arg);
+void soundCallback(const z_sample_t *sample, void *arg);
+void commandVelocityCallback(const z_sample_t *sample, void *arg);
 
 
 /*******************************************************************************
 * Publication functions
 *******************************************************************************/
-void publishImuMsg(void);
-void publishMagMsg(void);
-void publishSensorStateMsg(void);
-void publishVersionInfoMsg(void);
-void publishBatteryStateMsg(void);
-void publishDriveInformation(void);
-void sendTransform(void);
+void publishImuMsg(z_publisher_t *pub);
+void publishMagMsg(z_publisher_t *pub);
+void publishSensorStateMsg(z_publisher_t *pub);
+void publishVersionInfoMsg(z_publisher_t *pub);
+void publishBatteryStateMsg(z_publisher_t *pub);
+void publishDriveInformation(z_publisher_t *pub_odom, z_publisher_t *pub_tf, z_publisher_t *pub_js);
+void sendTransform(z_publisher_t *pub);
 
 /*******************************************************************************
 * Helper functions
@@ -254,8 +246,6 @@ void initJointStates(void);
 void updateMotorInfo(int32_t left_tick, int32_t right_tick);
 void updateGoalVelocity(void);
 void initTimes(void);
-
-
 
 /*******************************************************************************
 * FIXME: Thread handlers

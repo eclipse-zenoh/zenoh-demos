@@ -20,24 +20,23 @@
 /*******************************************************************************
 * Zenoh Session initialization
 *******************************************************************************/
-zn_session_t *zenohInit()
+z_owned_session_t zenohInit()
 {
-    zn_properties_t *config = zn_config_default();
-    zn_properties_insert(config, ZN_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0)
-        zn_properties_insert(config, ZN_CONFIG_PEER_KEY, z_string_make(PEER));
-
-    zn_session_t *s = zn_open(config);
-
+    z_owned_config_t config = zp_config_default();
+    zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
+    if (strcmp(PEER, "") != 0) {
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
+    }
+    z_owned_session_t s = z_open(z_config_move(&config));
     return s;
 }
 
 
 int main (int argc, char *argv[]) {
-    zn_session_t *zn = NULL;
+    z_owned_session_t z;
 
-    zn = zenohInit();
-    if (zn == NULL)
+    z = zenohInit();
+    if (!z_session_check(&z))
     {
         std::cout << "Error establishing zenoh session!" << std::endl;
         return -1;
@@ -45,73 +44,47 @@ int main (int argc, char *argv[]) {
 
 
 
-    znp_start_read_task(zn);
-    znp_start_lease_task(zn);
+    zp_start_read_task(z_session_loan(&z));
+    zp_start_lease_task(z_session_loan(&z));
 
     unsigned long rid = 0;
 
-    // Registering ResKeys Subscriptions
+    // Registering Subscriptions
 
-    rid = zn_declare_resource(zn, zn_rname(CMD_VEL));
-    rk_cmd_vel = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_cmd_vel = zn_rid(rid);
+    z_owned_closure_sample_t callback_sensor_state = z_closure_sample(sensorStateCallback, NULL, NULL);
+    sensor_state_sub = z_declare_subscriber(z_session_loan(&z), z_keyexpr(SENSOR_STATE), z_closure_sample_move(&callback_sensor_state), NULL);
+    if (!z_subscriber_check(&sensor_state_sub)) {
+        std::cout << "Error declaring sensor state subscriber!" << std::endl;
+        return -1;
+    }
 
-    rid = zn_declare_resource(zn, zn_rname(SOUND));
-    rk_sound = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_sound = zn_rid(rid);
+    z_owned_closure_sample_t callback_firmware_version = z_closure_sample(firmwareVersionCallback, NULL, NULL);
+    firmware_version_sub = z_declare_subscriber(z_session_loan(&z), z_keyexpr(FIRMWARE_VERSION), z_closure_sample_move(&callback_firmware_version), NULL);
+    if (!z_subscriber_check(&firmware_version_sub)) {
+        std::cout << "Error declaring firmware version subscriber!" << std::endl;
+        return -1;
+    }
 
-    rid = zn_declare_resource(zn, zn_rname(MOTOR_POWER));
-    rk_motor_power = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_motor_power = zn_rid(rid);
+    z_owned_closure_sample_t callback_imu = z_closure_sample(firmwareVersionCallback, NULL, NULL);
+    imu_sub = z_declare_subscriber(z_session_loan(&z), z_keyexpr(IMU), z_closure_sample_move(&callback_imu), NULL);
+    if (!z_subscriber_check(&imu_sub)) {
+        std::cout << "Error declaring IMU subscriber!" << std::endl;
+        return -1;
+    }
 
-    rid = zn_declare_resource(zn, zn_rname(RESET));
-    rk_reset = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_reset = zn_rid(rid);
+    z_owned_closure_sample_t callback_magnetic_field = z_closure_sample(magneticFieldCallback, NULL, NULL);
+    magnetic_field_sub = z_declare_subscriber(z_session_loan(&z), z_keyexpr(FIRMWARE_VERSION), z_closure_sample_move(&callback_magnetic_field), NULL);
+    if (!z_subscriber_check(&magnetic_field_sub)) {
+        std::cout << "Error declaring magnetic field subscriber!" << std::endl;
+        return -1;
+    }
 
-    // Registering ResKeys Publications
-
-    rid = zn_declare_resource(zn, zn_rname(SENSOR_STATE));
-    rk_sensor_state = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_sensor_state = zn_rid(rid);
-
-    rid = zn_declare_resource(zn, zn_rname(FIRMWARE_VERSION));
-    rk_firmware_version = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_firmware_version = zn_rid(rid);
-
-    rid = zn_declare_resource(zn, zn_rname(IMU));
-    rk_imu = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_imu = zn_rid(rid);
-
-    rid = zn_declare_resource(zn, zn_rname(CMD_VEL_RC100));
-    rk_cmd_vel_rc100 = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_cmd_vel_rc100 = zn_rid(rid);
-
-    rid = zn_declare_resource(zn, zn_rname(ODOM));
-    rk_odom = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_odom = zn_rid(rid);
-
-    rid = zn_declare_resource(zn, zn_rname(JOINT_STATES));
-    rk_joint_states = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_joint_states = zn_rid(rid);
-
-    rid = zn_declare_resource(zn, zn_rname(BATTERY_STATE));
-    rk_battery_state = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_battery_state = zn_rid(rid);
-
-    rid = zn_declare_resource(zn, zn_rname(MAGNETIC_FIELD));
-    rk_magnetic_field = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_magnetic_field = zn_rid(rid);
-
-    rid = zn_declare_resource(zn, zn_rname(BROADCAST_TF));
-    rk_broadcast_tf = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_broadcast_tf = zn_rid(rid);
-
-    // Registering subscriber
-
-    firmaware_version_sub = zn_declare_subscriber(zn, *rk_firmware_version, zn_subinfo_default(), firmwareVersionCallback, NULL);
-    imu_sub = zn_declare_subscriber(zn, *rk_imu, zn_subinfo_default(), imuCallback, NULL);
-    magnetic_field_sub = zn_declare_subscriber(zn, *rk_magnetic_field, zn_subinfo_default(), magneticFieldCallback, NULL);
-    battery_state_sub =  zn_declare_subscriber(zn, *rk_battery_state, zn_subinfo_default(), batteryStateCallback, NULL);
+    z_owned_closure_sample_t callback_battery_state = z_closure_sample(batteryStateCallback, NULL, NULL);
+    battery_state_sub = z_declare_subscriber(z_session_loan(&z), z_keyexpr(FIRMWARE_VERSION), z_closure_sample_move(&callback_battery_state), NULL);
+    if (!z_subscriber_check(&battery_state_sub)) {
+        std::cout << "Error declaring battery state subscriber!" << std::endl;
+        return -1;
+    }
 
     while (true) { sleep(10); }
 
@@ -124,14 +97,14 @@ int main (int argc, char *argv[]) {
 /*******************************************************************************
 * Subscribers callbacks (print the received message)
 *******************************************************************************/
-void sensorStateCallback(const zn_sample_t *sample, const void *arg) {
+void sensorStateCallback(const z_sample_t *sample, void *arg) {
     turtlebot3_msgs::SensorState sensor_state_msg;
-    sensor_state_msg.deserialize((unsigned char*)sample->value.val);
+    sensor_state_msg.deserialize((unsigned char*)sample->payload.start);
 }
 
-void firmwareVersionCallback(const zn_sample_t *sample, const void *arg) {
+void firmwareVersionCallback(const z_sample_t *sample, void *arg) {
     turtlebot3_msgs::VersionInfo version_info_msg;
-    version_info_msg.deserialize((unsigned char*)sample->value.val);
+    version_info_msg.deserialize((unsigned char*)sample->payload.start);
 
     std::cout << "### Version ###" << std::endl <<
         "HW Version: " << version_info_msg.hardware << std::endl <<
@@ -142,9 +115,9 @@ void firmwareVersionCallback(const zn_sample_t *sample, const void *arg) {
 
 }
 
-void imuCallback(const zn_sample_t *sample, const void *arg) {
+void imuCallback(const z_sample_t *sample, void *arg) {
     sensor_msgs::Imu imu_msg;
-    imu_msg.deserialize((unsigned char*)sample->value.val);
+    imu_msg.deserialize((unsigned char*)sample->payload.start);
 
     std::cout << "### IMU ###" << std::endl <<
         "Linear Acceleration X: " << imu_msg.linear_acceleration.x << std::endl <<
@@ -154,24 +127,24 @@ void imuCallback(const zn_sample_t *sample, const void *arg) {
         std::flush;
 }
 
-void cmdVelRc100Callback(const zn_sample_t *sample, const void *arg) {
+void cmdVelRc100Callback(const z_sample_t *sample, void *arg) {
     geometry_msgs::Twist cmd_vel_rc100_msg;
-    cmd_vel_rc100_msg.deserialize((unsigned char*)sample->value.val);
+    cmd_vel_rc100_msg.deserialize((unsigned char*)sample->payload.start);
 }
 
-void odomCallback(const zn_sample_t *sample, const void *arg) {
+void odomCallback(const z_sample_t *sample, void *arg) {
     nav_msgs::Odometry odom_msg;
-    odom_msg.deserialize((unsigned char*)sample->value.val);
+    odom_msg.deserialize((unsigned char*)sample->payload.start);
 }
 
-void jointStatesCallback(const zn_sample_t *sample, const void *arg) {
+void jointStatesCallback(const z_sample_t *sample, void *arg) {
     sensor_msgs::JointState joint_states_msg;
-    joint_states_msg.deserialize((unsigned char*)sample->value.val);
+    joint_states_msg.deserialize((unsigned char*)sample->payload.start);
 }
 
-void batteryStateCallback(const zn_sample_t *sample, const void *arg) {
+void batteryStateCallback(const z_sample_t *sample, void *arg) {
     sensor_msgs::BatteryState battery_state_msg;
-    battery_state_msg.deserialize((unsigned char*)sample->value.val);
+    battery_state_msg.deserialize((unsigned char*)sample->payload.start);
 
 
     std::cout << "### Battery ###" << std::endl <<
@@ -194,9 +167,9 @@ void batteryStateCallback(const zn_sample_t *sample, const void *arg) {
         std::flush;
 }
 
-void magneticFieldCallback(const zn_sample_t *sample, const void *arg) {
+void magneticFieldCallback(const z_sample_t *sample, void *arg) {
     sensor_msgs::MagneticField mag_msg;
-    mag_msg.deserialize((unsigned char*)sample->value.val);
+    mag_msg.deserialize((unsigned char*)sample->payload.start);
 
     std::cout << "### Magnetic ###" << std::endl <<
         "Magnetic X: " << mag_msg.magnetic_field.x << std::endl <<
@@ -206,34 +179,7 @@ void magneticFieldCallback(const zn_sample_t *sample, const void *arg) {
         std::flush;
 }
 
-void broadcastTfCallback(const zn_sample_t *sample, const void *arg) {
-    ;
-}
-
-/*******************************************************************************
-* Publication functions
-*******************************************************************************/
-void publishCmdVel(zn_session_t *zn, geometry_msgs::Twist cmd_vel_msg) {
-    unsigned char buf[1024];
-    int size = cmd_vel_msg.serialize(buf);
-    zn_write(zn, *rk_cmd_vel, (const uint8_t *)buf, size);
-}
-
-
-void publishSound(zn_session_t *zn, turtlebot3_msgs::Sound sound_msg) {
-    unsigned char buf[1024];
-    int size = sound_msg.serialize(buf);
-    zn_write(zn, *rk_sound, (const uint8_t *)buf, size);
-}
-
-void publishMotorPower(zn_session_t *zn, std_msgs::Bool motor_power_msg) {
-    unsigned char buf[1024];
-    int size = motor_power_msg.serialize(buf);
-    zn_write(zn, *rk_motor_power, (const uint8_t *)buf, size);
-}
-
-void publishReset(zn_session_t *zn, std_msgs::Empty reset_msg) {
-    unsigned char buf[1024];
-    int size = reset_msg.serialize(buf);
-    zn_write(zn, *rk_reset, (const uint8_t *)buf, size);
+void broadcastTfCallback(const z_sample_t *sample, void *arg) {
+    (void) sample;
+    (void) arg;
 }
