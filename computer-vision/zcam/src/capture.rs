@@ -12,11 +12,15 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use clap::{App, Arg};
-use opencv::{core, prelude::*, videoio};
 use zenoh::config::Config;
 use zenoh::prelude::*;
+use opencv::{
+	prelude::*,
+	Result,
+	videoio,
+};
 
-fn main() {
+fn main() -> Result<()> {
     // initiate logging
     env_logger::init();
 
@@ -28,10 +32,13 @@ fn main() {
     let rid = session.declare_expr(&key_expr).wait().unwrap();
     session.declare_publication(rid).wait().unwrap();
 
-    #[cfg(feature = "opencv-32")]
-    let mut cam = videoio::VideoCapture::new_default(0).unwrap(); // 0 is the default camera
-    #[cfg(not(feature = "opencv-32"))]
-    let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap(); // 0 is the default camera
+    opencv::opencv_branch_32! {
+		let mut cam = videoio::VideoCapture::new_default(0)?; // 0 is the default camera
+	}
+	opencv::not_opencv_branch_32! {
+		let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY)?; // 0 is the default camera
+	}
+    
     let opened = videoio::VideoCapture::is_opened(&cam).unwrap();
     if !opened {
         panic!("Unable to open default camera!");
@@ -41,10 +48,10 @@ fn main() {
     encode_options.push(90);
 
     loop {
-        let mut frame = core::Mat::default();
-        cam.read(&mut frame).unwrap();
+        let mut frame = Mat::default();
+        cam.read(&mut frame)?;
 
-        let mut reduced = Mat::default();
+        let mut reduced = Mat::default();        
         opencv::imgproc::resize(
             &frame,
             &mut reduced,
@@ -52,8 +59,7 @@ fn main() {
             0.0,
             0.0,
             opencv::imgproc::INTER_LINEAR,
-        )
-        .unwrap();
+        )?;        
 
         let mut buf = opencv::types::VectorOfu8::new();
         opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();

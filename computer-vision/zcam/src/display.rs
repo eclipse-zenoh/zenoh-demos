@@ -12,12 +12,12 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use clap::{App, Arg};
-use opencv::{highgui, prelude::*};
+use opencv::{highgui, prelude::*, Result};
 use zenoh::config::Config;
 use zenoh::net::protocol::io::SplitBuffer;
 use zenoh::prelude::*;
 
-fn main() {
+fn main() -> Result<()> {
     // initiate logging
     env_logger::init();
     let (config, key_expr) = parse_args();
@@ -27,19 +27,18 @@ fn main() {
     let mut sub = session.subscribe(&key_expr).wait().unwrap();
 
     let window = &format!("[{}] Press 'q' to quit.", &key_expr);
-    highgui::named_window(window, 1).unwrap();
+    highgui::named_window(window, highgui::WINDOW_AUTOSIZE)?;
 
     while let Ok(sample) = sub.receiver().recv() {
         let decoded = opencv::imgcodecs::imdecode(
             &opencv::types::VectorOfu8::from_iter(sample.value.payload.contiguous().into_owned()),
             opencv::imgcodecs::IMREAD_COLOR,
-        )
-        .unwrap();
+        )?;
 
         if decoded.size().unwrap().width > 0 {
             // let mut enlarged = Mat::default().unwrap();
             // opencv::imgproc::resize(&decoded, &mut enlarged, opencv::core::Size::new(800, 600), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
-            highgui::imshow(window, &decoded).unwrap();
+            highgui::imshow(window, &decoded)?;
         }
 
         if highgui::wait_key(10).unwrap() == 113 {
@@ -49,6 +48,7 @@ fn main() {
     }
     sub.close().wait().unwrap();
     session.close().wait().unwrap();
+    Ok(())
 }
 
 fn parse_args() -> (Config, String) {
