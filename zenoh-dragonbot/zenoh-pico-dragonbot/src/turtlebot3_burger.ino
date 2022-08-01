@@ -12,9 +12,9 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-
 #include <SPI.h>
 #include <WiFi101.h>
+
 #include "turtlebot3_config.h"
 
 /*******************************************************************************
@@ -46,21 +46,6 @@ int wifiInit()
 }
 
 /*******************************************************************************
-* Zenoh Session initialization
-*******************************************************************************/
-zn_session_t *zenohInit()
-{
-    zn_properties_t *config = zn_config_default();
-    zn_properties_insert(config, ZN_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0)
-        zn_properties_insert(config, ZN_CONFIG_PEER_KEY, z_string_make(PEER));
-
-    zn_session_t *s = zn_open(config);
-
-    return s;
-}
-
-/*******************************************************************************
 * Thread functions
 *******************************************************************************/
 static void run_loop(void const *argument)
@@ -85,7 +70,7 @@ static void run_read_task(void const *argument)
   {
     while (xSemaphoreTake(handle, ( TickType_t ) configTICK_RATE_HZ ) != pdTRUE );
     Serial.println("Thread Read");
-    znp_read(zn);
+    zp_read(z_session_loan(&s));
     xSemaphoreGive(handle);
     delay(10);
   }
@@ -99,7 +84,7 @@ static void run_lease_task(void const *argument)
   {
     while (xSemaphoreTake(handle, ( TickType_t ) configTICK_RATE_HZ ) != pdTRUE );
     Serial.println("Thread Keep Alive");
-    znp_send_keep_alive(zn);
+    zp_send_keep_alive(z_session_loan(&s));
     xSemaphoreGive(handle);
     delay(1000);
   }
@@ -107,6 +92,7 @@ static void run_lease_task(void const *argument)
 
 void setup()
 {
+    // Initialize Serial for debug
     Serial.begin(115200);
 
     // Initialize motors drivers
@@ -169,115 +155,119 @@ void setup()
     Serial.println("WiFi Connected!");
 
 
-    // Establish zenoh session
-    Serial.println("Session initializing...");
-    zn = zenohInit();
-    if (zn == NULL)
-    {
-        Serial.println("Error establishing zenoh session!");
-        while(true);
+    // Initialize Zenoh Session and other parameters
+    z_owned_config_t config = zp_config_default();
+    zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
+    if (strcmp(PEER, "") != 0) {
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
     }
-    Serial.println("Session initializing...done");
+
+    // Open Zenoh session
+    Serial.print("Opening Zenoh Session...");
+    s = z_open(z_config_move(&config));
+    if (!z_session_check(&s)) {
+        Serial.print("Unable to open session!\n");
+        while(1);
+    }
+    Serial.println("OK");
 
     delay(2000);
     unsigned long rid = 0;
 
-    // Registering ResKeys Subscriptions, delays of because of WiFi API
-
-    rid = zn_declare_resource(zn, zn_rname(CMD_VEL));
-    rk_cmd_vel = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_cmd_vel = zn_rid(rid);
-
-    delay(100);
-
-    rid = zn_declare_resource(zn, zn_rname(SOUND));
-    rk_sound = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_sound = zn_rid(rid);
+    // Declaring Publications
+    z_owned_publisher_t pub_sensor_state = z_declare_publisher(z_session_loan(&s), z_keyexpr(SENSOR_STATE), NULL);
+    if (!z_publisher_check(&pub_sensor_state)) {
+        while(1);
+    }
 
     delay(100);
 
-    rid = zn_declare_resource(zn, zn_rname(MOTOR_POWER));
-    rk_motor_power = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_motor_power = zn_rid(rid);
+    z_owned_publisher_t pub_firmware_version = z_declare_publisher(z_session_loan(&s), z_keyexpr(FIRMWARE_VERSION), NULL);
+    if (!z_publisher_check(&pub_firmware_version)) {
+        while(1);
+    }
 
     delay(100);
 
-    rid = zn_declare_resource(zn, zn_rname(RESET));
-    rk_reset = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_reset = zn_rid(rid);
+    z_owned_publisher_t pub_imu = z_declare_publisher(z_session_loan(&s), z_keyexpr(IMU), NULL);
+    if (!z_publisher_check(&pub_imu)) {
+        while(1);
+    }
 
     delay(100);
 
-    // Registering ResKeys Publications
-
-    rid = zn_declare_resource(zn, zn_rname(SENSOR_STATE));
-    rk_sensor_state = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_sensor_state = zn_rid(rid);
-
-    delay(100);
-
-    rid = zn_declare_resource(zn, zn_rname(FIRMWARE_VERSION));
-    rk_firmware_version = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_firmware_version = zn_rid(rid);
+    z_owned_publisher_t pub_cmd_vel_rc100 = z_declare_publisher(z_session_loan(&s), z_keyexpr(CMD_VEL_RC100), NULL);
+    if (!z_publisher_check(&pub_cmd_vel_rc100)) {
+        while(1);
+    }
 
     delay(100);
 
-    rid = zn_declare_resource(zn, zn_rname(IMU));
-    rk_imu = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_imu = zn_rid(rid);
+    z_owned_publisher_t pub_odom = z_declare_publisher(z_session_loan(&s), z_keyexpr(ODOM), NULL);
+    if (!z_publisher_check(&pub_odom)) {
+        while(1);
+    }
 
     delay(100);
 
-    rid = zn_declare_resource(zn, zn_rname(CMD_VEL_RC100));
-    rk_cmd_vel_rc100 = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_cmd_vel_rc100 = zn_rid(rid);
+    z_owned_publisher_t pub_joint_states = z_declare_publisher(z_session_loan(&s), z_keyexpr(JOINT_STATES), NULL);
+    if (!z_publisher_check(&pub_joint_states)) {
+        while(1);
+    }
 
     delay(100);
 
-    rid = zn_declare_resource(zn, zn_rname(ODOM));
-    rk_odom = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_odom = zn_rid(rid);
+    z_owned_publisher_t pub_battery_state = z_declare_publisher(z_session_loan(&s), z_keyexpr(BATTERY_STATE), NULL);
+    if (!z_publisher_check(&pub_battery_state)) {
+        while(1);
+    }
 
     delay(100);
 
-    rid = zn_declare_resource(zn, zn_rname(JOINT_STATES));
-    rk_joint_states = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_joint_states = zn_rid(rid);
+    z_owned_publisher_t pub_magnetic_field = z_declare_publisher(z_session_loan(&s), z_keyexpr(MAGNETIC_FIELD), NULL);
+    if (!z_publisher_check(&pub_magnetic_field)) {
+        while(1);
+    }
 
     delay(100);
 
-    rid = zn_declare_resource(zn, zn_rname(BATTERY_STATE));
-    rk_battery_state = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_battery_state = zn_rid(rid);
+    z_owned_publisher_t pub_broadcast_tf = z_declare_publisher(z_session_loan(&s), z_keyexpr(BROADCAST_TF), NULL);
+    if (!z_publisher_check(&pub_broadcast_tf)) {
+        while(1);
+    }
 
     delay(100);
-
-    rid = zn_declare_resource(zn, zn_rname(MAGNETIC_FIELD));
-    rk_magnetic_field = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_magnetic_field = zn_rid(rid);
-
-    delay(100);
-
-    rid = zn_declare_resource(zn, zn_rname(BROADCAST_TF));
-    rk_broadcast_tf = (zn_reskey_t*)malloc(sizeof(zn_reskey_t));
-    *rk_broadcast_tf = zn_rid(rid);
 
     // Declaring subscriptions
-    delay(100);
-
-    cmd_vel_sub = zn_declare_subscriber(zn, *rk_cmd_vel, zn_subinfo_default(), commandVelocityCallback, NULL);
-
-    delay(100);
-
-    sound_sub = zn_declare_subscriber(zn, *rk_sound, zn_subinfo_default(), soundCallback, NULL);
+    z_owned_closure_sample_t callback_cmd_vel = z_closure_sample(commandVelocityCallback, NULL, NULL);
+    z_owned_subscriber_t sub_cmd_vel = z_declare_subscriber(z_session_loan(&s), z_keyexpr(CMD_VEL), z_closure_sample_move(&callback_cmd_vel), NULL);
+    if (!z_subscriber_check(&sub_cmd_vel)) {
+        while(1);
+    }
 
     delay(100);
 
-    motor_power_sub = zn_declare_subscriber(zn, *rk_motor_power, zn_subinfo_default(), motorPowerCallback, NULL);
+    z_owned_closure_sample_t callback_sound = z_closure_sample(soundCallback, NULL, NULL);
+    z_owned_subscriber_t sub_sound = z_declare_subscriber(z_session_loan(&s), z_keyexpr(SOUND), z_closure_sample_move(&callback_sound), NULL);
+    if (!z_subscriber_check(&sub_sound)) {
+        while(1);
+    }
 
     delay(100);
 
-    reset_sub = zn_declare_subscriber(zn, *rk_reset, zn_subinfo_default(), resetCallback, NULL);
+    z_owned_closure_sample_t callback_motor_power = z_closure_sample(motorPowerCallback, NULL, NULL);
+    z_owned_subscriber_t sub_motor_power = z_declare_subscriber(z_session_loan(&s), z_keyexpr(MOTOR_POWER), z_closure_sample_move(&callback_motor_power), NULL);
+    if (!z_subscriber_check(&sub_motor_power)) {
+        while(1);
+    }
+
+    delay(100);
+
+    z_owned_closure_sample_t callback_reset = z_closure_sample(resetCallback, NULL, NULL);
+    z_owned_subscriber_t sub_reset = z_declare_subscriber(z_session_loan(&s), z_keyexpr(RESET), z_closure_sample_move(&callback_reset), NULL);
+    if (!z_subscriber_check(&sub_reset)) {
+        while(1);
+    }
 
     delay(100);
 
@@ -295,9 +285,9 @@ void setup()
     handle = xSemaphoreCreateMutex();
 
     // define thread
-    osThreadDef(THREAD_NAME_LOOP, run_loop, osPriorityNormal, 6, 5120);
-    osThreadDef(THREAD_NAME_READ, run_read_task, osPriorityNormal, 10, 5120);
-    osThreadDef(THREAD_NAME_LEASE, run_lease_task, osPriorityNormal, 2, 5120);
+    osThreadDef(THREAD_NAME_LOOP, run_loop, osPriorityNormal, 1, 2560);
+    osThreadDef(THREAD_NAME_READ, run_read_task, osPriorityNormal, 1, 5120);
+    osThreadDef(THREAD_NAME_LEASE, run_lease_task, osPriorityNormal, 1, 1280);
 
     // create thread
     thread_id_loop = osThreadCreate(osThread(THREAD_NAME_LOOP), NULL);
@@ -342,17 +332,18 @@ void loop()
 
         tTime[0] = t;
     }
+    Serial.println("OK");
 
     if ((t-tTime[2]) >= (1000 / DRIVE_INFORMATION_PUBLISH_FREQUENCY))
     {
         // Sends sensors state
-        publishSensorStateMsg();
+        publishSensorStateMsg(z_publisher_loan(&pub_sensor_state));
 
          // Sends battery state
-        publishBatteryStateMsg();
+        publishBatteryStateMsg(z_publisher_loan(&pub_battery_state));
 
         // Sends drive informations
-        publishDriveInformation();
+        publishDriveInformation(z_publisher_loan(&pub_odom), z_publisher_loan(&pub_broadcast_tf), z_publisher_loan(&pub_joint_states));
         tTime[2] = t;
     }
 
@@ -360,10 +351,10 @@ void loop()
     if ((t-tTime[3]) >= (1000 / IMU_PUBLISH_FREQUENCY))
     {
         // Sends the IMU status
-        publishImuMsg();
+        publishImuMsg(z_publisher_loan(&pub_imu));
 
         // Sends the Magnetic Status
-        publishMagMsg();
+        publishMagMsg(z_publisher_loan(&pub_magnetic_field));
         tTime[3] = t;
 
     }
@@ -371,7 +362,7 @@ void loop()
     if ((t-tTime[4]) >= (1000 / VERSION_INFORMATION_PUBLISH_FREQUENCY))
     {
         // Sends version info
-        publishVersionInfoMsg();
+        publishVersionInfoMsg(z_publisher_loan(&pub_firmware_version));
         tTime[4] = t;
         digitalWrite(BDPIN_LED_USER_4, !digitalRead(BDPIN_LED_USER_4));
     }
@@ -380,9 +371,9 @@ void loop()
 /*******************************************************************************
 * Callback function for reset msg
 *******************************************************************************/
-void resetCallback(const zn_sample_t *sample, const void *arg)
+void resetCallback(const z_sample_t *sample, void *arg)
 {
-  reset_msg.deserialize((unsigned char*)sample->value.val);
+  reset_msg.deserialize((unsigned char*)sample->payload.start);
 
   Serial.println("Start Calibration of Gyro");
 
@@ -398,9 +389,9 @@ void resetCallback(const zn_sample_t *sample, const void *arg)
 /*******************************************************************************
 * Callback function for motor_power msg
 *******************************************************************************/
-void motorPowerCallback(const zn_sample_t *sample, const void *arg)
+void motorPowerCallback(const z_sample_t *sample, void *arg)
 {
-  motor_power_msg.deserialize((unsigned char*)sample->value.val);
+  motor_power_msg.deserialize((unsigned char*)sample->payload.start);
 
   motor_driver.set_torque(motor_power_msg.data);
 }
@@ -408,21 +399,21 @@ void motorPowerCallback(const zn_sample_t *sample, const void *arg)
 /*******************************************************************************
 * Callback function for sound msg
 *******************************************************************************/
-void soundCallback(const zn_sample_t *sample, const void *arg)
+void soundCallback(const z_sample_t *sample, void *arg)
 {
-  sound_msg.deserialize((unsigned char*)sample->value.val);
+  sound_msg.deserialize((unsigned char*)sample->payload.start);
   sensors.makeMelody(sound_msg.value);
 }
 
 /*******************************************************************************
 * Callback function for cmd_vel msg
 *******************************************************************************/
-void commandVelocityCallback(const zn_sample_t *sample, const void *arg)
+void commandVelocityCallback(const z_sample_t *sample, void *arg)
 {
     (void)(arg); // Unused argument
     led_4_status = !led_4_status;
 
-    cmd_vel_msg.deserialize((unsigned char*)sample->value.val);
+    cmd_vel_msg.deserialize((unsigned char*)sample->payload.start);
 
     goal_velocity_from_cmd[VelocityType::LINEAR] = constrain((float)(cmd_vel_msg.linear.x), MIN_LINEAR_VELOCITY, MAX_LINEAR_VELOCITY);
     goal_velocity_from_cmd[VelocityType::ANGULAR] = constrain((float)(cmd_vel_msg.angular.z), MIN_ANGULAR_VELOCITY, MAX_ANGULAR_VELOCITY);
@@ -432,7 +423,7 @@ void commandVelocityCallback(const zn_sample_t *sample, const void *arg)
 /*******************************************************************************
 * Publish msgs (IMU data: angular velocity, linear acceleration, orientation)
 *******************************************************************************/
-void publishImuMsg(void)
+void publishImuMsg(z_publisher_t *pub)
 {
     float *angular_velocity = sensors.getImuAngularVelocity();
     float *linear_velocity = sensors.getImuLinearAcc();
@@ -487,13 +478,13 @@ void publishImuMsg(void)
 
     int size = imu_msg.serialize(buf);
 
-    zn_write(zn, *rk_imu, (const uint8_t *)buf, size);
+    z_publisher_put(pub, (const uint8_t *)buf, size, NULL);
 }
 
 /*******************************************************************************
 * Publish msgs (Magnetic data)
 *******************************************************************************/
-void publishMagMsg(void)
+void publishMagMsg(z_publisher_t *pub)
 {
 
     float *magnetic = sensors.getImuMagnetic();
@@ -516,13 +507,13 @@ void publishMagMsg(void)
     mag_msg.header.frame_id = mag_frame_id;
 
     int size = mag_msg.serialize(buf);
-    zn_write(zn, *rk_magnetic_field, (const uint8_t *)buf, size);
+    z_publisher_put(pub, (const uint8_t *)buf, size, NULL);
 }
 
 /*******************************************************************************
 * Publish msgs (sensor_state: bumpers, cliffs, buttons, encoders, battery)
 *******************************************************************************/
-void publishSensorStateMsg(void)
+void publishSensorStateMsg(z_publisher_t *pub)
 {
     bool dxl_comm_result = false;
 
@@ -551,26 +542,26 @@ void publishSensorStateMsg(void)
 
 
     int size = sensor_state_msg.serialize(buf);
-    zn_write(zn, *rk_sensor_state, (const uint8_t *)buf, size);
+    z_publisher_put(pub, (const uint8_t *)buf, size, NULL);
 }
 
 /*******************************************************************************
 * Publish msgs (version info)
 *******************************************************************************/
-void publishVersionInfoMsg(void)
+void publishVersionInfoMsg(z_publisher_t *pub)
 {
     version_info_msg.hardware = "0.0.0";
     version_info_msg.software = "0.0.0";
     version_info_msg.firmware = FIRMWARE_VER;
 
     int size = version_info_msg.serialize(buf);
-    zn_write(zn, *rk_firmware_version, (const uint8_t *)buf, size);
+    z_publisher_put(pub, (const uint8_t *)buf, size, NULL);
 }
 
 /*******************************************************************************
 * Publish msgs (battery_state)
 *******************************************************************************/
-void publishBatteryStateMsg(void)
+void publishBatteryStateMsg(z_publisher_t *pub)
 {
     battery_state_msg.header.stamp = fake_time;
     battery_state_msg.design_capacity = 1.8f; //Ah
@@ -583,13 +574,13 @@ void publishBatteryStateMsg(void)
         battery_state_msg.present = true;
 
     int size = battery_state_msg.serialize(buf);
-    zn_write(zn, *rk_battery_state, (const uint8_t *)buf, size);
+    z_publisher_put(pub, (const uint8_t *)buf, size, NULL);
 }
 
 /*******************************************************************************
 * Publish msgs (odometry, joint states, tf)
 *******************************************************************************/
-void publishDriveInformation(void)
+void publishDriveInformation(z_publisher_t *pub_odom, z_publisher_t *pub_tf, z_publisher_t *pub_js)
 {
     unsigned long time_now = millis();
     unsigned long step_time = time_now - prev_update_time;
@@ -605,28 +596,25 @@ void publishDriveInformation(void)
     odom_msg.header.stamp = stamp_now;
 
     int size = odom_msg.serialize(buf);
-    zn_write(zn, *rk_odom, (const uint8_t *)buf, size);
-
+    z_publisher_put(pub_odom, (const uint8_t *)buf, size, NULL);
 
     // odometry tf
     updateTF(odom_tf);
     odom_tf.header.stamp = stamp_now;
-    sendTransform();
+    sendTransform(pub_tf);
 
     // joint states
     updateJointStates();
     joint_states_msg.header.stamp = stamp_now;
 
     size = joint_states_msg.serialize(buf);
-    zn_write(zn, *rk_joint_states, (const uint8_t *)buf, size);
-
-
+    z_publisher_put(pub_js, (const uint8_t *)buf, size, NULL);
 }
 
 /*******************************************************************************
 * Broadcast tf
 *******************************************************************************/
-void sendTransform(void)
+void sendTransform(z_publisher_t *pub)
 {
     tf::tfMessage internal_msg;
 
@@ -634,8 +622,7 @@ void sendTransform(void)
     internal_msg.transforms = &odom_tf;
 
     int size = internal_msg.serialize(buf);
-    zn_write(zn, *rk_broadcast_tf, (const uint8_t *)buf, size);
-
+    z_publisher_put(pub, (const uint8_t *)buf, size, NULL);
 }
 
 /*******************************************************************************
