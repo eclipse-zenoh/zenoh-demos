@@ -44,23 +44,30 @@ fn main() -> Result<()>{
 
     loop {
         let mut frame = core::Mat::default();
+        
         cam.read(&mut frame)?;
 
-        let mut reduced = Mat::default();
-        opencv::imgproc::resize(
-            &frame,
-            &mut reduced,
-            opencv::core::Size::new(resolution[0], resolution[1]),
-            0.0,
-            0.0,
-            opencv::imgproc::INTER_LINEAR,
-        )?;
+        if !frame.empty() {
 
-        let mut buf = opencv::types::VectorOfu8::new();
-        opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options)?;
+            let mut reduced = Mat::default();
+            opencv::imgproc::resize(
+                &frame,
+                &mut reduced,
+                opencv::core::Size::new(resolution[0], resolution[1]),
+                0.0,
+                0.0,
+                opencv::imgproc::INTER_LINEAR,
+            )?;
 
-        zpub.put(buf.to_vec()).res().unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(delay));
+            let mut buf = opencv::types::VectorOfu8::new();
+            opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options)?;
+
+            zpub.put(buf.to_vec()).res().unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(delay));
+        } else {
+            println!("Reading empty buffer from camera... Waiting some more....");
+            std::thread::sleep(std::time::Duration::from_secs(1));
+        }
     }
 }
 
