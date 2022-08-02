@@ -12,12 +12,12 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use clap::{App, Arg};
-use opencv::{highgui, prelude::*};
+use opencv::{highgui, prelude::*, Result};
 use zenoh::config::Config;
 use zenoh::prelude::sync::SyncResolve;
 use zenoh::prelude::SplitBuffer;
 
-fn main() {
+fn main() -> Result<()> {
     // initiate logging
     env_logger::init();
     let (config, key_expr) = parse_args();
@@ -30,22 +30,21 @@ fn main() {
         let decoded = opencv::imgcodecs::imdecode(
             &opencv::types::VectorOfu8::from_slice(sample.value.payload.contiguous().as_ref()),
             opencv::imgcodecs::IMREAD_COLOR,
-        )
-        .unwrap();
+        )?;
 
-        if decoded.size().unwrap().width > 0 {
-            // let mut enlarged = Mat::default().unwrap();
-            // opencv::imgproc::resize(&decoded, &mut enlarged, opencv::core::Size::new(800, 600), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
-            highgui::imshow(sample.key_expr.as_str(), &decoded).unwrap();
+        if decoded.size().unwrap().width > 0 {            
+            highgui::imshow(sample.key_expr.as_str(), &decoded)?;
         }
 
-        if highgui::wait_key(10).unwrap() == 113 {
+        if highgui::wait_key(10)? == 113 {
             // 'q'
             break;
         }
     }
     sub.undeclare().res().unwrap();
     session.close().res().unwrap();
+    
+    Ok(())
 }
 
 fn parse_args() -> (Config, String) {
@@ -57,7 +56,7 @@ fn parse_args() -> (Config, String) {
         )
         .arg(
             Arg::from_usage("-k, --key=[KEY_EXPR] 'The key expression to subscribe to.")
-                .default_value("/demo/zcam"),
+                .default_value("demo/zcam"),
         )
         .arg(Arg::from_usage(
             "-e, --peer=[LOCATOR]...  'Peer locators used to initiate the zenoh session.'",

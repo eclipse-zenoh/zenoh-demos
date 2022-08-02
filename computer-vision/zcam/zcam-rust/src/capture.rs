@@ -12,11 +12,11 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use clap::{App, Arg};
-use opencv::{core, prelude::*, videoio};
+use opencv::{core, prelude::*, videoio, Result};
 use zenoh::config::Config;
 use zenoh::prelude::sync::SyncResolve;
 
-fn main() {
+fn main() -> Result<()>{
     // initiate logging
     env_logger::init();
 
@@ -27,11 +27,14 @@ fn main() {
 
     let zpub = session.declare_publisher(&key_expr).res().unwrap();
 
-    #[cfg(feature = "opencv-32")]
-    let mut cam = videoio::VideoCapture::new_default(0).unwrap(); // 0 is the default camera
-    #[cfg(not(feature = "opencv-32"))]
-    let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap(); // 0 is the default camera
-    let opened = videoio::VideoCapture::is_opened(&cam).unwrap();
+    opencv::opencv_branch_32! {
+		let mut cam = videoio::VideoCapture::new_default(0)?; // 0 is the default camera
+	}
+	opencv::not_opencv_branch_32! {
+		let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY)?; // 0 is the default camera
+	}
+
+    let opened = videoio::VideoCapture::is_opened(&cam)?;
     if !opened {
         panic!("Unable to open default camera!");
     }
@@ -41,7 +44,7 @@ fn main() {
 
     loop {
         let mut frame = core::Mat::default();
-        cam.read(&mut frame).unwrap();
+        cam.read(&mut frame)?;
 
         let mut reduced = Mat::default();
         opencv::imgproc::resize(
@@ -51,11 +54,10 @@ fn main() {
             0.0,
             0.0,
             opencv::imgproc::INTER_LINEAR,
-        )
-        .unwrap();
+        )?;
 
         let mut buf = opencv::types::VectorOfu8::new();
-        opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();
+        opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options)?;
 
         zpub.put(buf.to_vec()).res().unwrap();
         std::thread::sleep(std::time::Duration::from_millis(delay));
@@ -76,7 +78,7 @@ fn parse_args() -> (Config, String, Vec<i32>, u64) {
             Arg::from_usage(
                 "-k, --key=[KEY_EXPR] 'The key expression on which the video will be published.",
             )
-            .default_value("/demo/zcam"),
+            .default_value("demo/zcam"),
         )
         .arg(
             Arg::from_usage(
