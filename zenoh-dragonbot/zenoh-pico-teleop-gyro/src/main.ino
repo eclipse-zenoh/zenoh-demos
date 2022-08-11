@@ -47,11 +47,7 @@ extern "C" {
 #define Y_MIN_VALUE -2.50
 #define Y_ZERO_VALUE 0.5
 
-
 #define CONTROL_MOTOR_SPEED_FREQUENCY 30 //hz
-
-
-
 
 /* ---------- Print Functions ----------- */
 void printVector(geometry_msgs::Vector3 *v)
@@ -78,29 +74,37 @@ void printTwist(geometry_msgs::Twist *t)
 /* -------------------------------------- */
 
 MPU6050 mpu(Wire);
+
 z_owned_session_t s;
 z_owned_publisher_t pub_sensor_state;
+
 double offset_x = 0.0;
 double offset_y = 0.0;
 
-void setup(void) {
+z_owned_publisher_t pub;
+
+void setup(void)
+{
     // Initialize Serial for debug
     Serial.begin(115200);
-
     // while (!Serial)
     //     delay(10);
+
 
     // Set WiFi in STA mode and trigger attachment
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, PASS);
-    while (WiFi.status() != WL_CONNECTED)
+    while (WiFi.status() != WL_CONNECTED) {
         delay(1000);
+    }
     Serial.println("Connected to WiFi!");
 
-    // Initialize MPU6050
+    // Initialize and calibrate0 MPU6050
+    Serial.print("Detecting MPU6050 sensor...");
     Wire.begin();
     mpu.begin();
     mpu.calcGyroOffsets(true);
+
     Serial.println("MPU6050 Found!");
 
     // Initialize Zenoh Session and other parameters
@@ -130,11 +134,47 @@ void setup(void) {
     mpu.update();
     offset_x = mpu.getAccAngleX();
     offset_y = mpu.getAccAngleY();
-    delay(1000);
+    Serial.println("OK");
+
+    delay(300);
+
+    // Initialize Zenoh Session and other parameters
+    z_owned_config_t config = zp_config_default();
+    zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
+    if (strcmp(PEER, "") != 0) {
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
+    }
+
+    // Open Zenoh session
+    Serial.print("Opening Zenoh Session...");
+    z_owned_session_t s = z_open(z_config_move(&config));
+    if (!z_session_check(&s)) {
+        Serial.println("Unable to open session!\n");
+        while(1);
+    }
+    Serial.println("OK");
+
+    // Start the receive and the session lease loop for zenoh-pico
+    zp_start_read_task(z_session_loan(&s));
+    zp_start_lease_task(z_session_loan(&s));
+
+    // Declare Zenoh publisher
+    Serial.print("Declaring publisher for ");
+    Serial.print(KEYEXPR);
+    Serial.println("...");
+    pub = z_declare_publisher(z_session_loan(&s), z_keyexpr(KEYEXPR), NULL);
+    if (!z_publisher_check(&pub)) {
+        Serial.println("Unable to declare publisher for key expression!\n");
+        while(1);
+    }
+    Serial.println("OK");
+    Serial.println("Zenoh setup finished!");
 }
 
-void loop() {
+void loop()
+{
     delay(1000 / CONTROL_MOTOR_SPEED_FREQUENCY);
+
     mpu.update();
 
     double linear_x = (mpu.getAccAngleX() - offset_x) / X_SCALING_FACTOR;
@@ -148,8 +188,6 @@ void loop() {
 
     // Reusing micro-ROS(1) types
     geometry_msgs::Twist cmd_vel_msg;
-
-
 
     cmd_vel_msg.linear.x = linear_x;
     cmd_vel_msg.linear.y = 0.0;

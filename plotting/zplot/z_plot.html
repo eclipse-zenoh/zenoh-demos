@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="https://uicdn.toast.com/chart/latest/toastui-chart.min.css" />
+        <script src="https://uicdn.toast.com/chart/latest/toastui-chart.min.js"></script>
+    </head>
+    <body style="width: 100vw; height: 100vh;">
+        <script type="text/javascript">
+            series = {};
+            chart = toastui.Chart.lineChart({ 
+                el: document.body,
+                data: { series: [] },
+                options: {
+                chart: { height: 'auto', width: 'auto', animation: false },
+                xAxis: {date: true},
+                yAxis: {scale: {min:0}},
+                },
+            });
+            if(typeof(EventSource) !== "undefined") {
+                var source = new EventSource("http://localhost:8000/demo/random");
+                source.addEventListener("PUT", function(e) {
+                    sample = JSON.parse(e.data);
+                    if (!series[sample.key]) {series[sample.key] = {value: [], checked: true};} 
+                    series[sample.key].value.push([new Date(sample.time.split('/')[0]), sample.value]);
+                }, false);
+                setInterval(function() {
+                    now = Date.now();
+                    for (key of  Object.keys(series)) { 
+                        series[key].value = series[key].value.filter(x => x[0] > (now - 10000))
+                    }
+                    chart.setData({ series: Object.keys(series).map(name => {return {name, data: series[name].value}})});
+                    legend = chart.store.state.legend.data;
+                    for (l of legend) {
+                        chart.store.state.legend.data.find(data => data.label === l.label).checked = l.checked;
+                    }
+                }, 500);
+            } else {
+                document.body.innerHTML = "Sorry, your browser does not support server-sent events...";
+            }
+        </script>
+    </body>
+</html>

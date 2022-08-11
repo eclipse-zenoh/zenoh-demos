@@ -1,5 +1,5 @@
 [workspace]
 members = [
-        "zenoh_eval_shamir",
+        "zenoh_queryable_shamir",
         "zenoh_put_shamir",
 ]

@@ -127,12 +127,12 @@ void setup()
 
     prev_update_time = millis();
 
-    Serial.println("Success to initialize to the motor drivers");
+    Serial.print("Connecting to the motor drivers...");
     delay(1000);
-    if (motor_driver.is_connected() == false)
+    if (!motor_driver.is_connected())
     {
         Serial.println("Failing to connect to the motor drivers");
-        while(true);
+        while(1);
     }
     motor_driver.set_torque(true);
     Serial.println("Success to initialize and connect the motor drivers");
@@ -153,7 +153,6 @@ void setup()
         while (true);
     }
     Serial.println("WiFi Connected!");
-
 
     // Initialize Zenoh Session and other parameters
     z_owned_config_t config = zp_config_default();
@@ -346,7 +345,6 @@ void loop()
         publishDriveInformation(z_publisher_loan(&pub_odom), z_publisher_loan(&pub_broadcast_tf), z_publisher_loan(&pub_joint_states));
         tTime[2] = t;
     }
-
 
     if ((t-tTime[3]) >= (1000 / IMU_PUBLISH_FREQUENCY))
     {
