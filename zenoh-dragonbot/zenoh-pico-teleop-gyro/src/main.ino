@@ -21,7 +21,6 @@
 // For ROS types
 #include <geometry_msgs/Twist.h>
 
-
 extern "C" {
     #include "zenoh-pico.h"
 }
@@ -137,38 +136,6 @@ void setup(void)
     Serial.println("OK");
 
     delay(300);
-
-    // Initialize Zenoh Session and other parameters
-    z_owned_config_t config = zp_config_default();
-    zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0) {
-        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
-    }
-
-    // Open Zenoh session
-    Serial.print("Opening Zenoh Session...");
-    z_owned_session_t s = z_open(z_config_move(&config));
-    if (!z_session_check(&s)) {
-        Serial.println("Unable to open session!\n");
-        while(1);
-    }
-    Serial.println("OK");
-
-    // Start the receive and the session lease loop for zenoh-pico
-    zp_start_read_task(z_session_loan(&s));
-    zp_start_lease_task(z_session_loan(&s));
-
-    // Declare Zenoh publisher
-    Serial.print("Declaring publisher for ");
-    Serial.print(KEYEXPR);
-    Serial.println("...");
-    pub = z_declare_publisher(z_session_loan(&s), z_keyexpr(KEYEXPR), NULL);
-    if (!z_publisher_check(&pub)) {
-        Serial.println("Unable to declare publisher for key expression!\n");
-        while(1);
-    }
-    Serial.println("OK");
-    Serial.println("Zenoh setup finished!");
 }
 
 void loop()
