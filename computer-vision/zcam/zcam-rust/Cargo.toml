@@ -27,3 +27,10 @@ name = "zcapture"
 test = false
 bench = false
 path = "src/capture.rs"
+
+[profile.release]
+debug = false     # If you want debug symbol in release mode, set the env variable: RUSTFLAGS=-g
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+panic = "abort"
