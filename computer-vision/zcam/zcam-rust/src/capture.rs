@@ -16,7 +16,7 @@ use opencv::{core, prelude::*, videoio, Result};
 use zenoh::config::Config;
 use zenoh::prelude::sync::SyncResolve;
 
-fn main() -> Result<()>{
+fn main() -> Result<()> {
     // initiate logging
     env_logger::init();
 
@@ -28,11 +28,11 @@ fn main() -> Result<()>{
     let zpub = session.declare_publisher(&key_expr).res().unwrap();
 
     opencv::opencv_branch_32! {
-		let mut cam = videoio::VideoCapture::new_default(0)?; // 0 is the default camera
-	}
-	opencv::not_opencv_branch_32! {
-		let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY)?; // 0 is the default camera
-	}
+        let mut cam = videoio::VideoCapture::new_default(0)?; // 0 is the default camera
+    }
+    opencv::not_opencv_branch_32! {
+        let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY)?; // 0 is the default camera
+    }
 
     let opened = videoio::VideoCapture::is_opened(&cam)?;
     if !opened {
@@ -44,11 +44,10 @@ fn main() -> Result<()>{
 
     loop {
         let mut frame = core::Mat::default();
-        
+
         cam.read(&mut frame)?;
 
         if !frame.empty() {
-
             let mut reduced = Mat::default();
             opencv::imgproc::resize(
                 &frame,

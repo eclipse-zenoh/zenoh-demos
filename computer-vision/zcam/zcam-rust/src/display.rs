@@ -32,7 +32,7 @@ fn main() -> Result<()> {
             opencv::imgcodecs::IMREAD_COLOR,
         )?;
 
-        if decoded.size().unwrap().width > 0 {            
+        if decoded.size().unwrap().width > 0 {
             highgui::imshow(sample.key_expr.as_str(), &decoded)?;
         }
 
@@ -43,7 +43,6 @@ fn main() -> Result<()> {
     }
     sub.undeclare().res().unwrap();
     session.close().res().unwrap();
-    
     Ok(())
 }
 
