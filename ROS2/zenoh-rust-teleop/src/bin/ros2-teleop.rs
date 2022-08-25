@@ -23,19 +23,20 @@ use futures::prelude::*;
 use futures::select;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
+use std::io::{stdout, Write};
 use zenoh::buf::reader::HasReader;
 use zenoh::config::Config;
 use zenoh::prelude::*;
 use zenoh::Session;
 
-#[derive(Serialize, PartialEq)]
+#[derive(Serialize, PartialEq, Debug)]
 struct Vector3 {
     x: f64,
     y: f64,
     z: f64,
 }
 
-#[derive(Serialize, PartialEq)]
+#[derive(Serialize, PartialEq, Debug)]
 struct Twist {
     linear: Vector3,
     angular: Vector3,
@@ -82,9 +83,17 @@ async fn pub_twist(session: &Session, cmd_key: ExprId, linear: f64, angular: f64
         },
     };
 
+    write!(stdout(), "Publish on {} : {:?}\r\n", cmd_key, twist).unwrap_or_default();
     let encoded = cdr::serialize::<_, _, CdrLe>(&twist, Infinite).unwrap();
     if let Err(e) = session.put(cmd_key, encoded).await {
         log::warn!("Error writing to zenoh: {}", e);
+    }
+}
+
+async fn del_twist(session: &Session, cmd_key: ExprId) {
+    write!(stdout(), "Delete on {}\r\n", cmd_key).unwrap_or_default();
+    if let Err(e) = session.delete(cmd_key).await {
+        log::warn!("Error deleting {}: {}", cmd_key, e);
     }
 }
 
@@ -106,8 +115,8 @@ async fn main() {
 
     // Keyboard event read loop, sending each to an async_std channel
     // Note: enable raw mode for direct processing of key pressed, without having to hit ENTER...
-    // Unfortunately, this mode doesn't process new line characters on output. Thus we have to call
-    // `std::io::stdout().execute(MoveToColumn(0));` after each `println!`.
+    // Unfortunately, this mode doesn't process new line characters on println!().
+    // Thus write!(stdout(), "...\r\n") has to be used instead.
     crossterm::terminal::enable_raw_mode().unwrap();
     let (key_sender, key_receiver) = bounded::<Event>(10);
     async_std::task::spawn(async move {
@@ -125,8 +134,12 @@ async fn main() {
         }
     });
 
-    println!("Waiting commands with arrow keys or space bar to stop. Press on ESC, 'Q' or CTRL+C to quit.");
-    std::io::stdout().execute(MoveToColumn(0)).unwrap();
+    write!(stdout(), "Waiting commands with arrow keys or space bar to stop. Press on ESC, 'q' or CTRL+C to quit.\r\n").unwrap_or_default();
+    write!(
+        stdout(),
+        "If an InfluxDB is storing publications, press 'd' to delete them all\r\n"
+    )
+    .unwrap_or_default();
     // Events management loop
     loop {
         select!(
@@ -165,6 +178,9 @@ async fn main() {
                     Ok(Event::Key(KeyEvent { code: KeyCode::Esc, modifiers: _ })) |
                     Ok(Event::Key(KeyEvent { code: KeyCode::Char('q'), modifiers: _ })) => {
                         break
+                    },
+                    Ok(Event::Key(KeyEvent { code: KeyCode::Char('d'), modifiers: _ })) => {
+                        del_twist(&session, cmd_key).await
                     },
                     Ok(Event::Key(KeyEvent { code: KeyCode::Char('c'), modifiers })) => {
                         if modifiers.contains(KeyModifiers::CONTROL) { break }
@@ -243,5 +259,5 @@ fn parse_args() -> (Config, String, String, f64, f64) {
     let angular_scale: f64 = args.value_of("angular_scale").unwrap().parse().unwrap();
     let linear_scale: f64 = args.value_of("linear_scale").unwrap().parse().unwrap();
 
-    (config, cmd_vel, rosout, angular_scale, linear_scale)
+    (config, cmd_vel, rosout, linear_scale, angular_scale)
 }
