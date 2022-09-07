@@ -420,9 +420,9 @@
         }
 
         function setCameraSrc() {
-            // If your robot has a camera and zcapture installed (from zenoh-demos/computer-vision/zcam/), 
+            // If your robot has a camera and zcapture installed (from zenoh-demos/computer-vision/zcam/),
             // uncomment the camera <div> block on top of this file.
-            // The zcapture must be started with "-k <scope>/cams/0".
+            // The zcapture must be started with "-k <scope>/cams/0", and the zenoh router must have the WebServer plugin running
             if (document.getElementById("camera_img") != null) {
                 // Set "camera_img" element's src to the same URL host, but with port 8080 (WebServer plugin)
                 // and with path: "demo/zcam?_method=SUB"
