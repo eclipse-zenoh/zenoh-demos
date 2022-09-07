@@ -18,62 +18,44 @@
     <input id="bridge_url" class="w3-input w3-border w3-padding-small" type="text" required
         value="http://localhost:8000/"><br />
 
-    <div class="w3-card-4 w3-margin-bottom">
-        <header class="w3-bar w3-green" onclick="document.getElementById('Config').classList.toggle('w3-hide');">
-            <h5 class="w3-bar-item" style="margin: 0;">Config</h5>
-            <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-gear'></i></h5>
-        </header>
-        <form id="Config" class="w3-container w3-hide">
-            <label for="scope">Extra scope prefixed to keys:</label>
-            <input id="scope" class="w3-input w3-border w3-padding-small" type="text" value=""><br />
-            <label for="cmd_vel_res">Publish Twist messages to:</label>
-            <input id="cmd_vel_res" class="w3-input w3-border w3-padding-small" type="text" required
-                value="rt/cmd_vel"><br />
-            <label for="linear_scale">Linear scale:</label>
-            <input id="linear_scale" class="w3-input w3-border w3-padding-small" type="number" required
-                value="0.2"><br />
-            <label for="angular_scale">Angular scale:</label>
-            <input id="angular_scale" class="w3-input w3-border w3-padding-small" type="number" required
-                value="2.6"><br />
-            <label for="imu_res">Subscribe to Acceleration from:</label>
-            <input id="imu_res" class="w3-input w3-border w3-padding-small" type="text" required value="rt/imu"><br />
-            <input type="submit" class="w3-btn w3-green" value="Reset acceleration subscription"
-                onclick="return subscribeToImu();"><br />
-            <br />
-            <label for="rosout_res">Subscribe to Log messages from:</label>
-            <input id="rosout_res" class="w3-input w3-border w3-padding-small" type="text" required
-                value="rt/rosout"><br />
-            <input type="submit" class="w3-btn w3-green" value="Reset log subscription"
-                onclick="return subscribeToRosout();"><br />
-            <br />
-        </form>
-    </div>
+    <!-- If your robot has a camera and zcapture installed (from zenoh-demos/computer-vision/zcam/), uncomment this:
 
+    <div class="w3-card-4 w3-margin-bottom">
+        <header class="w3-bar w3-green" onclick="document.getElementById('Camera').classList.toggle('w3-hide');">
+            <h5 class="w3-bar-item" style="margin: 0;">Camera</h5>
+            <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-video-camera'></i></h5>
+        </header>
+        <div id="Camera" class="w3-container w3-padding">
+            <img id="camera_img" class="w3-container w3-padding" style="max-width: 95%; max-height: 300px;" src="" />
+        </div>
+        <br />
+    </div>
+-->
     <div class="w3-card-4 w3-margin-bottom">
         <header class="w3-bar w3-green" onclick="document.getElementById('Drive').classList.toggle('w3-hide');">
             <h5 class="w3-bar-item" style="margin: 0;">Drive</h5>
             <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-gamepad'></i></h5>
         </header>
         <div id="Drive" class="w3-container w3-padding">
-            <div class="w3-auto" style="display: grid; width:18em; height:12em; ">
+            <div class="w3-auto" style="display: grid; width:12em; height:9em; ">
                 <button onmousedown="pubTwist(1.0, 0.0);" onmouseup="pubTwist(0.0, 0.0);"
                     ontouchstart="pubTwist(1.0, 0.0);" ontouchend="pubTwist(0.0, 0.0);"
-                    style='font-size:3em; grid-column: 2; grid-row: 1;'>
+                    style='font-size:2em; grid-column: 2; grid-row: 1;'>
                     <i class='fas fa-caret-up'></i>
                 </button>
                 <button onmousedown="pubTwist(0.0, 1.0);" onmouseup="pubTwist(0.0, 0.0);"
                     ontouchstart="pubTwist(0.0, 1.0);" ontouchend="pubTwist(0.0, 0.0);"
-                    style='font-size:3em; grid-column: 1; grid-row: 2;'>
+                    style='font-size:2em; grid-column: 1; grid-row: 2;'>
                     <i class='fas fa-caret-left'></i>
                 </button>
                 <button onmousedown="pubTwist(-1.0, 0.0);" onmouseup="pubTwist(0.0, 0.0);"
                     ontouchstart="pubTwist(-1.0, 0.0);" ontouchend="pubTwist(0.0, 0.0);"
-                    style='font-size:3em; grid-column: 2; grid-row: 2;'>
+                    style='font-size:2em; grid-column: 2; grid-row: 2;'>
                     <i class='fas fa-caret-down'></i>
                 </button>
                 <button onmousedown="pubTwist(0.0, -1.0);" onmouseup="pubTwist(0.0, 0.0);"
                     ontouchstart="pubTwist(0.0, -1.0);" ontouchend="pubTwist(0.0, 0.0);"
-                    style='font-size:3em; grid-column: 3; grid-row: 2;'>
+                    style='font-size:2em; grid-column: 3; grid-row: 2;'>
                     <i class='fas fa-caret-right'></i>
                 </button>
                 <button onclick="pubTwist(0.0, 0.0);" style='font-size:2em; grid-column: 1 / 4; grid-row: 3;'>
@@ -103,6 +85,35 @@
             <div style="overflow:auto; height:200px; border:1px solid black;" id="rosout_logs"></div>
         </div>
     </div>
+
+    <div class="w3-card-4 w3-margin-bottom">
+        <header class="w3-bar w3-green" onclick="document.getElementById('Config').classList.toggle('w3-hide');">
+            <h5 class="w3-bar-item" style="margin: 0;">Config</h5>
+            <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-gear'></i></h5>
+        </header>
+        <form id="Config" class="w3-container w3-hide">
+            <label for="scope">Extra scope prefixed to keys:</label>
+            <input id="scope" class="w3-input w3-border w3-padding-small" type="text" value=""><br />
+            <label for="cmd_vel_res">Publish Twist messages to:</label>
+            <input id="cmd_vel_res" class="w3-input w3-border w3-padding-small" type="text" required
+                value="rt/cmd_vel"><br />
+            <label for="linear_scale">Linear scale:</label>
+            <input id="linear_scale" class="w3-input w3-border w3-padding-small" type="number" required
+                value="0.2"><br />
+            <label for="angular_scale">Angular scale:</label>
+            <input id="angular_scale" class="w3-input w3-border w3-padding-small" type="number" required
+                value="2.6"><br />
+            <label for="imu_res">Subscribe to Acceleration from:</label>
+            <input id="imu_res" class="w3-input w3-border w3-padding-small" type="text" required value="rt/imu"><br />
+            <label for="rosout_res">Subscribe to Log messages from:</label>
+            <input id="rosout_res" class="w3-input w3-border w3-padding-small" type="text" required
+                value="rt/rosout"><br />
+            <input type="submit" class="w3-btn w3-green" value="Reset subscriptions"
+                onclick="resetAllSubscriptions(); return false"><br />
+            <br />
+        </form>
+    </div>
+
 
     <script src="https://cdn.jsdelivr.net/npm/bytebuffer@5.0.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/jscdr@0.0.1"></script>
@@ -308,7 +319,9 @@
         }
 
         function onkeyup(e) {
-            pubTwist(0.0, 0.0);
+            // if key pressed was an arrow, send a Twist(0,0) to stop the robot
+            if (e.keyCode == '37' || e.keyCode == '38' || e.keyCode == '39' || e.keyCode == '40')
+                pubTwist(0.0, 0.0);
         }
 
         // register callback on key down
@@ -317,17 +330,23 @@
         document.onkeyup = onkeyup;
 
         // EventSource receiving Logs
-        var event_source;
+        var rosout_source = null;
 
         function subscribeToRosout() {
+            // close previous if exists
+            if (rosout_source != null) {
+                console.log("CLOSE ROSOUT EventSource");
+                rosout_source.close();
+            }
+
             if (typeof (EventSource) !== "undefined") {
                 var bridge_url = document.getElementById("bridge_url").value
                 var rosout_res = document.getElementById("rosout_res").value
                 var scope = document.getElementById("scope").value
                 if (scope.length > 0 && !scope.endsWith("/")) { scope += "/" }
                 console.log("Subscribe to EventSource: " + bridge_url + scope + rosout_res);
-                event_source = new EventSource(bridge_url + scope + rosout_res);
-                event_source.addEventListener("PUT", function (e) {
+                rosout_source = new EventSource(bridge_url + scope + rosout_res);
+                rosout_source.addEventListener("PUT", function (e) {
                     console.log("Received sample: " + e.data);
                     // The zenoh REST API sends JSON objects
                     // that includes "key", "value", "encoding" and "time" (same than a result to GET)
@@ -347,9 +366,9 @@
             } else {
                 document.getElementById("rosout_logs").innerHTML = "Sorry, your browser does not support server-sent events...";
             }
-            return false;
         }
 
+        // setup Acceleration chart
         serie = [];
         chart = toastui.Chart.lineChart({
             el: document.getElementById("Acceleration"),
@@ -363,15 +382,24 @@
             },
         });
 
+        // EventSource receiving Acceleration
+        var imu_source = null;
+
         function subscribeToImu() {
+            // close previous if exists
+            if (imu_source != null) {
+                console.log("CLOSE IMU EventSource");
+                imu_source.close();
+            }
+
             if (typeof (EventSource) !== "undefined") {
                 var bridge_url = document.getElementById("bridge_url").value
                 var imu_res = document.getElementById("imu_res").value
                 var scope = document.getElementById("scope").value
                 if (scope.length > 0 && !scope.endsWith("/")) { scope += "/" }
                 console.log("Subscribe to EventSource: " + bridge_url + scope + imu_res);
-                var source = new EventSource(bridge_url + scope + imu_res);
-                source.addEventListener("PUT", function (e) {
+                imu_source = new EventSource(bridge_url + scope + imu_res);
+                imu_source.addEventListener("PUT", function (e) {
                     let sample = JSON.parse(e.data);
                     // The payload buffer is in "value" field, encoded as base64.
                     // Since it's comming from DDS, we decode it using a jscdr.CDRReader.
@@ -391,9 +419,42 @@
             }
         }
 
+        function setCameraSrc() {
+            // If your robot has a camera and zcapture installed (from zenoh-demos/computer-vision/zcam/), 
+            // uncomment the camera <div> block on top of this file.
+            // The zcapture must be started with "-k <scope>/cams/0".
+            if (document.getElementById("camera_img") != null) {
+                // Set "camera_img" element's src to the same URL host, but with port 8080 (WebServer plugin)
+                // and with path: "demo/zcam?_method=SUB"
+                var bridge_url = document.getElementById("bridge_url").value
+                var scope = document.getElementById("scope").value
+                if (scope.length > 0 && !scope.endsWith("/")) { scope += "/" }
+                img_url = bridge_url.replace(":8000", ":8080") + scope + "cams/0?_method=SUB";
+                document.getElementById("camera_img").src = img_url;
+            }
+        }
+
+        function resetAllSubscriptions() {
+            subscribeToRosout();
+            subscribeToImu();
+            setCameraSrc();
+        }
+
+        // Get "host" and "scope" from URL params, and set "bridge_url" and "scope" accordingly
+        const urlParams = new URLSearchParams(window.location.search);
+        const host = urlParams.get('host')
+        if (host.length > 0) {
+            console.log("host: " + host);
+            document.getElementById("bridge_url").value = "http://" + host + "/";
+        }
+        const scope = urlParams.get('scope')
+        if (host.length > 0) {
+            console.log("scope: " + scope);
+            document.getElementById("scope").value = scope;
+        }
+
         // subscribe at page loading
-        subscribeToRosout();
-        subscribeToImu();
+        resetAllSubscriptions();
     </script>
 
     <script type="text/javascript">
