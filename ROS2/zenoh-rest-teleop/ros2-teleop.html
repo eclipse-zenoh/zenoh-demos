@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" />
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
     <link rel="stylesheet" href="https://uicdn.toast.com/chart/latest/toastui-chart.min.css" />
     <script src="https://uicdn.toast.com/chart/latest/toastui-chart.min.js"></script>
@@ -15,100 +15,87 @@
     </div>
 
     <label for="bridge_url">Zenoh REST URL:</label>
-    <input id="bridge_url" class="w3-input w3-border w3-padding-small" type="text" required value="http://localhost:8000"><br/>
-    
+    <input id="bridge_url" class="w3-input w3-border w3-padding-small" type="text" required
+        value="http://localhost:8000/"><br />
+
     <div class="w3-card-4 w3-margin-bottom">
-        <header class="w3-bar w3-green"
-                onclick="document.getElementById('Config').classList.toggle('w3-hide');">
+        <header class="w3-bar w3-green" onclick="document.getElementById('Config').classList.toggle('w3-hide');">
             <h5 class="w3-bar-item" style="margin: 0;">Config</h5>
             <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-gear'></i></h5>
         </header>
         <form id="Config" class="w3-container w3-hide">
             <label for="scope">Extra scope prefixed to keys:</label>
-            <input id="scope" class="w3-input w3-border w3-padding-small" type="text" required value="bot1"><br/>
+            <input id="scope" class="w3-input w3-border w3-padding-small" type="text" value=""><br />
             <label for="cmd_vel_res">Publish Twist messages to:</label>
-            <input id="cmd_vel_res" class="w3-input w3-border w3-padding-small" type="text" required value="rt/cmd_vel"><br/>
+            <input id="cmd_vel_res" class="w3-input w3-border w3-padding-small" type="text" required
+                value="rt/cmd_vel"><br />
             <label for="linear_scale">Linear scale:</label>
-            <input id="linear_scale" class="w3-input w3-border w3-padding-small" type="number" required value="0.2"><br/>
+            <input id="linear_scale" class="w3-input w3-border w3-padding-small" type="number" required
+                value="0.2"><br />
             <label for="angular_scale">Angular scale:</label>
-            <input id="angular_scale" class="w3-input w3-border w3-padding-small" type="number" required value="2.6"><br/>
+            <input id="angular_scale" class="w3-input w3-border w3-padding-small" type="number" required
+                value="2.6"><br />
             <label for="imu_res">Subscribe to Acceleration from:</label>
-            <input id="imu_res" class="w3-input w3-border w3-padding-small" type="text" required value="rt/imu"><br/>
+            <input id="imu_res" class="w3-input w3-border w3-padding-small" type="text" required value="rt/imu"><br />
             <input type="submit" class="w3-btn w3-green" value="Reset acceleration subscription"
-                onclick="return subscribeToImu();"><br/>
-            <br/>
+                onclick="return subscribeToImu();"><br />
+            <br />
             <label for="rosout_res">Subscribe to Log messages from:</label>
-            <input id="rosout_res" class="w3-input w3-border w3-padding-small" type="text" required value="rt/rosout"><br/>
+            <input id="rosout_res" class="w3-input w3-border w3-padding-small" type="text" required
+                value="rt/rosout"><br />
             <input type="submit" class="w3-btn w3-green" value="Reset log subscription"
-                onclick="return subscribeToRosout();"><br/>
-            <br/>
+                onclick="return subscribeToRosout();"><br />
+            <br />
         </form>
     </div>
 
     <div class="w3-card-4 w3-margin-bottom">
-        <header class="w3-bar w3-green"
-                onclick="document.getElementById('Drive').classList.toggle('w3-hide');">
+        <header class="w3-bar w3-green" onclick="document.getElementById('Drive').classList.toggle('w3-hide');">
             <h5 class="w3-bar-item" style="margin: 0;">Drive</h5>
             <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-gamepad'></i></h5>
         </header>
         <div id="Drive" class="w3-container w3-padding">
             <div class="w3-auto" style="display: grid; width:18em; height:12em; ">
-                <button 
-                onmousedown="pubTwist(1.0, 0.0);" 
-                onmouseup="pubTwist(0.0, 0.0);"
-                ontouchstart="pubTwist(1.0, 0.0);" 
-                ontouchend="pubTwist(0.0, 0.0);" 
-                style='font-size:3em; grid-column: 2; grid-row: 1;'>
+                <button onmousedown="pubTwist(1.0, 0.0);" onmouseup="pubTwist(0.0, 0.0);"
+                    ontouchstart="pubTwist(1.0, 0.0);" ontouchend="pubTwist(0.0, 0.0);"
+                    style='font-size:3em; grid-column: 2; grid-row: 1;'>
                     <i class='fas fa-caret-up'></i>
                 </button>
-                <button
-                onmousedown="pubTwist(0.0, 1.0);" 
-                onmouseup="pubTwist(0.0, 0.0);"
-                ontouchstart="pubTwist(0.0, 1.0);" 
-                ontouchend="pubTwist(0.0, 0.0);" 
-                style='font-size:3em; grid-column: 1; grid-row: 2;'>
+                <button onmousedown="pubTwist(0.0, 1.0);" onmouseup="pubTwist(0.0, 0.0);"
+                    ontouchstart="pubTwist(0.0, 1.0);" ontouchend="pubTwist(0.0, 0.0);"
+                    style='font-size:3em; grid-column: 1; grid-row: 2;'>
                     <i class='fas fa-caret-left'></i>
                 </button>
-                <button
-                onmousedown="pubTwist(-1.0, 0.0);" 
-                onmouseup="pubTwist(0.0, 0.0);"
-                ontouchstart="pubTwist(-1.0, 0.0);" 
-                ontouchend="pubTwist(0.0, 0.0);" 
-                style='font-size:3em; grid-column: 2; grid-row: 2;'>
+                <button onmousedown="pubTwist(-1.0, 0.0);" onmouseup="pubTwist(0.0, 0.0);"
+                    ontouchstart="pubTwist(-1.0, 0.0);" ontouchend="pubTwist(0.0, 0.0);"
+                    style='font-size:3em; grid-column: 2; grid-row: 2;'>
                     <i class='fas fa-caret-down'></i>
                 </button>
-                <button
-                onmousedown="pubTwist(0.0, -1.0);" 
-                onmouseup="pubTwist(0.0, 0.0);"
-                ontouchstart="pubTwist(0.0, -1.0);" 
-                ontouchend="pubTwist(0.0, 0.0);" 
-                style='font-size:3em; grid-column: 3; grid-row: 2;'>
+                <button onmousedown="pubTwist(0.0, -1.0);" onmouseup="pubTwist(0.0, 0.0);"
+                    ontouchstart="pubTwist(0.0, -1.0);" ontouchend="pubTwist(0.0, 0.0);"
+                    style='font-size:3em; grid-column: 3; grid-row: 2;'>
                     <i class='fas fa-caret-right'></i>
                 </button>
-                <button 
-                onclick="pubTwist(0.0, 0.0);" 
-                style='font-size:2em; grid-column: 1 / 4; grid-row: 3;'>
+                <button onclick="pubTwist(0.0, 0.0);" style='font-size:2em; grid-column: 1 / 4; grid-row: 3;'>
                     STOP
                 </button>
             </div>
-            <br/>
+            <br />
         </div>
     </div>
 
     <div class="w3-card-4 w3-margin-bottom">
-        <header class="w3-bar w3-green"
-                onclick="document.getElementById('Acceleration').classList.toggle('w3-hide');">
+        <header class="w3-bar w3-green" onclick="document.getElementById('Acceleration').classList.toggle('w3-hide');">
             <h5 class="w3-bar-item" style="margin: 0;">Acceleration</h5>
             <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-line-chart'></i></h5>
         </header>
         <div id="Acceleration" class="w3-container w3-padding" style="width: 95%; height: 300px;">
         </div>
-        <br/>
+        <br />
     </div>
 
     <div class="w3-card-4 w3-margin-bottom">
-        <header class="w3-bar w3-green"
-                onclick="document.getElementById('Logs').classList.toggle('w3-hide');">
+        <header class="w3-bar w3-green" onclick="document.getElementById('Logs').classList.toggle('w3-hide');">
             <h5 class="w3-bar-item" style="margin: 0;">Logs</h5>
             <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-envelope'></i></h5>
         </header>
@@ -116,7 +103,7 @@
             <div style="overflow:auto; height:200px; border:1px solid black;" id="rosout_logs"></div>
         </div>
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bytebuffer@5.0.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/jscdr@0.0.1"></script>
     <script>
@@ -215,8 +202,8 @@
         class Imu {
             constructor(
                 seq, stamp_sec, stamp_nsec, frame_id,
-                orientation, orientation_covariance, 
-                angular_velocity, angular_velocity_covariance, 
+                orientation, orientation_covariance,
+                angular_velocity, angular_velocity_covariance,
                 linear_acceleration, linear_acceleration_covariance
             ) {
                 this.seq = seq;
@@ -286,6 +273,7 @@
             var bridge_url = document.getElementById("bridge_url").value
             var cmd_vel_res = document.getElementById("cmd_vel_res").value
             var scope = document.getElementById("scope").value
+            if (scope.length > 0 && !scope.endsWith("/")) { scope += "/" }
 
             console.log("Send cmd_vel to " + bridge_url + scope + cmd_vel_res);
             // PUT it to zenoh via its REST API
@@ -336,6 +324,7 @@
                 var bridge_url = document.getElementById("bridge_url").value
                 var rosout_res = document.getElementById("rosout_res").value
                 var scope = document.getElementById("scope").value
+                if (scope.length > 0 && !scope.endsWith("/")) { scope += "/" }
                 console.log("Subscribe to EventSource: " + bridge_url + scope + rosout_res);
                 event_source = new EventSource(bridge_url + scope + rosout_res);
                 event_source.addEventListener("PUT", function (e) {
@@ -362,26 +351,27 @@
         }
 
         serie = [];
-        chart = toastui.Chart.lineChart({ 
+        chart = toastui.Chart.lineChart({
             el: document.getElementById("Acceleration"),
             data: { series: [] },
             options: {
-            chart: { height: 'auto', width: 'auto', animation: false },
-            xAxis: {date: true},
-            yAxis: {scale: {min:0}},
-            legend: {visible: false},
-            exportMenu: {visible: false},
+                chart: { height: 'auto', width: 'auto', animation: false },
+                xAxis: { date: true },
+                yAxis: { scale: { min: 0 } },
+                legend: { visible: false },
+                exportMenu: { visible: false },
             },
         });
 
         function subscribeToImu() {
-            if(typeof(EventSource) !== "undefined") {
+            if (typeof (EventSource) !== "undefined") {
                 var bridge_url = document.getElementById("bridge_url").value
                 var imu_res = document.getElementById("imu_res").value
                 var scope = document.getElementById("scope").value
+                if (scope.length > 0 && !scope.endsWith("/")) { scope += "/" }
                 console.log("Subscribe to EventSource: " + bridge_url + scope + imu_res);
                 var source = new EventSource(bridge_url + scope + imu_res);
-                source.addEventListener("PUT", function(e) {
+                source.addEventListener("PUT", function (e) {
                     let sample = JSON.parse(e.data);
                     // The payload buffer is in "value" field, encoded as base64.
                     // Since it's comming from DDS, we decode it using a jscdr.CDRReader.
@@ -389,12 +379,12 @@
                     // Decode the buffer as an Imu message
                     let imu = Imu.decode(reader);
 
-                    serie.push([new Date(sample.time.split('/')[0]), 
-                            Math.sqrt(imu.linear_acceleration.x * imu.linear_acceleration.x + imu.linear_acceleration.y * imu.linear_acceleration.y)
-                        ]);
+                    serie.push([new Date(sample.time.split('/')[0]),
+                    Math.sqrt(imu.linear_acceleration.x * imu.linear_acceleration.x + imu.linear_acceleration.y * imu.linear_acceleration.y)
+                    ]);
                     now = Date.now();
                     serie = serie.filter(x => x[0] > (now - 10000));
-                    chart.setData({ series: [{name: 'Acceleration', data: serie}]});
+                    chart.setData({ series: [{ name: 'Acceleration', data: serie }] });
                 }, false);
             } else {
                 document.document.getElementById("Acceleration").innerHTML = "Sorry, your browser does not support server-sent events...";
