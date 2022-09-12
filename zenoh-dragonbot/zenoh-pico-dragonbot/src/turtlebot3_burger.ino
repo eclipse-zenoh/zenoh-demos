@@ -70,7 +70,7 @@ static void run_read_task(void const *argument)
   {
     while (xSemaphoreTake(handle, ( TickType_t ) configTICK_RATE_HZ ) != pdTRUE );
     Serial.println("Thread Read");
-    zp_read(z_session_loan(&s));
+    zp_read(z_session_loan(&s), NULL);
     xSemaphoreGive(handle);
     delay(10);
   }
@@ -84,7 +84,7 @@ static void run_lease_task(void const *argument)
   {
     while (xSemaphoreTake(handle, ( TickType_t ) configTICK_RATE_HZ ) != pdTRUE );
     Serial.println("Thread Keep Alive");
-    zp_send_keep_alive(z_session_loan(&s));
+    zp_send_keep_alive(z_session_loan(&s), NULL);
     xSemaphoreGive(handle);
     delay(1000);
   }
@@ -155,7 +155,7 @@ void setup()
     Serial.println("WiFi Connected!");
 
     // Initialize Zenoh Session and other parameters
-    z_owned_config_t config = zp_config_default();
+    z_owned_config_t config = z_config_default();
     zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
     if (strcmp(PEER, "") != 0) {
         zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));

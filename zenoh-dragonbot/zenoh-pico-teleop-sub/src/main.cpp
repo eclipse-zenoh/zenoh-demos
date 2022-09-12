@@ -22,7 +22,7 @@
 *******************************************************************************/
 z_owned_session_t zenohInit()
 {
-    z_owned_config_t config = zp_config_default();
+    z_owned_config_t config = z_config_default();
     zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
     if (strcmp(PEER, "") != 0) {
         zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
@@ -30,7 +30,6 @@ z_owned_session_t zenohInit()
     z_owned_session_t s = z_open(z_config_move(&config));
     return s;
 }
-
 
 int main (int argc, char *argv[]) {
     z_owned_session_t z;
@@ -42,10 +41,8 @@ int main (int argc, char *argv[]) {
         return -1;
     }
 
-
-
-    zp_start_read_task(z_session_loan(&z));
-    zp_start_lease_task(z_session_loan(&z));
+    zp_start_read_task(z_session_loan(&z), NULL);
+    zp_start_lease_task(z_session_loan(&z), NULL);
 
     unsigned long rid = 0;
 
@@ -87,12 +84,7 @@ int main (int argc, char *argv[]) {
     }
 
     while (true) { sleep(10); }
-
 }
-
-
-
-
 
 /*******************************************************************************
 * Subscribers callbacks (print the received message)
@@ -145,7 +137,6 @@ void jointStatesCallback(const z_sample_t *sample, void *arg) {
 void batteryStateCallback(const z_sample_t *sample, void *arg) {
     sensor_msgs::BatteryState battery_state_msg;
     battery_state_msg.deserialize((unsigned char*)sample->payload.start);
-
 
     std::cout << "### Battery ###" << std::endl <<
         "Voltage: " << battery_state_msg.voltage << std::endl <<
