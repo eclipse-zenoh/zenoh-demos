@@ -1,0 +1,20 @@
+id: operator-tb3
+
+configuration:
+  #serial: /dev/tty.usbmodemFFFFFFFEFFFF1
+  serial: /dev/ttyACM0
+  baudrate: 115200
+
+uri: file:///home/ubuntu/zf-bot/libtb3.so
+
+inputs:
+  - id: Tick
+    type: ZFUsize
+  - id: Twist
+    type: Twist
+
+outputs:
+  - id: Robot
+    type: RobotInformation
+
+tags: []

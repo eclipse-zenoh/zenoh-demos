@@ -1,0 +1,13 @@
+id: operator-twist
+
+uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/liboperator_twist.dylib
+
+inputs:
+  - id: gamepad-input
+    type: GamepadInput
+
+outputs:
+  - id: twist
+    type: Twist
+
+tags: []

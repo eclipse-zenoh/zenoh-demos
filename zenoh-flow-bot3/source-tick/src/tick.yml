@@ -1,0 +1,9 @@
+id: source-tick
+
+uri: file:///home/ubuntu/zf-bot/libtick.so
+
+outputs:
+  - id: Tick
+    type: ZFUsize
+
+tags: []

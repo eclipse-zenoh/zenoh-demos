@@ -1,0 +1,9 @@
+id: lidar-sink
+
+uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/liblidar_sink.dylib
+
+inputs:
+  - id: Data
+    type: LaserScan
+
+tags: []

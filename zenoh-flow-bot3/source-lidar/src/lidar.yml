@@ -1,0 +1,14 @@
+id: source-lidar
+
+uri: file:///home/ubuntu/zf-bot/liblidar.so
+
+outputs:
+  - id: Scan
+    type: LaserScan
+
+configuration:
+  #serial: /dev/tty.usbmodemFFFFFFFEFFFF1
+  serial: /dev/ttyUSB0
+  baudrate: 230400
+
+tags: []

@@ -28,8 +28,8 @@ readme = "README.md"
 async-std = { version = "=1.11.0", features = ["attributes","unstable"] }
 async-trait = "0.1"
 gilrs = "0.8.2"
-zenoh-flow = { git = "https://github.com/eclipse-zenoh/zenoh-flow.git", tag = "v0.3.0" }
-zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples", tag = "v0.3.1" }
+zenoh-flow = { git = "https://github.com/ZettaScaleLabs/zenoh-flow.git", branch = "dev/v0.4.0" }
+zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples.git", branch = "dev/v0.4.0" }
 
 [lib]
 name = "source_gamepad"

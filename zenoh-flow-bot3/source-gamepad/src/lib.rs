@@ -15,62 +15,80 @@
 use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use gilrs::{EventType, Gilrs};
-use zenoh_flow::{
-    zenoh_flow_derive::ZFState, Configuration, Context, Data, Node, Source, State, ZFResult,
-};
+use std::time::Duration;
+use zenoh_flow::prelude::*;
 use zenoh_flow_example_types::GamepadInput;
 
-#[derive(Debug, ZFState)]
+#[derive(Debug)]
 pub struct GamepadState {
-    gilrs: Arc<Mutex<Gilrs>>,
-    input: GamepadInput,
+    pub(crate) gilrs: Gilrs,
+    pub(crate) input: GamepadInput,
+}
+
+impl GamepadState {
+    fn new() -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self {
+            gilrs: Gilrs::new().expect("Could not start Gilrs"),
+            input: GamepadInput::default(),
+        }))
+    }
 }
 
 pub struct GamepadSource;
 
-impl Node for GamepadSource {
-    fn initialize(&self, _: &Option<Configuration>) -> ZFResult<State> {
-        let gilrs = Gilrs::new().expect("Could not start Gilrs");
-        Ok(State::from(GamepadState {
-            gilrs: Arc::new(Mutex::new(gilrs)),
-            input: GamepadInput::default(),
-        }))
-    }
-
-    fn finalize(&self, _: &mut State) -> ZFResult<()> {
-        Ok(())
-    }
-}
-
 #[async_trait]
 impl Source for GamepadSource {
-    async fn run(&self, _: &mut Context, state: &mut State) -> ZFResult<Data> {
-        let state = state.try_get::<GamepadState>()?;
-        let mut gilrs = state.gilrs.lock().await;
+    async fn setup(
+        &self,
+        _context: &mut Context,
+        _configuration: &Option<Configuration>,
+        mut outputs: Outputs,
+    ) -> Result<Option<Box<dyn AsyncIteration>>> {
+        let output = outputs.take_into_arc("gamepad-input").unwrap();
+        let gamepad_state = GamepadState::new();
 
-        while let Some(event) = gilrs.next_event() {
-            match event.event {
-                EventType::ButtonChanged(button, value, _) => match button {
-                    gilrs::Button::LeftTrigger2 => state.input.left_trigger = value,
-                    gilrs::Button::RightTrigger2 => state.input.right_trigger = value,
-                    _ => (),
-                },
-                EventType::AxisChanged(stick, value, _) => {
-                    if stick == gilrs::Axis::LeftStickX {
-                        state.input.left_stick_x = value
+        // TODO(Julien L.) Source is periodic: 100ms.
+        Ok(Some(Box::new(move || {
+            let output = Arc::clone(&output);
+            let gamepad_state = Arc::clone(&gamepad_state);
+
+            async move {
+                let data: Data;
+
+                // CAVEAT: An explicit scope is needed to tell Rust that the MutexGuard is dropped
+                // before the next `await` is called.
+                {
+                    let mut gamepad = gamepad_state.lock().await;
+                    while let Some(event) = gamepad.gilrs.next_event() {
+                        match event.event {
+                            EventType::ButtonChanged(button, value, _) => match button {
+                                gilrs::Button::LeftTrigger2 => gamepad.input.left_trigger = value,
+                                gilrs::Button::RightTrigger2 => gamepad.input.right_trigger = value,
+                                _ => (),
+                            },
+                            EventType::AxisChanged(stick, value, _) => {
+                                if stick == gilrs::Axis::LeftStickX {
+                                    gamepad.input.left_stick_x = value
+                                }
+                            }
+                            // Ignore all other events
+                            _ => (),
+                        }
                     }
+                    data = Data::from(gamepad.input);
                 }
-                // Ignore all other events
-                _ => (),
-            }
-        }
 
-        Ok(Data::from(state.input))
+                output.send_async(data, None).await?;
+                async_std::task::sleep(Duration::from_millis(100)).await;
+
+                Ok(())
+            }
+        })))
     }
 }
 
 zenoh_flow::export_source!(register);
 
-fn register() -> ZFResult<Arc<dyn Source>> {
+fn register() -> Result<Arc<dyn Source>> {
     Ok(Arc::new(GamepadSource) as Arc<dyn Source>)
 }

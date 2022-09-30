@@ -12,10 +12,8 @@
 //   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use std::{collections::HashMap, sync::Arc};
-use zenoh_flow::{
-    default_input_rule, default_output_rule, zf_empty_state, Data, Node, Operator, PortId, ZFError,
-};
+use std::sync::Arc;
+use zenoh_flow::{bail, prelude::*};
 use zenoh_flow_example_types::{ros2::geometry::Twist, GamepadInput};
 
 const INPUT_PORT_ID: &str = "gamepad-input";
@@ -23,65 +21,40 @@ const OUTPUT_PORT_ID: &str = "twist";
 
 pub struct OperatorTwist;
 
-impl Node for OperatorTwist {
-    fn initialize(
-        &self,
-        _: &Option<zenoh_flow::Configuration>,
-    ) -> zenoh_flow::ZFResult<zenoh_flow::State> {
-        zf_empty_state!()
-    }
-
-    fn finalize(&self, _: &mut zenoh_flow::State) -> zenoh_flow::ZFResult<()> {
-        Ok(())
-    }
-}
-
+#[async_trait::async_trait]
 impl Operator for OperatorTwist {
-    fn input_rule(
+    async fn setup(
         &self,
-        _: &mut zenoh_flow::Context,
-        state: &mut zenoh_flow::State,
-        tokens: &mut std::collections::HashMap<zenoh_flow::PortId, zenoh_flow::InputToken>,
-    ) -> zenoh_flow::ZFResult<bool> {
-        default_input_rule(state, tokens)
-    }
+        _ctx: &mut Context,
+        _configuration: &Option<Configuration>,
+        mut inputs: Inputs,
+        mut outputs: Outputs,
+    ) -> Result<Option<Box<dyn AsyncIteration>>> {
+        let input = inputs.take_into_arc(INPUT_PORT_ID).unwrap();
+        let output = outputs.take_into_arc(OUTPUT_PORT_ID).unwrap();
 
-    fn run(
-        &self,
-        _: &mut zenoh_flow::Context,
-        _: &mut zenoh_flow::State,
-        inputs: &mut std::collections::HashMap<zenoh_flow::PortId, zenoh_flow::DataMessage>,
-    ) -> zenoh_flow::ZFResult<std::collections::HashMap<zenoh_flow::PortId, zenoh_flow::Data>> {
-        let mut outputs = HashMap::<PortId, Data>::with_capacity(1);
-        let mut gamepad_input_raw = inputs
-            .remove(INPUT_PORT_ID)
-            .ok_or_else(|| ZFError::InvalidData("No data".to_string()))?;
+        Ok(Some(Box::new(move || {
+            let input = Arc::clone(&input);
+            let output = Arc::clone(&output);
 
-        let gamepad_input = gamepad_input_raw
-            .get_inner_data()
-            .try_get::<GamepadInput>()?;
-
-        let data: Twist = gamepad_input.into();
-        //println!("Twist OP Send {:?}", data);
-        outputs.insert(OUTPUT_PORT_ID.into(), Data::from::<Twist>(data));
-
-        Ok(outputs)
-    }
-
-    fn output_rule(
-        &self,
-        _: &mut zenoh_flow::Context,
-        state: &mut zenoh_flow::State,
-        outputs: std::collections::HashMap<zenoh_flow::PortId, zenoh_flow::Data>,
-        _: Option<zenoh_flow::LocalDeadlineMiss>,
-    ) -> zenoh_flow::ZFResult<std::collections::HashMap<zenoh_flow::PortId, zenoh_flow::NodeOutput>>
-    {
-        default_output_rule(state, outputs)
+            async move {
+                let input_raw = input.recv_async().await?;
+                if let Message::Data(mut gamepad_input_raw) = input_raw {
+                    let gamepad_input = gamepad_input_raw
+                        .get_inner_data()
+                        .try_get::<GamepadInput>()?;
+                    let twist: Twist = gamepad_input.into();
+                    output.send_async(Data::from(twist), None).await
+                } else {
+                    bail!(ErrorKind::InvalidData, "Did not receive a Message::Data")
+                }
+            }
+        })))
     }
 }
 
 zenoh_flow::export_operator!(register);
 
-fn register() -> zenoh_flow::ZFResult<Arc<dyn Operator>> {
+fn register() -> zenoh_flow::Result<Arc<dyn Operator>> {
     Ok(Arc::new(OperatorTwist) as Arc<dyn Operator>)
 }

@@ -1,68 +1,46 @@
 flow: TB3-Flow
+
+
+vars:
+  UBUNTU_BASE_DIR: TODO
+  GABRI_BASE_DIR: TODO
+
+
 sources:
   - id: Gamepad
-    uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/libsource_gamepad.dylib
-    output:
-      id: gamepad-input
-      type: gamepad-input
-    period:
-      length: 100
-      unit: ms
+    uri: "{{ GABRI_BASE_DIR }}/zenoh-flow-bot3/source-gamepad/src/gamepad.yml"
+
   - id: Lidar
-    uri: file:///home/ubuntu/zf-bot/liblidar.so
-    period:
-      length: 100
-      unit: ms
+    uri: "{{ UBUNTU_BASE_DIR }}/zenoh-flow-bot3/source-lidar/src/lidar.yml"
     configuration:
       #serial: /dev/tty.usbmodemFFFFFFFEFFFF1
       serial: /dev/ttyUSB0
       baudrate: 230400
-    output:
-      id: Scan
-      type: LaserScan
+
   - id : Tick
-    period:
-      length: 100
-      unit: ms
-    uri: file:///home/ubuntu/zf-bot/libtick.so
-    output:
-        id: Tick
-        type: usize
+    uri: "{{ UBUNTU_BASE_DIR }}/zenoh-flow-bot3/source-tick/src/tick.yml"
+
+
 operators:
   - id: Twist
-    uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/liboperator_twist.dylib
-    inputs:
-      - id: gamepad-input
-        type: gamepad-input
-    outputs:
-      - id: twist
-        type: twist
+    uri: "{{ GABRI_BASE_DIR }}/zenoh-flow-bot3/operator-twist/src/twist.yml"
+
   - id : TB3
+    uri: "{{ UBUNTU_BASE_DIR }}/zenoh-flow-bot3/tb3/src/tb3.yml"
     configuration:
       #serial: /dev/tty.usbmodemFFFFFFFEFFFF1
       serial: /dev/ttyACM0
       baudrate: 115200
-    uri: file:///home/ubuntu/zf-bot/libtb3.so
-    outputs:
-        - id: Robot
-          type: robot
-    inputs:
-        - id : Tick
-          type: usize
-        - id: Twist
-          type: twist
+
 
 sinks:
   - id : RobotSink
-    uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/librobot_sink.dylib
-    input:
-        id: Data
-        type: robot
+    uri: "{{ GABRI_BASE_DIR }}/zenoh-flow-bot3/robot-sink/src/robot-sink.yml"
+
   - id : LidarSink
-    uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/liblidar_sink.dylib
-    input:
-        id: Data
-        type: LaserScan
+    uri: "{{ GABRI_BASE_DIR }}/zenoh-flow-bot3/lidar-sink/src/lidar-sink.yml"
+
+
 links:
 - from:
     node: Gamepad

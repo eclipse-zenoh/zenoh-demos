@@ -1,0 +1,9 @@
+id: sink-robot
+
+uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/librobot_sink.dylib
+
+inputs:
+  - id: Data
+    type: RobotInformation
+
+tags: []
