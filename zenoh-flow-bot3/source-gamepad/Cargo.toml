@@ -25,7 +25,7 @@ description = "Zenoh Flow Turtlebot3"
 readme = "README.md"
 
 [dependencies]
-async-std = { version = "=1.11.0", features = ["attributes","unstable"] }
+async-std = { version = "=1.12.0", features = ["attributes","unstable"] }
 async-trait = "0.1"
 gilrs = "0.8.2"
 zenoh-flow = { git = "https://github.com/ZettaScaleLabs/zenoh-flow.git", branch = "dev/v0.4.0" }

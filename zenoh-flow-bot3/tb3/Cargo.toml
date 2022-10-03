@@ -25,7 +25,7 @@ description = "Zenoh Flow Turtlebot3"
 readme = "README.md"
 
 [dependencies]
-async-std = { version = "=1.11.0", features = ["attributes","unstable"] }
+async-std = { version = "=1.12.0", features = ["attributes","unstable"] }
 async-trait = { version = "0.1" }
 dynamixel2 = { git = "https://github.com/gabrik/dynamixel2-rs",  branch = "feat/async-smol", default-features = false, features = ["log","async_smol"] }
 futures = { version = "0.3" }

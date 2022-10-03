@@ -27,10 +27,10 @@ readme = "README.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-std = { version = "=1.11.0", features = ["attributes","unstable"] }
+async-std = { version = "=1.12.0", features = ["attributes","unstable"] }
 async-trait = "0.1"
 bincode = "1"
-hls_lfcd_lds_driver = {version  = "0.1",  default-features = false,  features = ["async_smol", "ser_de"]}
+hls_lfcd_lds_driver = {version  = "0.1.7",  default-features = false,  features = ["async_smol", "ser_de"]}
 serde = { version = "1.0", features = ["derive", "rc"]}
 zenoh-flow = { git = "https://github.com/ZettaScaleLabs/zenoh-flow.git", branch = "dev/v0.4.0" }
 zenoh-flow-example-types = { git = "https://github.com/ZettaScaleLabs/zenoh-flow-examples.git", branch = "dev/v0.4.0" }
@@ -47,6 +47,6 @@ outputs=[ {id ="Data", type="lidar-data"}]
 
 
 [dev-dependencies]
-clap = { version = "3.1", features = ["derive"] }
-async-std = { version = "=1.11.0", features = ["attributes", "tokio1"] }
+clap = { version = "4.0", features = ["derive"] }
+async-std = { version = "=1.12.0", features = ["attributes", "tokio1"] }
 tokio-serial = "5.4.1"
