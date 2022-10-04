@@ -44,7 +44,7 @@ parser.add_argument('-e', '--connect', type=str, metavar='ENDPOINT', action='app
                     help='zenoh endpoints to connect to.')
 parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='append',
                     help='zenoh endpoints to listen on.')
-parser.add_argument('-k', '--key', type=str, default='/rt/turtle1/lidar',
+parser.add_argument('-k', '--key', type=str, default='rt/turtle1/scan',
                     help='The key expression to subscribe for LaserReadings.')
 parser.add_argument('--style', type=str, default='.',
                     help='The plotting style.')
@@ -87,7 +87,7 @@ zenoh.init_logger()
 z = zenoh.open(conf)
 
 print("[INFO] Creating Subscriber on '{}'...".format(args.key))
-sub = z.subscribe(args.key, lidar_listener)
+sub = z.declare_subscriber(args.key, lidar_listener)
 
 ani = FuncAnimation(fig, lambda _: None)
 plt.show()
