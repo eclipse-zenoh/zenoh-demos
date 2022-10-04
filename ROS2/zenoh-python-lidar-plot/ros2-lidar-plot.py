@@ -6,6 +6,7 @@ import json
 import cmath
 import numpy as np
 from matplotlib.animation import FuncAnimation
+from matplotlib.patches import Polygon
 from matplotlib import pyplot as plt
 from pycdr import cdr
 from pycdr.types import int8, int32, uint16, uint32, float32, sequence, array
@@ -46,8 +47,6 @@ parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='appe
                     help='zenoh endpoints to listen on.')
 parser.add_argument('-k', '--key', type=str, default='rt/turtle1/scan',
                     help='The key expression to subscribe for LaserReadings.')
-parser.add_argument('--style', type=str, default='.',
-                    help='The plotting style.')
 parser.add_argument('--intensity-treshold', type=float, default=250.0,
                     help='The intensity treshold.')
 parser.add_argument('-c', '--config', type=str, metavar='FILE',
@@ -64,8 +63,9 @@ if args.listen is not None:
 
 fig, ax = plt.subplots()
 angles = list(map(lambda i: (2*cmath.pi*i/360)*1j-cmath.pi/2j, range(360)))
-line = ax.plot([], [], args.style)[0]
-center = ax.plot([0], [0], 'o')[0]
+patch = ax.add_patch(Polygon([[0, 0]], color='lightgrey'))
+line = ax.plot([], [], '.', color='black')[0]
+center = ax.plot([0], [0], 'o', color='blue')[0]
 ax.set_xlim(-4, 4)
 ax.set_ylim(-4, 4)
 
@@ -76,10 +76,12 @@ def lidar_listener(sample):
 
     complexes = []
     for (angle, distance, intensity) in list(zip(angles, scan.ranges, scan.intensities)):
-        complexes.append(distance * cmath.exp(angle) if intensity >= args.intensity_treshold else np.nan)
+        complexes.append(distance * cmath.exp(angle) if intensity >= args.intensity_treshold else 1024 * cmath.exp(angle))
     X = [i.real for i in complexes]
     Y = [i.imag for i in complexes]
-    global line
+    XY = [[i.real, i.imag] for i in complexes]
+    global line, patch
+    patch.set_xy(XY)
     line.set_data(X, Y)
 
 print("[INFO] Openning zenoh session...")
