@@ -12,7 +12,7 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use clap::{App, Arg};
-use opencv::{core, prelude::*, videoio, Result};
+use opencv::{prelude::*, videoio, Result};
 use zenoh::config::Config;
 use zenoh::prelude::sync::SyncResolve;
 
@@ -43,7 +43,7 @@ fn main() -> Result<()> {
     encode_options.push(90);
 
     loop {
-        let mut frame = core::Mat::default();
+        let mut frame = Mat::default();
 
         cam.read(&mut frame)?;
 

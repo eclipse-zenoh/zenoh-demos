@@ -23,18 +23,19 @@ use futures::prelude::*;
 use futures::select;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
+use std::io::{stdout, Write};
 use zenoh::buf::reader::HasReader;
 use zenoh::config::Config;
 use zenoh::{prelude::r#async::AsyncResolve, publication::Publisher};
 
-#[derive(Serialize, PartialEq)]
+#[derive(Serialize, PartialEq, Debug)]
 struct Vector3 {
     x: f64,
     y: f64,
     z: f64,
 }
 
-#[derive(Serialize, PartialEq)]
+#[derive(Serialize, PartialEq, Debug)]
 struct Twist {
     linear: Vector3,
     angular: Vector3,
@@ -81,9 +82,23 @@ async fn pub_twist(publisher: &Publisher<'_>, linear: f64, angular: f64) {
         },
     };
 
+    write!(
+        stdout(),
+        "Publish on {} : {:?}\r\n",
+        publisher.key_expr().as_str(),
+        twist
+    )
+    .unwrap_or_default();
     let encoded = cdr::serialize::<_, _, CdrLe>(&twist, Infinite).unwrap();
     if let Err(e) = publisher.put(encoded).res().await {
-        log::warn!("Error writing to zenoh: {}", e);
+        log::warn!("Error writing {}: {}", publisher.key_expr().as_str(), e);
+    }
+}
+
+async fn del_twist(publisher: &Publisher<'_>) {
+    write!(stdout(), "Delete on {}\r\n", publisher.key_expr().as_str()).unwrap_or_default();
+    if let Err(e) = publisher.delete().res().await {
+        log::warn!("Error deleting {}: {}", publisher.key_expr().as_str(), e);
     }
 }
 
@@ -105,8 +120,8 @@ async fn main() {
 
     // Keyboard event read loop, sending each to an async_std channel
     // Note: enable raw mode for direct processing of key pressed, without having to hit ENTER...
-    // Unfortunately, this mode doesn't process new line characters on output. Thus we have to call
-    // `std::io::stdout().execute(MoveToColumn(0));` after each `println!`.
+    // Unfortunately, this mode doesn't process new line characters on println!().
+    // Thus write!(stdout(), "...\r\n") has to be used instead.
     crossterm::terminal::enable_raw_mode().unwrap();
     let (key_sender, key_receiver) = bounded::<Event>(10);
     async_std::task::spawn(async move {
@@ -124,8 +139,12 @@ async fn main() {
         }
     });
 
-    println!("Waiting commands with arrow keys or space bar to stop. Press on ESC, 'Q' or CTRL+C to quit.");
-    std::io::stdout().execute(MoveToColumn(0)).unwrap();
+    write!(stdout(), "Waiting commands with arrow keys or space bar to stop. Press on ESC, 'q' or CTRL+C to quit.\r\n").unwrap_or_default();
+    write!(
+        stdout(),
+        "If an InfluxDB is storing publications, press 'd' to delete them all\r\n"
+    )
+    .unwrap_or_default();
     // Events management loop
     loop {
         select!(
@@ -174,6 +193,12 @@ async fn main() {
                         code: KeyCode::Char('q'),
                         modifiers: _,
                     })) => break,
+                    Ok(Event::Key(KeyEvent {
+                        code: KeyCode::Char('d'),
+                        modifiers: _
+                    })) => {
+                        del_twist(&publisher).await
+                    },
                     Ok(Event::Key(KeyEvent {
                         code: KeyCode::Char('c'),
                         modifiers,
