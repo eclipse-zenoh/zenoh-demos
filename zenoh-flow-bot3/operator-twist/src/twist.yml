@@ -1,6 +1,6 @@
 id: operator-twist
 
-uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/liboperator_twist.dylib
+uri: file:///Users/gabri/Workspace/zdemos/zenoh-flow-bot3/target/release/liboperator_twist.dylib
 
 inputs:
   - id: gamepad-input

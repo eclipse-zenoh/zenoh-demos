@@ -1,32 +1,29 @@
 flow: TB3-Flow
-
-
 vars:
-  ROBOT_BASE_DIR: TODO
-  WS_BASE_DIR: TODO
-
+  ROBOT_BASE_DIR: /home/ubuntu/zf-bot
+  WS_BASE_DIR: /Volumes/Workspace/Workspace/zdemos
 
 sources:
   - id: Gamepad
-    uri: "{{ WS_BASE_DIR }}/zenoh-flow-bot3/source-gamepad/src/gamepad.yml"
+    descriptor: "{{ WS_BASE_DIR }}/zenoh-flow-bot3/source-gamepad/src/gamepad.yml"
 
   - id: Lidar
-    uri: "{{ ROBOT_BASE_DIR }}/zenoh-flow-bot3/source-lidar/src/lidar.yml"
+    descriptor: "{{ ROBOT_BASE_DIR }}/zenoh-flow-bot3/source-lidar/src/lidar.yml"
     configuration:
       #serial: /dev/tty.usbmodemFFFFFFFEFFFF1
       serial: /dev/ttyUSB0
       baudrate: 230400
 
   - id : Tick
-    uri: "{{ ROBOT_BASE_DIR }}/zenoh-flow-bot3/source-tick/src/tick.yml"
+    descriptor: "{{ ROBOT_BASE_DIR }}/zenoh-flow-bot3/source-tick/src/tick.yml"
 
 
 operators:
   - id: Twist
-    uri: "{{ WS_BASE_DIR }}/zenoh-flow-bot3/operator-twist/src/twist.yml"
+    descriptor: "{{ WS_BASE_DIR }}/zenoh-flow-bot3/operator-twist/src/twist.yml"
 
   - id : TB3
-    uri: "{{ ROBOT_BASE_DIR }}/zenoh-flow-bot3/tb3/src/tb3.yml"
+    descriptor: "{{ ROBOT_BASE_DIR }}/zenoh-flow-bot3/tb3/src/tb3.yml"
     configuration:
       #serial: /dev/tty.usbmodemFFFFFFFEFFFF1
       serial: /dev/ttyACM0
@@ -35,10 +32,12 @@ operators:
 
 sinks:
   - id : RobotSink
-    uri: "{{ WS_BASE_DIR }}/zenoh-flow-bot3/robot-sink/src/robot-sink.yml"
+    configuration:
+      file: /tmp/robot-data.log
+    descriptor: "{{ WS_BASE_DIR }}/zenoh-flow-bot3/robot-sink/src/robot-sink.yml"
 
   - id : LidarSink
-    uri: "{{ WS_BASE_DIR }}/zenoh-flow-bot3/lidar-sink/src/lidar-sink.yml"
+    descriptor: "{{ WS_BASE_DIR }}/zenoh-flow-bot3/lidar-sink/src/lidar-sink.yml"
 
 
 links:

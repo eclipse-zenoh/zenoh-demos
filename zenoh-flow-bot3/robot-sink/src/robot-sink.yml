@@ -1,6 +1,6 @@
 id: sink-robot
 
-uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/librobot_sink.dylib
+uri: file:///Users/gabri/Workspace/zdemos/zenoh-flow-bot3/target/release/librobot_sink.dylib
 
 inputs:
   - id: Data

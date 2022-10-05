@@ -1,6 +1,6 @@
 id: source-gamepad
 
-uri: file:///Users/gabri/Workspace/zenoh-demos-eclipse/zenoh-flow-bot3/target/debug/libsource_gamepad.dylib
+uri: file:///Users/gabri/Workspace/zdemos/zenoh-flow-bot3/target/release/libsource_gamepad.dylib
 
 outputs:
   - id: gamepad-input

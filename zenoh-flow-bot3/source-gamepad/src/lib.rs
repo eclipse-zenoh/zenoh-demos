@@ -54,7 +54,6 @@ impl Source for GamepadSource {
 
             async move {
                 let data: Data;
-
                 // CAVEAT: An explicit scope is needed to tell Rust that the MutexGuard is dropped
                 // before the next `await` is called.
                 {

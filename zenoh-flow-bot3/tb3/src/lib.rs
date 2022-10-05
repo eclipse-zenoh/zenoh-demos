@@ -119,6 +119,7 @@ impl Operator for Tb3 {
         mut inputs: Inputs,
         mut outputs: Outputs,
     ) -> Result<Option<Box<dyn AsyncIteration>>> {
+
         let tb3_state = TB3State::try_new(configuration).await?;
         let input_tick = inputs.take_into_arc(INPUT_TICK_ID).unwrap();
         let input_twist = inputs.take_into_arc(INPUT_TWIST_ID).unwrap();
@@ -128,57 +129,51 @@ impl Operator for Tb3 {
             let tb3_state = Arc::clone(&tb3_state);
             let input_tick = Arc::clone(&input_tick);
             let input_twist = Arc::clone(&input_twist);
-            let output = Arc::clone(&output);
+            let _output = Arc::clone(&output);
 
             async move {
-                let mut data: Option<Data> = None;
+                futures::select! {
+                    _tick_message = input_tick.recv_async().fuse() => {
 
-                let (which_input, message) = futures::select!(
-                    tick_message = input_tick.recv_async().fuse() => (INPUT::Tick, tick_message?),
-                    twist_message = input_twist.recv_async().fuse() => (INPUT::Twist, twist_message?),
-                );
+                        let mut tb3_state = tb3_state.lock().await;
+                        let count = tb3_state.count.wrapping_add(1);
+                        tb3_state
+                            .bus
+                            .write_u8(200, addresses::HEARTBEAT, count)
+                            .await
+                            .map_err(|e| {
+                                zferror!(ErrorKind::InvalidData, "TB3 Heartbeat error: {}", e)
+                            })?;
+                        tb3_state.count = count;
 
-                {
-                    let mut tb3_state = tb3_state.lock().await;
-                    let count = tb3_state.count.wrapping_add(1);
-                    tb3_state
-                        .bus
-                        .write_u8(200, addresses::HEARTBEAT, count)
-                        .await
-                        .map_err(|e| {
-                            zferror!(ErrorKind::InvalidData, "TB3 Heartbeat error: {}", e)
-                        })?;
-                    tb3_state.count = count;
+                        //WARN: reading from the board is currently commented as it is a
+                        // huge source of latency and jitter when controlling the robot.
 
-                    match which_input {
-                        INPUT::Tick => {
-                            let battery = Tb3::get_battery_state(&mut tb3_state.bus).await?;
-                            let imu = Tb3::get_imu(&mut tb3_state.bus).await?;
-                            let magnetic_field = Tb3::get_magnetic(&mut tb3_state.bus).await?;
-                            let joint_state = Tb3::get_joint_states(&mut tb3_state.bus).await?;
-                            let sensor_state = Tb3::get_sensor_state(&mut tb3_state.bus).await?;
+                        // let battery = Tb3::get_battery_state(&mut tb3_state.bus).await?;
+                        // let imu = Tb3::get_imu(&mut tb3_state.bus).await?;
+                        // let magnetic_field = Tb3::get_magnetic(&mut tb3_state.bus).await?;
+                        // let joint_state = Tb3::get_joint_states(&mut tb3_state.bus).await?;
+                        // let sensor_state = Tb3::get_sensor_state(&mut tb3_state.bus).await?;
+                        // let robot_information = RobotInformation {
+                        //     battery,
+                        //     imu,
+                        //     magnetic_field,
+                        //     joint_state,
+                        //     sensor_state,
+                        // };
+                        // let data = Data::from(robot_information);
+                        // output.send_async(data, None).await?;
+                        //
+                        ()
+                    },
+                    msg = input_twist.recv_async().fuse() => {
+                        if let Ok(Message::Data(mut twist_message)) = msg {
+                            let twist = twist_message.get_inner_data().try_get::<Twist>()?;
+                            Tb3::write_to_motors(&mut tb3_state.lock().await.bus, twist).await?;
 
-                            let robot_information = RobotInformation {
-                                battery,
-                                imu,
-                                magnetic_field,
-                                joint_state,
-                                sensor_state,
-                            };
-
-                            data = Some(Data::from(robot_information));
                         }
-                        INPUT::Twist => {
-                            if let Message::Data(mut twist_raw) = message {
-                                let twist = twist_raw.get_inner_data().try_get::<Twist>()?;
-                                Tb3::write_to_motors(&mut tb3_state.bus, twist).await?;
-                            }
-                        }
-                    }
-                }
 
-                if let Some(data) = data {
-                    output.send_async(data, None).await?;
+                    },
                 }
 
                 Ok(())
