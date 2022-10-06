@@ -26,7 +26,7 @@ parser.add_argument('--connect', '-e', type=str, metavar='ENDPOINT', action='app
                     help='Endpoints to connect to.')
 parser.add_argument('--listen', '-l', type=str, metavar='ENDPOINT', action='append',
                     help='Endpoints to listen on.')
-parser.add_argument('-k', '--key', type=str, default='/demo/random',
+parser.add_argument('-k', '--key', type=str, default='demo/random',
                     help='The key expression to publish onto.')
 parser.add_argument('-a', '--max', type=int, default=100,
                     help='The maximum generated value.')

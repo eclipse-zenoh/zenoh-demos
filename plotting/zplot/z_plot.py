@@ -32,7 +32,7 @@ parser.add_argument('--connect', '-e', type=str, metavar='ENDPOINT', action='app
                     help='Endpoints to connect to.')
 parser.add_argument('--listen', '-l', type=str, metavar='ENDPOINT', action='append',
                     help='Endpoints to listen on.')
-parser.add_argument('-k', '--key', type=str, default='/demo/random',
+parser.add_argument('-k', '--key', type=str, default='demo/random',
                     help='The key expression to subscribe to.')
 parser.add_argument('-i', '--history', type=float, default=10.0,
                     help='The history depth in seconds.')
@@ -73,7 +73,7 @@ print("Openning session...")
 z = zenoh.open(conf)
 
 print("Declaring Subscriber on '{}'...".format(args.key))
-sub = z.subscribe(args.key, listener)
+sub = z.declare_subscriber(args.key, listener)
 
 ani = FuncAnimation(fig, update)
 plt.show()
