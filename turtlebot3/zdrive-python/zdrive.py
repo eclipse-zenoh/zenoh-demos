@@ -34,7 +34,7 @@ parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='appe
                     help='zenoh endpoints to listen on.')
 parser.add_argument('-d', '--delay', type=float, default=0.1,
                     help='delay between each iteration in seconds')
-parser.add_argument('-p', '--prefix', type=str, default='/rt/turtle1',
+parser.add_argument('-p', '--prefix', type=str, default='rt/turtle1',
                     help='resources prefix')
 parser.add_argument('-c', '--config', type=str, metavar='FILE',
                     help='A zenoh configuration file.')
@@ -57,8 +57,7 @@ print('[INFO] Open zenoh session...')
 zenoh.init_logger()
 z = zenoh.open(conf)
 
-heartbeat_key = z.declare_expr('{}/heartbeat'.format(args.prefix))
-z.declare_publication(heartbeat_key)
+publ = z.declare_publisher('{}/heartbeat'.format(args.prefix))
 
 def listener(sample):
     global cmd
@@ -70,7 +69,7 @@ if servo is None:
     print('[WARN] Unable to connect to motor.')
 else:
     servo.write1ByteTxRx(IMU_RE_CALIBRATION, 1)
-    sub = z.subscribe('{}/cmd_vel'.format(args.prefix), listener)
+    sub = z.declare_subscriber('{}/cmd_vel'.format(args.prefix), listener)
 
 time.sleep(3.0)
 
@@ -86,7 +85,7 @@ while True:
         servo.write4ByteTxRx(CMD_VELOCITY_ANGULAR_Z, int(cmd.angular.z))
     cmd = Twist(Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.0, 0.0))
 
-    z.put(heartbeat_key, count)
+    publ.put(count)
 
     count += 1
     if count > 255:
