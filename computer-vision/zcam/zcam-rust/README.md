@@ -18,6 +18,6 @@ cargo build --release
 Once build you can run it as follows:
 
 ```bash
-./target/release/zcapture -k /demo/video/yourname
-./target/release/zdisplay -k /demo/video/*
+./target/release/zcapture -k demo/zcam/yourname
+./target/release/zdisplay -k demo/zcam/*
 ```
