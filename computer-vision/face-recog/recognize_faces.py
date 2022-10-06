@@ -17,7 +17,7 @@ parser.add_argument('-e', '--connect', type=str, metavar='ENDPOINT', action='app
                     help='zenoh endpoints to connect to.')
 parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='append',
                     help='zenoh endpoints to listen on.')
-parser.add_argument('-p', '--prefix', type=str, default='/demo/facerecog',
+parser.add_argument('-p', '--prefix', type=str, default='demo/facerecog',
                     help='The resources prefix')
 parser.add_argument('-d', '--delay', type=float, default=0.2,
                     help='delay between each recognition')
@@ -50,7 +50,7 @@ def add_face_to_data(fdata, key, value):
 
 
 def update_face_data(sample):
-    if sample.kind == zenoh.SampleKind.PUT:
+    if sample.kind == zenoh.SampleKind.PUT():
         add_face_to_data(data, str(sample.key_expr), sample.payload.decode("utf-8"))
 
 
@@ -72,12 +72,12 @@ z = zenoh.open(conf)
 time.sleep(0.5)
 
 print('[INFO] Retrieve faces vectors...')
-for vector in z.get(args.prefix + '/vectors/**'):
+for vector in z.get(args.prefix + '/vectors/**', zenoh.ListCollector())():
     add_face_to_data(data, str(vector.data.key_expr), vector.data.payload.decode("utf-8"))
 
 print('[INFO] Start recognition...')
-sub1 = z.subscribe(args.prefix + '/vectors/**', update_face_data)
-sub2 = z.subscribe(args.prefix + '/faces/*/*', faces_listener)
+sub1 = z.declare_subscriber(args.prefix + '/vectors/**', update_face_data)
+sub2 = z.declare_subscriber(args.prefix + '/faces/*/*', faces_listener)
 
 while True:
     for cam in list(cams):

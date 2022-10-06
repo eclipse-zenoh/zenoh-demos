@@ -18,7 +18,7 @@ parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='appe
                     help='zenoh endpoints to listen on.')
 parser.add_argument('-n', '--name', required=True,
                     help='The name of the person')
-parser.add_argument('-p', '--prefix', type=str, default='/demo/facerecog',
+parser.add_argument('-p', '--prefix', type=str, default='demo/facerecog',
                     help='The resources prefix')
 parser.add_argument('-a', '--cascade', type=str,
                     default='haarcascade_frontalface_default.xml',
@@ -77,9 +77,9 @@ while True:
             encoding = face_recognition.face_encodings(rgb, box)[0]
             elist = encoding.tolist()
 
-            faces = z.get(args.prefix + '/vectors/**')
+            faces = z.get(args.prefix + '/vectors/**', zenoh.ListCollector())
             counter = 0
-            for face in faces:
+            for face in faces():
                 chunks = str(face.data.key_expr).split('/')
                 name = chunks[-2]
                 if name == args.name:

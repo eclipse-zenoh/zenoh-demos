@@ -30,7 +30,7 @@ parser.add_argument('-a', '--cascade', type=str,
                     help='path to the face cascade file')
 parser.add_argument('-d', '--delay', type=float, default=0.05,
                     help='delay between each frame in seconds')
-parser.add_argument('-p', '--prefix', type=str, default='/demo/facerecog',
+parser.add_argument('-p', '--prefix', type=str, default='demo/facerecog',
                     help='resources prefix')
 parser.add_argument('-c', '--config', type=str, metavar='FILE',
                     help='A zenoh configuration file.')
@@ -61,7 +61,7 @@ z = zenoh.open(conf)
 
 detector = cv2.CascadeClassifier(args.cascade)
 
-sub = z.subscribe(args.prefix + '/cams/*', frames_listener)
+sub = z.declare_subscriber(args.prefix + '/cams/*', frames_listener)
 
 while True:
     for cam in list(cams):

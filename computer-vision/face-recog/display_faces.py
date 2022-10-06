@@ -16,7 +16,7 @@ parser.add_argument('-e', '--connect', type=str, metavar='ENDPOINT', action='app
                     help='zenoh endpoints to connect to.')
 parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='append',
                     help='zenoh endpoints to listen on.')
-parser.add_argument('-p', '--prefix', type=str, default='/demo/facerecog',
+parser.add_argument('-p', '--prefix', type=str, default='demo/facerecog',
                     help='resources prefix')
 parser.add_argument('-d', '--delay', type=float, default=0.05,
                     help='delay between each refresh')
@@ -67,10 +67,10 @@ def names_listener(sample):
 print('[INFO] Open zenoh session...')
 zenoh.init_logger()
 z = zenoh.open(conf)
-sub1 = z.subscribe(args.prefix + '/faces/*/*', faces_listener)
-sub2 = z.subscribe(args.prefix + '/faces/*/*/name', names_listener)
+sub1 = z.declare_subscriber(args.prefix + '/faces/*/*', faces_listener)
+sub2 = z.declare_subscriber(args.prefix + '/faces/*/*/name', names_listener)
 
-for data in z.get(args.prefix + '/faces/*/*/name'):
+for data in z.get(args.prefix + '/faces/*/*/name', zenoh.ListCollector())():
     names_listener(data)
 
 print('[INFO] Display detected faces ...')
@@ -108,6 +108,6 @@ while True:
         break
 
 cv2.destroyAllWindows()
-sub1.close()
-sub2.close()
+sub1.undeclare()
+sub2.undeclare()
 z.close()

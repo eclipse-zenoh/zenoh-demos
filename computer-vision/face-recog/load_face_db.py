@@ -15,7 +15,7 @@ parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='appe
                     help='zenoh endpoints to listen on.')
 parser.add_argument('-d', '--dataset', required=True,
                     help='vectors dataset location')
-parser.add_argument('-p', '--prefix', type=str, default='/demo/facerecog',
+parser.add_argument('-p', '--prefix', type=str, default='demo/facerecog',
                     help='resources prefix')
 parser.add_argument('-c', '--config', type=str, metavar='FILE',
                     help='A zenoh configuration file.')

@@ -29,7 +29,7 @@ parser.add_argument('-a', '--cascade', type=str,
                     help='path to the face cascade file')
 parser.add_argument('-d', '--delay', type=float, default=0.05,
                     help='delay between each frame in seconds')
-parser.add_argument('-p', '--prefix', type=str, default='/demo/facerecog',
+parser.add_argument('-p', '--prefix', type=str, default='demo/facerecog',
                     help='resources prefix')
 parser.add_argument('-c', '--config', type=str, metavar='FILE',
                     help='A zenoh configuration file.')
@@ -63,7 +63,7 @@ z = zenoh.open(conf)
 detector = cv2.CascadeClassifier(args.cascade)
 
 print('[INFO] Start detection')
-sub = z.subscribe(args.prefix + '/cams/*', frames_listener)
+sub = z.declare_subscriber(args.prefix + '/cams/*', frames_listener)
 
 while True:
     for cam in list(cams):
@@ -88,8 +88,7 @@ while True:
             # print('[DEBUG] Put detected face: {}/faces/{}/{}'.format(args.prefix, cam, i))
             z.put('{}/faces/{}/{}'.format(args.prefix, cam, i), jpeg.tobytes())
             z.put('{}/faces/{}/{}/box'.format(args.prefix, cam, i),
-                json.dumps({'left': int(left), 'right': int(right), 'top': int(top), 'bottom': int(bottom)}),
-                encoding=zenoh.KnownEncoding.AppJson)
+                {'left': int(left), 'right': int(right), 'top': int(top), 'bottom': int(bottom)})
 
     time.sleep(args.delay)
 
