@@ -27,9 +27,9 @@ fn main() {
 
         let name = query
             .selector()
-            .value_selector_map()
-            .get("name")
-            .cloned()
+            .parameters_cowmap()
+            .ok()
+            .and_then(|map| map.get("name").cloned())
             .unwrap_or_else(|| Cow::from("Rust!"))
             .into_owned();
 
