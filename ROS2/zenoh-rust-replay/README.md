@@ -59,11 +59,11 @@ See all options accepted by Ros2Replay with:
   ./target/debug/ros2-replay -h
   ```
 
-By default ros2-replay retrieves Twist messages that were published on `/rt/turtle1/cmd_vel` (for turtlesim)
-and replay them back on `/replay/rt/turtle1/cmd_vel`.
+By default ros2-replay retrieves Twist messages that were published on `rt/turtle1/cmd_vel` (for turtlesim)
+and replay them back on `replay/rt/turtle1/cmd_vel`.
 For other robots, change the originan and replay paths using respectively the `--input-path` and `--output-path` options:
   ```bash
-  ./target/debug/ros2-replay --input-path /bot1/rt/cmd_vel --output-path /bot2/rt/cmd_vel
+  ./target/debug/ros2-replay --input-path bot1/rt/cmd_vel --output-path bot2/rt/cmd_vel
   ```
 
 Both zenoh router and Replay can be deployed in different networks than the robot. Only the zenoh/DDS bridge has to run in the same network than the robot (for DDS communication via UDP multicast).  
