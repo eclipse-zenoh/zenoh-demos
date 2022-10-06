@@ -78,11 +78,11 @@ def main(stdscr):
                         type=str,
                         help='A configuration file.')
     parser.add_argument('--cmd_vel', dest='cmd_vel',
-                        default='/rt/turtle1/cmd_vel',
+                        default='rt/turtle1/cmd_vel',
                         type=str,
                         help='The "cmd_vel" ROS2 topic.')
     parser.add_argument('--rosout', dest='rosout',
-                        default='/rt/rosout',
+                        default='rt/rosout',
                         type=str,
                         help='The "rosout" ROS2 topic.')
     parser.add_argument('--angular_scale', '-a', dest='angular_scale',
@@ -122,7 +122,7 @@ def main(stdscr):
         print('[{}.{}] [{}]: {}'.format(log.stamp.sec,
                                         log.stamp.nanosec, log.name, log.msg))
 
-    sub = session.subscribe(rosout, rosout_callback)
+    sub = session.declare_subscriber(rosout, rosout_callback)
 
     def pub_twist(linear, angular):
         print("Pub twist: {} - {}".format(linear, angular))
@@ -144,7 +144,7 @@ def main(stdscr):
         elif c == 27 or c == ord('q'):
             break
 
-    sub.close()
+    sub.undeclare()
     session.close()
 
 

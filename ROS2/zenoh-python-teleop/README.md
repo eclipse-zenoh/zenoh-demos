@@ -39,10 +39,10 @@ See all options accepted by Ros2Teleop with:
   python ros2-teleop.py -h
   ```
 
-By default Ros2Teleop publishes Twist messages on topic `/rt/turtle1/cmd_vel` (for turtlesim).
+By default Ros2Teleop publishes Twist messages on topic `rt/turtle1/cmd_vel` (for turtlesim).
 For other robot, change the topic using the `--cmd_vel` option:
   ```bash
-  python ros2-teleop.py --cmd_vel /rt/my_robot/cmd_vel
+  python ros2-teleop.py --cmd_vel rt/my_robot/cmd_vel
   ```
 
 Both zenoh router and Teleop can be deployed in different networks than the robot. Only the zenoh/DDS bridge has to run in the same network than the robot (for DDS communication via UDP multicast).  
