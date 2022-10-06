@@ -102,7 +102,7 @@ fn parse_args() -> (Config, String, String, u32, u64) {
         ))
         .arg(
             Arg::from_usage("-k, --key=[key_expr] 'The key expression to publish LaserReadings'")
-                .default_value("/rt/turtle1/lidar"),
+                .default_value("rt/turtle1/lidar"),
         )
         .arg(Arg::from_usage("-p, --port=[port] 'The serial port.'").default_value(DEFAULT_PORT))
         .arg(
