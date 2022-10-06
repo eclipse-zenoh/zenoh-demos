@@ -28,5 +28,5 @@ via the zenoh REST API, bridged to ROS2.
  6. In this page:
      - If needed, adapt the "URL of your zenoh-bridge-dds" to the host where your bridge is running
      - Click on "Subscribe" button
-     - All the messages published on "/rt/rosout" via ROS2 should be displayed in the bottom box.
+     - All the messages published on "rt/rosout" via ROS2 should be displayed in the bottom box.
 
