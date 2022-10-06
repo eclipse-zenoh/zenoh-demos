@@ -61,7 +61,7 @@ parser.add_argument('-q', '--quality', type=int, default=95,
                     help='quality of the published frames (0 - 100)')
 parser.add_argument('-d', '--delay', type=float, default=0.05,
                     help='delay between each iteration in seconds')
-parser.add_argument('-p', '--prefix', type=str, default='/rt/turtle1',
+parser.add_argument('-p', '--prefix', type=str, default='rt/turtle1',
                     help='resources prefix')
 parser.add_argument('-c', '--config', type=str, metavar='FILE',
                     help='A zenoh configuration file.')
@@ -86,8 +86,7 @@ print('[INFO] Open zenoh session...')
 zenoh.init_logger()
 z = zenoh.open(conf)
 
-heartbeat_key = z.declare_expr('{}/heartbeat'.format(args.prefix))
-z.declare_publication(heartbeat_key)
+heartbeat_pub = z.declare_publisher('{}/heartbeat'.format(args.prefix))
 
 def listener(sample):
     global cmd
@@ -99,12 +98,11 @@ if servo is None:
     print('[WARN] Unable to connect to motor.')
 else:
     servo.write1ByteTxRx(IMU_RE_CALIBRATION, 1)
-    sub = z.subscribe('{}/cmd_vel'.format(args.prefix), listener)
+    sub = z.declare_subscriber('{}/cmd_vel'.format(args.prefix), listener)
 
 print('[INFO] Open camera...')
 vs = VideoStream(src=CAMERA_ID).start()
-cam_key = z.declare_expr('{}/cams/0'.format(args.prefix))
-z.declare_publication(cam_key)
+cam_pub = z.declare_publisher('{}/cams/0'.format(args.prefix))
 
 time.sleep(3.0)
 
@@ -120,13 +118,13 @@ while True:
         servo.write4ByteTxRx(CMD_VELOCITY_ANGULAR_Z, int(cmd.angular.z))
     cmd = Twist(Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.0, 0.0))
 
-    z.put(heartbeat_key, count)
+    heartbeat_pub.put(count)
 
     raw = vs.read()
     if raw is not None:
         frame = imutils.resize(raw, width=args.width)
         _, jpeg = cv2.imencode('.jpg', frame, jpeg_opts)
-        z.put(cam_key, jpeg.tobytes())
+        cam_pub.put(jpeg.tobytes())
 
     new_bssid = getBSSID()
     if new_bssid != bssid:
