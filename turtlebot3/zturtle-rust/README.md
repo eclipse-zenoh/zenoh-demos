@@ -28,12 +28,12 @@ zturtle -m client -e endpoints.json
 
 Display the video stream using zenoh-demos/computer-vision/zcam/zcam-rust or zenoh-demos/computer-vision/zcam/zcam-python:
 ```
-zdisplay -k /rt/*/cams/* -m client -e tcp/127.0.0.1:7447
+zdisplay -k rt/*/cams/* -m client -e tcp/127.0.0.1:7447
 ```
 
 Teleoperate the robot using zenoh-demos/ROS2/zenoh-rust-teleop or zenoh-demos/ROS2/zenoh-teleop-python:
 ```
-ros2-teleop -m client -e tcp/127.0.0.1:7447 --cmd_vel=/rt/turtle1/cmd_vel -a 100.0 -x 20.0
+ros2-teleop -m client -e tcp/127.0.0.1:7447 --cmd_vel=rt/turtle1/cmd_vel -a 100.0 -x 20.0
 ```
 
 

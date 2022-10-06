@@ -52,7 +52,7 @@ fn main() {
         ))
         .arg(
             Arg::from_usage("-p, --prefix=[KEYEXPR] 'The robot prefix'")
-                .default_value("/rt/turtle1"),
+                .default_value("rt/turtle1"),
         )
         .arg(Arg::from_usage(
             "-c, --config=[FILE]      'A configuration file.'",
