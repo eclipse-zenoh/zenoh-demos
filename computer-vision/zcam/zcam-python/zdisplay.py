@@ -44,7 +44,7 @@ print('[INFO] Open zenoh session...')
 zenoh.init_logger()
 z = zenoh.open(conf)
 
-sub = z.subscribe(args.key, frames_listener)
+sub = z.declare_subscriber(args.key, frames_listener)
 
 while True:
     for cam in list(cams):

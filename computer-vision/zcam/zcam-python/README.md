@@ -10,6 +10,6 @@ pip3 install eclipse-zenoh opencv-python numpy
 ## Running zcam-python
 
 ```bash
-python3 zcapture.py -k /demo/video/yourname
-python3 zdisplay.py -k /demo/video/yourname
+python3 zcapture.py -k demo/zcam/yourname
+python3 zdisplay.py -k demo/zcam/*
 ```
