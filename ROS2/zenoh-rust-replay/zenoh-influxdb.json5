@@ -11,7 +11,7 @@
       },
       storages: {
         ros2: {
- 	        key_expr: "/rt/*/cmd_vel",
+ 	        key_expr: "rt/*/cmd_vel",
           volume: {
             id: "influxdb",
             db: "ROS2",
