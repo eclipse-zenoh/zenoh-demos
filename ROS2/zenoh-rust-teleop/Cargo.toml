@@ -23,7 +23,7 @@ description = "A ROS2 simple teleop app using Eclipse zenoh"
 readme = "./README.md"
 
 [dependencies]
-zenoh = { git = "https://github.com/eclipse-zenoh/zenoh", branch = "api-changes" }
+zenoh = { git = "https://github.com/eclipse-zenoh/zenoh" }
 async-std = { version = "=1.12.0", features = ["attributes", "unstable"] }
 futures = "0.3.12"
 serde = "1"

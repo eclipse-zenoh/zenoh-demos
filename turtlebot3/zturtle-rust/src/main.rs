@@ -18,8 +18,8 @@ use serde_json::Value;
 use std::thread::sleep;
 use std::time::Duration;
 use zenoh::config::{Config, ValidatedMap};
-use zenoh::net::protocol::io::SplitBuffer;
 use zenoh::prelude::sync::SyncResolve;
+use zenoh::prelude::*;
 
 mod addresses;
 use addresses::*;
@@ -217,7 +217,7 @@ fn main() {
         let new_bssid = get_bssid().unwrap_or_else(|| "default".to_string());
         if bssid != new_bssid {
             println!("[info] New access point detected");
-            update_config(session.config(), &endpoints, &new_bssid);
+            update_config(&mut session.config(), &endpoints, &new_bssid);
             bssid = new_bssid;
         }
 

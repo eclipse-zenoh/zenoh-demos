@@ -24,7 +24,7 @@ use futures::select;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt;
 use std::io::{stdout, Write};
-use zenoh::buf::reader::HasReader;
+use zenoh::buffers::reader::HasReader;
 use zenoh::config::Config;
 use zenoh::{prelude::r#async::AsyncResolve, publication::Publisher};
 
