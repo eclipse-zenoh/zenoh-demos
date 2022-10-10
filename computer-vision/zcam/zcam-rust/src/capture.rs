@@ -12,11 +12,15 @@
 //   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 //
 use clap::{App, Arg};
-use opencv::{prelude::*, videoio, Result};
+use futures::prelude::*;
+use futures::select;
+use opencv::{core, prelude::*, videoio};
 use zenoh::config::Config;
 use zenoh::prelude::sync::SyncResolve;
+use zenoh::prelude::*;
 
-fn main() -> Result<()> {
+#[async_std::main]
+async fn main() {
     // initiate logging
     env_logger::init();
 
@@ -25,16 +29,21 @@ fn main() -> Result<()> {
     println!("Openning session...");
     let session = zenoh::open(config).res().unwrap();
 
-    let zpub = session.declare_publisher(&key_expr).res().unwrap();
+    let publ = session.declare_publisher(&key_expr).res().unwrap();
+
+    let conf_sub = session
+        .declare_subscriber(format!("{}/zcapture/conf/**", key_expr))
+        .res()
+        .unwrap();
 
     opencv::opencv_branch_32! {
-        let mut cam = videoio::VideoCapture::new_default(0)?; // 0 is the default camera
+        let mut cam = videoio::VideoCapture::new_default(0).unwrap(); // 0 is the default camera
     }
     opencv::not_opencv_branch_32! {
-        let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY)?; // 0 is the default camera
+        let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap(); // 0 is the default camera
     }
 
-    let opened = videoio::VideoCapture::is_opened(&cam)?;
+    let opened = videoio::VideoCapture::is_opened(&cam).unwrap();
     if !opened {
         panic!("Unable to open default camera!");
     }
@@ -43,30 +52,31 @@ fn main() -> Result<()> {
     encode_options.push(90);
 
     loop {
-        let mut frame = Mat::default();
+        select!(
+            _ = async_std::task::sleep(std::time::Duration::from_millis(delay)).fuse() => {
+                let mut frame = core::Mat::default();
+                cam.read(&mut frame).unwrap();
 
-        cam.read(&mut frame)?;
+                if !frame.empty() {
+                    let mut reduced = Mat::default();
+                    opencv::imgproc::resize(&frame, &mut reduced, opencv::core::Size::new(resolution[0], resolution[1]), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
 
-        if !frame.empty() {
-            let mut reduced = Mat::default();
-            opencv::imgproc::resize(
-                &frame,
-                &mut reduced,
-                opencv::core::Size::new(resolution[0], resolution[1]),
-                0.0,
-                0.0,
-                opencv::imgproc::INTER_LINEAR,
-            )?;
+                    let mut buf = opencv::types::VectorOfu8::new();
+                    opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();
 
-            let mut buf = opencv::types::VectorOfu8::new();
-            opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options)?;
+                    publ.put(buf.to_vec()).res().unwrap();
+                } else {
+                    println!("Reading empty buffer from camera... Waiting some more....");
+                }
+            },
 
-            zpub.put(buf.to_vec()).res().unwrap();
-            std::thread::sleep(std::time::Duration::from_millis(delay));
-        } else {
-            println!("Reading empty buffer from camera... Waiting some more....");
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
+            sample = conf_sub.recv_async().fuse() => {
+                let sample = sample.unwrap();
+                let conf_key = sample.key_expr.as_str().split("/conf/").last().unwrap();
+                let conf_val = String::from_utf8_lossy(&sample.value.payload.contiguous()).to_string();
+                let _ = session.config().insert_json5(conf_key, &conf_val);
+            },
+        );
     }
 }
 
