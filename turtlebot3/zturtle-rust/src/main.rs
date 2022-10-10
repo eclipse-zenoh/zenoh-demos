@@ -41,7 +41,7 @@ fn main() {
     let args = App::new("zenoh turtlebot3 example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE]  'The zenoh session mode (peer by default).")
-                .possible_values(&["peer", "client"]),
+                .possible_values(["peer", "client"]),
         )
         .arg(
             Arg::from_usage("-e, --endpoints=[FILE]   'A BSSID/endpoint mapping json file.'")

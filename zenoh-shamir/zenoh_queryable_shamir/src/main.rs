@@ -108,7 +108,7 @@ fn parse_args() -> (Config, String, u8, u8) {
     let args = App::new("zenoh + shamir queryable example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE]  'The zenoh session mode (peer by default).")
-                .possible_values(&["peer", "client"]),
+                .possible_values(["peer", "client"]),
         )
         .arg(Arg::from_usage(
             "-e, --connect=[ENDPOINT]...   'Endpoints to connect to.'",

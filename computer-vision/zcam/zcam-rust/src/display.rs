@@ -50,7 +50,7 @@ fn parse_args() -> (Config, String) {
     let args = App::new("zenoh video display example")
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
-                .possible_values(&["peer", "client"])
+                .possible_values(["peer", "client"])
                 .default_value("peer"),
         )
         .arg(
