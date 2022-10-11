@@ -141,6 +141,8 @@ def main(stdscr):
             pub_twist(0.0, 1.0 * angular_scale)
         elif c == curses.KEY_RIGHT:
             pub_twist(0.0, -1.0 * angular_scale)
+        elif c == 32:
+            pub_twist(0.0, 0.0)
         elif c == 27 or c == ord('q'):
             break
 
