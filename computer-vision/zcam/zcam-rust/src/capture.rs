@@ -101,7 +101,11 @@ fn parse_args() -> (Config, String, Vec<i32>, u64) {
         ))
         .get_matches();
 
-    let mut config = Config::default();
+    let mut config = if let Some(conf_file) = args.value_of("config") {
+        Config::from_file(conf_file).unwrap()
+    } else {
+        Config::default()
+    };
     if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
         config.set_mode(Some(mode)).unwrap();
     }
