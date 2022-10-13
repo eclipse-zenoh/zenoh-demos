@@ -17,9 +17,11 @@ use cdr::Infinite;
 use clap::{App, Arg};
 use futures::prelude::*;
 use serde_derive::{Deserialize, Serialize};
-use zenoh::buffers::{reader::HasReader, ZBuf};
+use zenoh::buf::reader::HasReader;
+use zenoh::buf::ZBuf;
+use zenoh::config::Config;
 use zenoh::prelude::r#async::AsyncResolve;
-use zenoh::prelude::*;
+use zenoh::query::*;
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
 struct Vector3 {
@@ -39,15 +41,42 @@ async fn main() {
     // Initiate logging
     env_logger::init();
 
+<<<<<<< Updated upstream
     let (config, query_selector, pub_expr, time_scale, is_twist, angular_scale, linear_scale) =
+=======
+    let (config, cmd_vel, iscope, oscope, opath, filter, angular_scale, linear_scale) =
+>>>>>>> Stashed changes
         parse_args();
 
     println!("Opening session...");
     let session = zenoh::open(config).res().await.unwrap();
     let publisher = session.declare_publisher(pub_expr).res().await.unwrap();
 
+<<<<<<< Updated upstream
     // Get stored publications
     println!("Sending Query '{}'...", query_selector);
+=======
+    let mut input = iscope;
+    input.push_str(cmd_vel.as_str());
+    if !input.is_empty() {
+        input.push_str("?");
+        input.push_str(filter.as_str());
+    }
+
+    let output = if let Some(path) = opath {
+        path
+    } else {
+        let mut output = oscope;
+        output.push_str(cmd_vel.as_str());
+        output
+    };
+
+    println!("Sending Query '{}'...", input);
+    let tgt = QueryTarget {
+        kind: queryable::STORAGE,
+        target: Target::All,
+    };
+>>>>>>> Stashed changes
     let mut replies = session
         .get(&query_selector)
         .target(QueryTarget::All)
@@ -98,11 +127,38 @@ async fn main() {
         };
         ts = s.timestamp;
 
+<<<<<<< Updated upstream
         println!(
             "[{}] Replay publication from '{}' to '{}'",
             now.get_time(),
             s.key_expr,
             publisher.key_expr()
+=======
+<<<<<<< Updated upstream
+        let cmd =
+            cdr::deserialize_from::<_, Twist, _>(&*reply.data.value.payload.contiguous(), Infinite)
+=======
+        let mut cmd =
+            cdr::deserialize_from::<_, Twist, _>(reply.sample.value.payload.reader(), Infinite)
+>>>>>>> Stashed changes
+                .unwrap();
+        cmd.linear.x *= linear_scale;
+        cmd.linear.y *= linear_scale;
+        cmd.linear.z *= linear_scale;
+        cmd.angular.x *= angular_scale;
+        cmd.angular.y *= angular_scale;
+        cmd.angular.z *= angular_scale;
+        println!(
+            "[{}] Replay from '{}' to '{}':\n     '{:?}'",
+            now.get_time(),
+<<<<<<< Updated upstream
+            reply.data.key_expr.as_str(),
+=======
+            reply.sample.key_expr,
+            output,
+>>>>>>> Stashed changes
+            cmd
+>>>>>>> Stashed changes
         );
 
         if is_twist {
@@ -116,6 +172,7 @@ async fn main() {
     }
 }
 
+<<<<<<< Updated upstream
 fn transform_twist(payload: &ZBuf, linear_scale: f64, angular_scale: f64) -> Vec<u8> {
     let mut twist = cdr::deserialize_from::<_, Twist, _>(payload.reader(), Infinite).unwrap();
     twist.linear.x *= linear_scale;
@@ -130,9 +187,22 @@ fn transform_twist(payload: &ZBuf, linear_scale: f64, angular_scale: f64) -> Vec
 
 fn parse_args() -> (Config, String, String, f64, bool, f64, f64) {
     let args = App::new("ros2-replay")
+=======
+fn parse_args() -> (
+    Config,
+    String,
+    String,
+    String,
+    Option<String>,
+    String,
+    f64,
+    f64,
+) {
+    let args = App::new("zenoh-net sub example")
+>>>>>>> Stashed changes
         .arg(
             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode (peer by default).")
-                .possible_values(["peer", "client"]),
+                .possible_values(&["peer", "client"]),
         )
         .arg(Arg::from_usage(
             "-e, --connect=[LOCATOR]... 'Locators to connect to.'",
@@ -140,20 +210,17 @@ fn parse_args() -> (Config, String, String, f64, bool, f64, f64) {
         .arg(Arg::from_usage(
             "-c, --config=[FILE] 'A configuration file.'",
         ))
-        .arg(Arg::from_usage(
-            "--no-multicast-scouting 'Disable the multicast-based scouting mechanism.'",
-        ))
         .arg(
-            Arg::from_usage("-f, --filter=[String] 'The 'filter' for querying. E.g. \"_time=[now(-1h)..]\"'")
-                .default_value("_time=[now(-5m)..]"),
+            Arg::from_usage("-f, --filter=[String] 'The 'filter' for querying. E.g. \"_time=[now(-1h)]\"'")
+                .default_value("_time=[..now()]"),
         )
         .arg(
             Arg::from_usage("-i, --input-path=[String] 'A complete overwrite of the input zenoh resrouce (option -i will be ignored).'")
-                .default_value("simu/rt/cmd_vel"),
+                .default_value("rt/turtle1/cmd_vel"),
         )
         .arg(
             Arg::from_usage("-o, --output-path=[String] 'A complete overwrite of the output zenoh resrouce (option -o will be ignored).'")
-                .default_value("bot1/rt/cmd_vel"),
+                .default_value("replay/rt/turtle1/cmd_vel"),
         )
         .arg(Arg::from_usage("-t, --time-scale=[FLOAT] 'The time scale (i.e. multiplier of time interval between each re-publication).").default_value("1.0"))
         .arg(Arg::from_usage("-w, --twist 'The data is a ROS2 Twist message. --angular-scale and --linear-scale will appli"))
@@ -161,7 +228,18 @@ fn parse_args() -> (Config, String, String, f64, bool, f64, f64) {
             Arg::from_usage("-a, --angular-scale=[FLOAT] 'The angular scale (apply only if  --twist is set).'")
                 .default_value("1.0"),
         )
+<<<<<<< Updated upstream
         .arg(Arg::from_usage("-x, --linear-scale=[FLOAT] 'The linear scale (apply only if  --twist is set).").default_value("1.0"))
+=======
+        .arg(
+            Arg::from_usage("--output-path=[String] 'A complete overwrite of the output zenoh resrouce (option -o will be ignored).'"),
+        )
+        .arg(
+            Arg::from_usage("-a, --angular_scale=[FLOAT] 'The angular scale.'")
+                .default_value("1.0"),
+        )
+        .arg(Arg::from_usage("-x, --linear_scale=[FLOAT] 'The linear scale.").default_value("1.0"))
+>>>>>>> Stashed changes
         .get_matches();
 
     let mut config = if let Some(conf_file) = args.value_of("config") {
@@ -178,10 +256,17 @@ fn parse_args() -> (Config, String, String, f64, bool, f64, f64) {
             .endpoints
             .extend(values.map(|v| v.parse().unwrap()))
     }
+    if let Some(values) = args.values_of("listen") {
+        config
+            .listen
+            .endpoints
+            .extend(values.map(|v| v.parse().unwrap()))
+    }
     if args.is_present("no-multicast-scouting") {
         config.scouting.multicast.set_enabled(Some(false)).unwrap();
     }
 
+<<<<<<< Updated upstream
     let ipath = args.value_of("input-path").unwrap().to_string();
     let opath = args.value_of("output-path").unwrap().to_string();
     let filter = args.value_of("filter").unwrap().to_string();
@@ -204,6 +289,23 @@ fn parse_args() -> (Config, String, String, f64, bool, f64, f64) {
         pub_expr,
         time_scale,
         is_twist,
+=======
+    let cmd_vel = args.value_of("cmd_vel").unwrap().to_string();
+    let iscope = args.value_of("input-scope").unwrap().to_string();
+    let oscope = args.value_of("output-scope").unwrap().to_string();
+    let opath = args.value_of("output-path").map(|s| s.to_string());
+    let filter = args.value_of("filter").unwrap().to_string();
+    let angular_scale: f64 = args.value_of("angular_scale").unwrap().parse().unwrap();
+    let linear_scale: f64 = args.value_of("linear_scale").unwrap().parse().unwrap();
+
+    (
+        config,
+        cmd_vel,
+        iscope,
+        oscope,
+        opath,
+        filter,
+>>>>>>> Stashed changes
         angular_scale,
         linear_scale,
     )
