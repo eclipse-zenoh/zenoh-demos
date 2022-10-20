@@ -16,7 +16,6 @@ import argparse
 import json
 from turtle import stamp
 import zenoh
-import json
 import cmath
 import numpy as np
 from matplotlib.animation import FuncAnimation
@@ -24,6 +23,7 @@ from matplotlib.patches import Polygon
 from matplotlib import pyplot as plt
 from pycdr import cdr
 from pycdr.types import int8, int32, uint16, uint32, float32, sequence, array
+from typing import List
 
 @cdr
 class Time:
@@ -47,8 +47,8 @@ class LaserScan:
     scan_time: float32
     range_min: float32
     range_max: float32
-    ranges: array[float32, 360]
-    intensities: array[float32, 360]
+    ranges: List[float32]
+    intensities: List[float32]
 
 parser = argparse.ArgumentParser(
     prog='zlidar-plot',
@@ -76,7 +76,6 @@ if args.listen is not None:
     conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(args.listen))
 
 fig, ax = plt.subplots()
-angles = list(map(lambda i: (2*cmath.pi*i/360)*1j-cmath.pi/2j, range(360)))
 patch = ax.add_patch(Polygon([[0, 0]], color='lightgrey'))
 line = ax.plot([], [], '.', color='black')[0]
 center = ax.plot([0], [0], 'o', color='blue')[0]
@@ -87,6 +86,7 @@ ax.set_ylim(-4, 4)
 def lidar_listener(sample):
     # print('[DEBUG] Received frame: {}'.format(sample.key_expr))
     scan = LaserScan.deserialize(sample.payload)
+    angles = list(map(lambda x: x*1j+cmath.pi/2j, np.arange(scan.angle_min, scan.angle_max, scan.angle_increment)))
 
     complexes = []
     for (angle, distance, intensity) in list(zip(angles, scan.ranges, scan.intensities)):
