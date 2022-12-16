@@ -21,22 +21,22 @@ import numpy as np
 from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Polygon
 from matplotlib import pyplot as plt
-from pycdr import cdr
-from pycdr.types import int8, int32, uint16, uint32, float32, sequence, array
+from pycdr2 import IdlStruct
+from pycdr2.types import int8, int32, uint32, float64, float32, sequence, array
 from typing import List
 
-@cdr
-class Time:
+@dataclass
+class Time(IdlStruct, typename="Time"):
     sec: uint32
     nsec: uint32
 
-@cdr
-class Header:
+@dataclass
+class Header(IdlStruct, typename="Header"):
     stamp: Time
     frame_id: str
 
-@cdr
-class LaserScan:
+@dataclass
+class LaserScan(IdlStruct, typename="LaserScan"):
     stamp_sec: uint32
     stamp_nsec: uint32
     frame_id: str

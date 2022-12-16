@@ -18,31 +18,31 @@ import argparse
 import curses
 import zenoh
 import json
-from pycdr import cdr
-from pycdr.types import int8, int32, uint32, float64
+from dataclasses import dataclass
+from pycdr2 import IdlStruct
+from pycdr2.types import int8, int32, uint32, float64
 
-
-@cdr
-class Vector3:
+@dataclass
+class Vector3(IdlStruct, typename="Vector3"):
     x: float64
     y: float64
     z: float64
 
 
-@cdr
-class Twist:
+@dataclass
+class Twist(IdlStruct, typename="Twist"):
     linear: Vector3
     angular: Vector3
 
 
-@cdr
-class Time:
+@dataclass
+class Time(IdlStruct, typename="Time"):
     sec: int32
     nanosec: uint32
 
 
-@cdr
-class Log:
+@dataclass
+class Log(IdlStruct, typename="Log"):
     stamp: Time
     level: int8
     name: str
@@ -95,7 +95,7 @@ def main(stdscr):
                         help='The linear scale.')
 
     args = parser.parse_args()
-    conf = zenoh.config_from_file(args.config) if args.config is not None else zenoh.Config()
+    conf = zenoh.Config.from_file(args.config) if args.config is not None else zenoh.Config()
     if args.mode is not None:
         conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
     if args.connect is not None:

@@ -12,17 +12,17 @@ import numpy as np
 import json
 import subprocess
 from servo import *
-from pycdr import cdr
-from pycdr.types import int8, int32, uint32, float64
+from pycdr2 import IdlStruct
+from pycdr2.types import int8, int32, uint32, float64
 
-@cdr
-class Vector3:
+@dataclass
+class Vector3(IdlStruct, typename="Vector3"):
     x: float64
     y: float64
     z: float64
 
-@cdr
-class Twist:
+@dataclass
+class Twist(IdlStruct, typename="Twist"):
     linear: Vector3
     angular: Vector3
 

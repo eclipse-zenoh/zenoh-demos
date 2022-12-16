@@ -3,7 +3,7 @@ A demo for turtlebot3 robots using [zenoh](http://zenoh.io) python.
 
 ## Dependencies
 ```
-pip3 install platformio opencv-python imutils dynamixel-sdk pycdr==0.1.5 eclipse-zenoh-nightly
+pip3 install platformio opencv-python imutils dynamixel-sdk pycdr2 eclipse-zenoh-nightly
 ```
 
 ## Running zturtle-python demo
