@@ -4,14 +4,14 @@
 <head>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" />
     <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
-    <link rel="stylesheet" href="https://uicdn.toast.com/chart/latest/toastui-chart.min.css" />
     <script src="https://uicdn.toast.com/chart/latest/toastui-chart.min.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
 <body class="w3-container">
-    <div class="w3-container w3-card-4 w3-green w3-margin-bottom">
-        <h3>Zenoh ROS2 teleop</h3>
+    <div class="w3-container w3-bar w3-card-4 w3-green w3-margin-bottom">
+        <h3 class="w3-bar-item">Zenoh ROS2 teleop</h3>
+        <h3 id="battery" class="w3-bar-item w3-right">Battery: - %</h3>
     </div>
 
     <label for="bridge_url">Zenoh REST URL:</label>
@@ -30,7 +30,8 @@
         </div>
         <br />
     </div>
--->
+    -->
+
     <div class="w3-card-4 w3-margin-bottom">
         <header class="w3-bar w3-green" onclick="document.getElementById('Drive').classList.toggle('w3-hide');">
             <h5 class="w3-bar-item" style="margin: 0;">Drive</h5>
@@ -67,11 +68,12 @@
     </div>
 
     <div class="w3-card-4 w3-margin-bottom">
-        <header class="w3-bar w3-green" onclick="document.getElementById('Acceleration').classList.toggle('w3-hide');">
-            <h5 class="w3-bar-item" style="margin: 0;">Acceleration</h5>
+        <header class="w3-bar w3-green" onclick="document.getElementById('Lidar').classList.toggle('w3-hide');">
+            <h5 class="w3-bar-item" style="margin: 0;">Lidar</h5>
             <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-line-chart'></i></h5>
         </header>
-        <div id="Acceleration" class="w3-container w3-padding" style="width: 95%; height: 300px;">
+        <div id="Lidar" class="w3-container w3-padding" style="width: 95%; height: 300px;">
+            <canvas id="Lidar-canvas" width="300" height="300"></canvas>
         </div>
         <br />
     </div>
@@ -99,12 +101,12 @@
                 value="rt/cmd_vel"><br />
             <label for="linear_scale">Linear scale:</label>
             <input id="linear_scale" class="w3-input w3-border w3-padding-small" type="number" required
-                value="0.2"><br />
+                value="0.1"><br />
             <label for="angular_scale">Angular scale:</label>
             <input id="angular_scale" class="w3-input w3-border w3-padding-small" type="number" required
-                value="2.6"><br />
-            <label for="imu_res">Subscribe to Acceleration from:</label>
-            <input id="imu_res" class="w3-input w3-border w3-padding-small" type="text" required value="rt/imu"><br />
+                value="1.0"><br />
+            <label for="scan_res">Subscribe to LaserScan from:</label>
+            <input id="scan_res" class="w3-input w3-border w3-padding-small" type="text" required value="rt/scan"><br />
             <label for="rosout_res">Subscribe to Log messages from:</label>
             <input id="rosout_res" class="w3-input w3-border w3-padding-small" type="text" required
                 value="rt/rosout"><br />
@@ -209,63 +211,90 @@
             }
         }
 
-        // ROS2 Imu type (received in 'imu' topic)
-        class Imu {
-            constructor(
-                seq, stamp_sec, stamp_nsec, frame_id,
-                orientation, orientation_covariance,
-                angular_velocity, angular_velocity_covariance,
-                linear_acceleration, linear_acceleration_covariance
-            ) {
-                this.seq = seq;
-                this.stamp_sec = stamp_sec;
-                this.stamp_nsec = stamp_nsec;
+        // ROS2 Header type
+        class Header {
+            constructor(time, frame_id) {
+                this.time = time;
                 this.frame_id = frame_id;
-                this.orientation = orientation;
-                this.orientation_covariance = orientation_covariance;
-                this.angular_velocity = angular_velocity;
-                this.angular_velocity_covariance = angular_velocity_covariance;
-                this.linear_acceleration = linear_acceleration;
-                this.linear_acceleration_covariance = linear_acceleration_covariance;
             }
 
             static decode(cdrReader) {
-                let seq = cdrReader.readUint32();
-                let stamp_sec = cdrReader.readUint16();
-                let stamp_nsec = cdrReader.readUint16();
+                let time = Time.decode(cdrReader);
                 let frame_id = cdrReader.readString();
-                let orientation = Quaternion.decode(cdrReader);
-                let orientation_covariance = [];
-                for (const x of Array(9).keys()) {
-                    orientation_covariance.push(cdrReader.readFloat64())
+            }
+        }
+
+
+        // ROS2 BatteryState type (received in 'battery_state' topic)
+        // Warning: not complete, since we only need to decode up-to 'percentage'
+        class BatteryState {
+            constructor(header, voltage, temperature, current, charge, capacity, design_capacity, percentage) {
+                this.header = header;
+                this.voltage = voltage;
+                this.temperature = temperature;
+                this.current = current;
+                this.charge = charge;
+                this.capacity = capacity;
+                this.design_capacity = design_capacity;
+                this.percentage = percentage;
+            }
+
+            static decode(cdrReader) {
+                let header = Header.decode(cdrReader);
+                let voltage = cdrReader.readFloat32();
+                let temperature = cdrReader.readFloat32();
+                let current = cdrReader.readFloat32();
+                let charge = cdrReader.readFloat32();
+                let capacity = cdrReader.readFloat32();
+                let design_capacity = cdrReader.readFloat32();
+                let percentage = cdrReader.readFloat32();
+                return new BatteryState(header, voltage, temperature, current, charge, capacity, design_capacity, percentage);
+            }
+        }
+
+        // ROS2 LaserScan type (received in 'scan' topic)
+        class LaserScan {
+            constructor(header, angle_min, angle_max, angle_increment, time_increment, scan_time, range_min, range_max, ranges, intensities) {
+                this.header = header;
+                this.angle_min = angle_min;
+                this.angle_max = angle_max;
+                this.angle_increment = angle_increment;
+                this.time_increment = time_increment;
+                this.scan_time = scan_time;
+                this.range_min = range_min;
+                this.range_max = range_max;
+                this.ranges = ranges;
+                this.intensities = intensities;
+            }
+
+            static decode(cdrReader) {
+                let header = Header.decode(cdrReader);
+                let angle_min = cdrReader.readFloat32();
+                let angle_max = cdrReader.readFloat32();
+                let angle_increment = cdrReader.readFloat32();
+                let time_increment = cdrReader.readFloat32();
+                let scan_time = cdrReader.readFloat32();
+                let range_min = cdrReader.readFloat32();
+                let range_max = cdrReader.readFloat32();
+
+                let ranges_length = cdrReader.readInt32()
+                let ranges = [];
+                for (const x of Array(ranges_length).keys()) {
+                    ranges.push(cdrReader.readFloat32())
                 }
-                let angular_velocity = Vector3.decode(cdrReader);
-                let angular_velocity_covariance = [];
-                for (const x of Array(9).keys()) {
-                    angular_velocity_covariance.push(cdrReader.readFloat64())
+
+                let intensities_length = cdrReader.readInt32()
+                let intensities = [];
+                for (const x of Array(intensities_length).keys()) {
+                    intensities.push(cdrReader.readFloat32())
                 }
-                let linear_acceleration = Vector3.decode(cdrReader);
-                let linear_acceleration_covariance = [];
-                for (const x of Array(9).keys()) {
-                    linear_acceleration_covariance.push(cdrReader.readFloat64())
-                }
-                return new Imu(
-                    seq,
-                    stamp_sec,
-                    stamp_nsec,
-                    frame_id,
-                    orientation,
-                    orientation_covariance,
-                    angular_velocity,
-                    angular_velocity_covariance,
-                    linear_acceleration,
-                    linear_acceleration_covariance,
-                );
+                return new LaserScan(header, angle_min, angle_max, angle_increment, time_increment, scan_time, range_min, range_max, ranges, intensities);
             }
         }
 
         const Http = new XMLHttpRequest();
 
+        // publish a Twist to cmd_vel topic
         function pubTwist(linear, angular) {
             // Get scales from HTML
             var linear_scale = document.getElementById("linear_scale").value
@@ -293,6 +322,7 @@
             Http.send(writer.buf.buffer);
         }
 
+        // callback on keyboard's down key event
         function onkeydown(e) {
             e = e || window.event;
             console.log("KeyPressed: " + e);
@@ -318,6 +348,7 @@
             }
         }
 
+        // callback on keyboard's up key event
         function onkeyup(e) {
             // if key pressed was an arrow, send a Twist(0,0) to stop the robot
             if (e.keyCode == '37' || e.keyCode == '38' || e.keyCode == '39' || e.keyCode == '40')
@@ -332,6 +363,7 @@
         // EventSource receiving Logs
         var rosout_source = null;
 
+        // subscribe to rosout topic
         function subscribeToRosout() {
             // close previous if exists
             if (rosout_source != null) {
@@ -368,54 +400,143 @@
             }
         }
 
-        // setup Acceleration chart
-        serie = [];
-        chart = toastui.Chart.lineChart({
-            el: document.getElementById("Acceleration"),
-            data: { series: [] },
-            options: {
-                chart: { height: 'auto', width: 'auto', animation: false },
-                xAxis: { date: true },
-                yAxis: { scale: { min: 0 } },
-                legend: { visible: false },
-                exportMenu: { visible: false },
-            },
-        });
+        // EventSource receiving battery state
+        var battery_source = null;
 
-        // EventSource receiving Acceleration
-        var imu_source = null;
-
-        function subscribeToImu() {
+        // subscribe to battery_state topic
+        function subscribeToBattery() {
             // close previous if exists
-            if (imu_source != null) {
-                console.log("CLOSE IMU EventSource");
-                imu_source.close();
+            if (battery_source != null) {
+                console.log("CLOSE ROSOUT EventSource");
+                battery_source.close();
             }
 
             if (typeof (EventSource) !== "undefined") {
                 var bridge_url = document.getElementById("bridge_url").value
-                var imu_res = document.getElementById("imu_res").value
+                // battery_state key is the same than rousout key but replacing "rosout" with "battery_state"
+                var battery_key = document.getElementById("rosout_res").value.replace("rosout", "battery_state")
                 var scope = document.getElementById("scope").value
                 if (scope.length > 0 && !scope.endsWith("/")) { scope += "/" }
-                console.log("Subscribe to EventSource: " + bridge_url + scope + imu_res);
-                imu_source = new EventSource(bridge_url + scope + imu_res);
-                imu_source.addEventListener("PUT", function (e) {
+                console.log("Subscribe to EventSource: " + bridge_url + scope + battery_key);
+                battery_source = new EventSource(bridge_url + scope + battery_key);
+                battery_source.addEventListener("PUT", function (e) {
+                    console.log("Received sample: " + e.data);
+                    // The zenoh REST API sends JSON objects
+                    // that includes "key", "value", "encoding" and "time" (same than a result to GET)
+                    let sample = JSON.parse(e.data)
+                    // The payload buffer is in "value" field, encoded as base64.
+                    // Since it's comming from DDS, we decode it using a jscdr.CDRReader.
+                    let reader = new jscdr.CDRReader(dcodeIO.ByteBuffer.fromBase64(sample.value));
+                    // Decode the buffer as a BatteryState message
+                    let battery = BatteryState.decode(reader);
+                    // Set it to "battery" HTML element
+                    let elem = document.getElementById("battery");
+                    elem.innerHTML = "Battery: " + Math.round(battery.percentage) + " %";
+                }, false);
+
+            } else {
+                document.getElementById("rosout_logs").innerHTML = "Sorry, your browser does not support server-sent events...";
+            }
+        }
+
+        // EventSource receiving LaserScan
+        var scan_source = null;
+
+        // subscribe to scan topic
+        function subscribeToScan() {
+            // close previous if exists
+            if (scan_source != null) {
+                console.log("CLOSE Scan EventSource");
+                scan_source.close();
+            }
+
+            if (typeof (EventSource) !== "undefined") {
+                var bridge_url = document.getElementById("bridge_url").value
+                var scan_res = document.getElementById("scan_res").value
+                var scope = document.getElementById("scope").value
+                if (scope.length > 0 && !scope.endsWith("/")) { scope += "/" }
+                console.log("Subscribe to EventSource: " + bridge_url + scope + scan_res);
+                scan_source = new EventSource(bridge_url + scope + scan_res);
+                scan_source.addEventListener("PUT", function (e) {
                     let sample = JSON.parse(e.data);
                     // The payload buffer is in "value" field, encoded as base64.
                     // Since it's comming from DDS, we decode it using a jscdr.CDRReader.
                     let reader = new jscdr.CDRReader(dcodeIO.ByteBuffer.fromBase64(sample.value));
-                    // Decode the buffer as an Imu message
-                    let imu = Imu.decode(reader);
+                    // Decode the buffer as an LaserScan message
+                    let scan = LaserScan.decode(reader);
 
-                    serie.push([new Date(sample.time.split('/')[0]),
-                    Math.sqrt(imu.linear_acceleration.x * imu.linear_acceleration.x + imu.linear_acceleration.y * imu.linear_acceleration.y)
-                    ]);
-                    now = Date.now();
-                    serie = serie.filter(x => x[0] > (now - 10000));
-                    chart.setData({ series: [{ name: 'Acceleration', data: serie }] });
+                    // Get canvas context and set its dimensions
+                    const canvas = document.getElementById('Lidar-canvas');
+                    const ctx = canvas.getContext('2d');
+                    const width = canvas.width;
+                    const height = canvas.height;
+
+                    // Convert to [x,y, isInRange] points, where:
+                    //  - if isInRange==true then {x,y} are the relative coordinates computed from {angle,range}
+                    //  - if isInRange==false then the range was out of range_min/range_max and {x,y} are the relative
+                    //    coordinate of {angle,LIMIT} where LIMIT is range_max or range_min (the closest bound).
+                    let angle = scan.angle_min;
+                    let scale = Math.min(canvas.width, canvas.height) / 2 / scan.range_max;
+                    let points = [];
+                    for (const range of scan.ranges) {
+                        var r = range;
+                        var isInRange = true;
+                        if (range > scan.range_max) {
+                            r = scan.range_max;
+                            isInRange = false;
+                        } else if (range < scan.range_min) {
+                            r = scan.range_min;
+                            isInRange = false;
+                        }
+
+                        const x = -r * scale * Math.sin(angle);
+                        const y = -r * scale * Math.cos(angle);
+                        points.push([x, y, isInRange]);
+                        angle += scan.angle_increment;
+                    }
+
+                    // Clear canvas
+                    ctx.clearRect(0, 0, width, height);
+
+                    // Draw rays
+                    ctx.lineWidth = 2;
+                    for (const [x, y, isInRange] of points) {
+                        ctx_x = x + width / 2;
+                        ctx_y = y + height / 2;
+                        ctx.beginPath();
+                        if (isInRange) {
+                            ctx.strokeStyle = 'LightGray';
+                        } else {
+                            ctx.strokeStyle = 'Gainsboro';
+                        }
+                        ctx.moveTo(width / 2, height / 2);
+                        ctx.lineTo(ctx_x, ctx_y);
+                        ctx.stroke();
+                    }
+
+                    // Draw points
+                    ctx.fillStyle = 'red';
+                    for (const [x, y, isInRange] of points) {
+                        ctx_x = x + width / 2;
+                        ctx_y = y + height / 2;
+                        if (isInRange) {
+                            ctx.fillRect(ctx_x, ctx_y, 1, 1);
+                        }
+                    }
+
+                    // Draw axis lines
+                    ctx.beginPath();
+                    ctx.strokeStyle = 'DimGray';
+                    ctx.lineWidth = 1;
+                    ctx.moveTo(0, height / 2);
+                    ctx.lineTo(width, height / 2);
+                    ctx.moveTo(width / 2, 0);
+                    ctx.lineTo(width / 2, height);
+                    ctx.stroke();
+
                 }, false);
             } else {
-                document.document.getElementById("Acceleration").innerHTML = "Sorry, your browser does not support server-sent events...";
+                document.document.getElementById("Lidar").innerHTML = "Sorry, your browser does not support server-sent events...";
             }
         }
 
@@ -435,20 +556,21 @@
         }
 
         function resetAllSubscriptions() {
+            subscribeToBattery();
             subscribeToRosout();
-            subscribeToImu();
+            subscribeToScan();
             setCameraSrc();
         }
 
         // Get "host" and "scope" from URL params, and set "bridge_url" and "scope" accordingly
         const urlParams = new URLSearchParams(window.location.search);
         const host = urlParams.get('host')
-        if (host.length > 0) {
+        if (host != null && host.length > 0) {
             console.log("host: " + host);
             document.getElementById("bridge_url").value = "http://" + host + "/";
         }
         const scope = urlParams.get('scope')
-        if (host.length > 0) {
+        if (host != null && host.length > 0) {
             console.log("scope: " + scope);
             document.getElementById("scope").value = scope;
         }
