@@ -18,8 +18,9 @@
 #include <Wire.h>
 #include <MPU6050_tockn.h>
 
-extern "C" {
-    #include "zenoh-pico.h"
+extern "C"
+{
+#include "zenoh-pico.h"
 }
 
 // WiFi-specific parameters
@@ -32,28 +33,30 @@ extern "C" {
 
 #define TURTLESIM 1
 #if TURTLESIM == 1
-    #define KEYEXPR "rt/turtle1/cmd_vel"
+#define KEYEXPR "rt/turtle1/cmd_vel"
 #else
-    #define KEYEXPR "rt/cmd_vel"
+#define KEYEXPR "rt/cmd_vel"
 #endif
 
 // Measurement specific parameters
 #if TURTLESIM == 1
-    #define X_SCALING_FACTOR 10.0
-    #define X_MAX_VALUE 2.00
-    #define X_MIN_VALUE -2.00
-    #define X_ZERO_VALUE 0.5
+#define X_SCALING_FACTOR 10.0
+#define X_MAX_VALUE 2.00
+#define X_MIN_VALUE -2.00
+#define X_ZERO_VALUE 0.5
 #else
-    #define X_SCALING_FACTOR 100.0
-    #define X_MAX_VALUE 0.20
-    #define X_MIN_VALUE -0.20
-    #define X_ZERO_VALUE 0.10
+#define X_SCALING_FACTOR 100.0
+#define X_MAX_VALUE 0.20
+#define X_MIN_VALUE -0.20
+#define X_ZERO_VALUE 0.10
 #endif
 
-#define Y_SCALING_FACTOR 10.0
+#define Y_SCALING_FACTOR 30.0
 #define Y_MAX_VALUE 2.80
 #define Y_MIN_VALUE -2.80
 #define Y_ZERO_VALUE 0.5
+
+#define MAX_STOP_TWISTS 20
 
 /* --------------- Structs -------------- */
 struct Vector3
@@ -72,9 +75,10 @@ struct Twist
 /* -------- Serialize Functions --------- */
 char *serialize_float_as_f64_little_endian(double val, char *buf)
 {
-    long long *c_val = (long long*)&val;
-    for (int i = 0; i < sizeof(double); ++i, ++buf) {
-       *buf = 0xFF & (*c_val >> (i * 8));
+    long long *c_val = (long long *)&val;
+    for (int i = 0; i < sizeof(double); ++i, ++buf)
+    {
+        *buf = 0xFF & (*c_val >> (i * 8));
     }
 
     return buf;
@@ -116,7 +120,7 @@ void printTwist(struct Twist *t)
     Serial.print("Linear ");
     printVector(&t->linear);
     Serial.println("");
-  
+
     Serial.print("Angular ");
     printVector(&t->angular);
     Serial.println("");
@@ -134,18 +138,20 @@ void setup(void)
 {
     // Initialize Serial for debug
     Serial.begin(115200);
-    while (!Serial) {
+    while (!Serial)
+    {
         delay(1000);
     }
 
     // Set WiFi in STA mode and trigger attachment
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, PASS);
-    while (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED)
+    {
         delay(1000);
     }
     Serial.println("Connected to WiFi!");
-  
+
     // Initialize and calibrate0 MPU6050
     Serial.print("Detecting MPU6050 sensor...");
     Wire.begin();
@@ -164,16 +170,19 @@ void setup(void)
     // Initialize Zenoh Session and other parameters
     z_owned_config_t config = z_config_default();
     zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0) {
+    if (strcmp(PEER, "") != 0)
+    {
         zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
     }
 
     // Open Zenoh session
     Serial.print("Opening Zenoh Session...");
     z_owned_session_t s = z_open(z_config_move(&config));
-    if (!z_session_check(&s)) {
+    if (!z_session_check(&s))
+    {
         Serial.println("Unable to open session!\n");
-        while(1);
+        while (1)
+            ;
     }
     Serial.println("OK");
 
@@ -186,15 +195,20 @@ void setup(void)
     Serial.print(KEYEXPR);
     Serial.println("...");
     pub = z_declare_publisher(z_session_loan(&s), z_keyexpr(KEYEXPR), NULL);
-    if (!z_publisher_check(&pub)) {
+    if (!z_publisher_check(&pub))
+    {
         Serial.println("Unable to declare publisher for key expression!\n");
-        while(1);
+        while (1)
+            ;
     }
     Serial.println("OK");
     Serial.println("Zenoh setup finished!");
 
     delay(300);
 }
+
+// number of consecutive Stop Twists sent (to stop sending those after a while)
+short nb_stop_twist = 0;
 
 void loop()
 {
@@ -205,11 +219,13 @@ void loop()
     double linear_x = (mpu.getAccAngleX() - offset_x) / X_SCALING_FACTOR;
     double linear_y = (mpu.getAccAngleY() - offset_y) / Y_SCALING_FACTOR;
     linear_x = min(max(linear_x, X_MIN_VALUE), X_MAX_VALUE);
-    if (linear_x < X_ZERO_VALUE && linear_x > -X_ZERO_VALUE) {
+    if (linear_x < X_ZERO_VALUE && linear_x > -X_ZERO_VALUE)
+    {
         linear_x = 0;
     }
     linear_y = min(max(linear_y, Y_MIN_VALUE), Y_MAX_VALUE);
-    if (linear_y < Y_ZERO_VALUE && linear_y > -Y_ZERO_VALUE) {
+    if (linear_y < Y_ZERO_VALUE && linear_y > -Y_ZERO_VALUE)
+    {
         linear_y = 0;
     }
 
@@ -220,15 +236,36 @@ void loop()
     measure.linear.z = 0.0;
     measure.angular.x = 0.0;
     measure.angular.y = 0.0;
-    measure.angular.z = linear_y;
+    measure.angular.z = linear_y * -1;
 
-    printTwist(&measure);
-    Serial.println("");
+    if (measure.linear.x == 0 && measure.angular.z == 0)
+    {
+        nb_stop_twist++;
+    }
+    else
+    {
+        nb_stop_twist = 0;
+    }
 
-    uint8_t twist_serialized_size = 4 + sizeof(double) * 6;
-    char buf[twist_serialized_size];
-    serialize_twist(&measure, buf);
-    if (z_publisher_put(z_publisher_loan(&pub), (const uint8_t *)buf, twist_serialized_size, NULL) < 0) {
-        Serial.println("Error while publishing data");
+    if (nb_stop_twist >= MAX_STOP_TWISTS)
+    {
+        // this is a Stop Twist again, don't publish it
+        Serial.print("No move after more than ");
+        Serial.print(MAX_STOP_TWISTS);
+        Serial.println(" loops - Don't publish");
+        nb_stop_twist = MAX_STOP_TWISTS;
+    }
+    else
+    {
+        printTwist(&measure);
+        Serial.println("");
+
+        uint8_t twist_serialized_size = 4 + sizeof(double) * 6;
+        char buf[twist_serialized_size];
+        serialize_twist(&measure, buf);
+        if (z_publisher_put(z_publisher_loan(&pub), (const uint8_t *)buf, twist_serialized_size, NULL) < 0)
+        {
+            Serial.println("Error while publishing data");
+        }
     }
 }
