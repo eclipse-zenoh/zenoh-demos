@@ -42,7 +42,6 @@ FetchContent_Declare(cyclonedds
   GIT_TAG "origin/master"
   SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/cyclonedds"
 )
-
 FetchContent_MakeAvailable(cyclonedds)
 
 set(CYCLONEDDS_DIR ${CMAKE_CURRENT_BINARY_DIR}/cyclonedds)
@@ -66,6 +65,19 @@ include_directories (${CMAKE_BINARY_DIR})
 include_directories (${CYCLONEDDS_DIR}/src/core/cdr/include)
 include_directories (${CYCLONEDDS_DIR}/src/ddsrt/include)
 include_directories (${CYCLONEDDS_DIR}/src/core/ddsc/include)
+include_directories (${cyclonedds_BINARY_DIR}/src/core/include/)
+include_directories (${cyclonedds_BINARY_DIR}/src/ddsrt/include/)
+
+# Zenoh-Pico
+include(FetchContent)
+FetchContent_Declare(zenoh-pico
+  GIT_REPOSITORY "https://github.com/eclipse-zenoh/zenoh-pico"
+  GIT_TAG "origin/master"
+  SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/zenoh-pico"
+)
+FetchContent_MakeAvailable(zenoh-pico)
+set(ZENOHPICO_DIR ${CMAKE_CURRENT_BINARY_DIR}/zenoh-pico)
+include_directories (${ZENOHPICO_DIR}/include)
 
 # Adding something we can run - Output name matches target name
 add_executable(z_pub_ros2
@@ -76,8 +88,9 @@ add_executable(z_pub_ros2
                builtin_interfaces/msg/Time.c
                ${CYCLONEDDS_DIR}/src/core/cdr/src/dds_cdrstream.c
                ${CYCLONEDDS_DIR}/src/ddsrt/src/bswap.c)
-               
-add_executable(z_sub_ros2 
+add_dependencies(z_pub_ros2 zenohpico)
+
+add_executable(z_sub_ros2
                z_sub_ros2.c
                hal/heap.c
                hal/log.c
@@ -85,9 +98,10 @@ add_executable(z_sub_ros2
                builtin_interfaces/msg/Time.c
                ${CYCLONEDDS_DIR}/src/core/cdr/src/dds_cdrstream.c
                ${CYCLONEDDS_DIR}/src/ddsrt/src/bswap.c)
+add_dependencies(z_sub_ros2 zenohpico)
 
 set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES /usr/local/lib ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES})
 target_compile_definitions(z_sub_ros2 PRIVATE "DDS_LOG=0")
 target_compile_definitions(z_pub_ros2 PRIVATE "DDS_LOG=0")
-target_link_libraries(z_sub_ros2 -lzenohpico)
-target_link_libraries(z_pub_ros2 -lzenohpico)
+target_link_libraries(z_sub_ros2 zenohpico)
+target_link_libraries(z_pub_ros2 zenohpico)
