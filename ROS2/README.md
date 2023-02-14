@@ -12,6 +12,9 @@
  * ROS2 gyroscope-based teleop from a microcontroller using Eclipse zenoh-pico (more details in [this blog](https://zenoh.io/blog/2021-11-09-ros2-zenoh-pico/)):
    * **[zenoh-pico-teleop-gyro](./zenoh-pico-teleop-gyro)**: in **C**
 
+ * Simple example on how to use CycloneDDS CDR library to do DDS IDL serialization/deserialization on top of Zenoh-Pico.
+   * **[zenoh-pico-cyclonedds-cdr-message-log](./zenoh-pico-cyclonedds-cdr-message-log)**: in **C**
+
 
 ## Other related demos and blogs
  * **A Tele-operation demo deployed with Eclipse fog05 and Eclipse zenoh**  
