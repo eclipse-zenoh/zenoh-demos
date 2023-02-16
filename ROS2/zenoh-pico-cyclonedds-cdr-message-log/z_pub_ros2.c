@@ -28,23 +28,18 @@
 // CDR Xtypes header {0x00, 0x01} indicates it's Little Endian (CDR_LE representation)
 const uint8_t ros2_header[4] = {0x00, 0x01, 0x00, 0x00};
 
-const size_t alloc_size = 4096; // Abitrary size 
+const size_t alloc_size = 4096; // Abitrary size
 
 int main(int argc, char **argv) {
-    const char *keyexpr = "rt/zenoh_log_test";    
-    const char *value = "Pub from Pico IDL!";
+    const char *keyexpr = "rt/zenoh_log_test";
     const char *mode = "client";
     char *locator = NULL;
-    rcl_interfaces_msg_Log msg;
 
     int opt;
-    while ((opt = getopt(argc, argv, "k:v:e:m:")) != -1) {
+    while ((opt = getopt(argc, argv, "k:e:m:")) != -1) {
         switch (opt) {
             case 'k':
                 keyexpr = optarg;
-                break;
-            case 'v':
-                value = optarg;
                 break;
             case 'e':
                 locator = optarg;
