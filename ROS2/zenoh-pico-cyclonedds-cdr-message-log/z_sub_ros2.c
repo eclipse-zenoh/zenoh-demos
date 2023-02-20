@@ -15,40 +15,40 @@
 //
 
 #include <ctype.h>
+#include <rcl_interfaces/msg/Log.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <zenoh-pico.h>
-#include <rcl_interfaces/msg/Log.h>
 
 // CycloneDDS CDR Deserializer
 #include <dds/cdr/dds_cdrstream.h>
 
-void idl_deser (unsigned char *buf, uint32_t sz, void *obj, const dds_topic_descriptor_t *desc)
-{   
-    dds_istream_t is = { .m_buffer = buf, .m_index = 0, .m_size = sz, .m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2 };
-    dds_stream_read (&is, obj, desc->m_ops);
+void idl_deser(unsigned char *buf, uint32_t sz, void *obj, const dds_topic_descriptor_t *desc) {
+    dds_istream_t is = {.m_buffer = buf, .m_index = 0, .m_size = sz, .m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2};
+    dds_stream_read(&is, obj, desc->m_ops);
 }
 
 void data_handler(const z_sample_t *sample, void *arg) {
-    (void)(arg);    
-    
+    (void)(arg);
+
     z_owned_str_t keystr = z_keyexpr_to_string(sample->keyexpr);
-    printf(">> [Subscriber] Received ('%s' size '%d')\n", z_loan(keystr),  (int)sample->payload.len);
+    printf(">> [Subscriber] Received ('%s' size '%d')\n", z_loan(keystr), (int)sample->payload.len);
     z_drop(z_move(keystr));
-    
+
     // Approximate amount of memory needed to decode incoming message
     // We do this so we only have to allocate once to map this easier to smaller microcontrollers
-    size_t decoded_size_approx = sizeof (rcl_interfaces_msg_Log) + sample->payload.len;
-    
-    void *msgData = malloc(decoded_size_approx); 
-    rcl_interfaces_msg_Log* msg = (rcl_interfaces_msg_Log*)msgData;
+    size_t decoded_size_approx = sizeof(rcl_interfaces_msg_Log) + sample->payload.len;
+
+    void *msgData = malloc(decoded_size_approx);
+    rcl_interfaces_msg_Log *msg = (rcl_interfaces_msg_Log *)msgData;
     // Deserialize Msg
-    idl_deser(((char *)sample->payload.start+4), (int)sample->payload.len, msgData, &rcl_interfaces_msg_Log_desc);
+    idl_deser(((char *)sample->payload.start + 4), (int)sample->payload.len, msgData, &rcl_interfaces_msg_Log_desc);
 
     printf(">> Time(sec=%d, nanosec=%d)\n", msg->stamp.sec, msg->stamp.nanosec);
-    printf(">> Log(level=%d, name='%s', msg='%s', file='%s', function='%s', line=%d)\n", msg->level, msg->name, msg->msg, msg->file, msg->function, msg->line);
+    printf(">> Log(level=%d, name='%s', msg='%s', file='%s', function='%s', line=%d)\n", msg->level, msg->name,
+           msg->msg, msg->file, msg->function, msg->line);
 }
 
 int main(int argc, char **argv) {
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
     if (!z_subscriber_check(&sub)) {
         printf("Unable to declare subscriber.\n");
         return -1;
-    } 
+    }
 
     printf("Enter 'q' to quit...\n");
     char c = '\0';

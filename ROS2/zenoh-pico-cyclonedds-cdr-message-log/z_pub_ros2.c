@@ -15,12 +15,13 @@
 //
 
 #include <ctype.h>
+#include <rcl_interfaces/msg/Log.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <zenoh-pico.h>
-#include <rcl_interfaces/msg/Log.h>
+
 
 // CycloneDDS CDR Deserializer
 #include <dds/cdr/dds_cdrstream.h>
@@ -28,23 +29,18 @@
 // CDR Xtypes header {0x00, 0x01} indicates it's Little Endian (CDR_LE representation)
 const uint8_t ros2_header[4] = {0x00, 0x01, 0x00, 0x00};
 
-const size_t alloc_size = 4096; // Abitrary size 
+const size_t alloc_size = 4096;  // Abitrary size
 
 int main(int argc, char **argv) {
-    const char *keyexpr = "rt/zenoh_log_test";    
-    const char *value = "Pub from Pico IDL!";
+    const char *keyexpr = "rt/zenoh_log_test";
     const char *mode = "client";
     char *locator = NULL;
-    rcl_interfaces_msg_Log msg;
 
     int opt;
-    while ((opt = getopt(argc, argv, "k:v:e:m:")) != -1) {
+    while ((opt = getopt(argc, argv, "k:e:m:")) != -1) {
         switch (opt) {
             case 'k':
                 keyexpr = optarg;
-                break;
-            case 'v':
-                value = optarg;
                 break;
             case 'e':
                 locator = optarg;
@@ -63,8 +59,9 @@ int main(int argc, char **argv) {
                 return -1;
         }
     }
-    
+
     // Set HelloWorld IDL message
+    rcl_interfaces_msg_Log msg;
     msg.stamp.sec = 0;
     msg.stamp.nanosec = 0;
     msg.level = 20;
@@ -99,43 +96,41 @@ int main(int argc, char **argv) {
         printf("Unable to declare publisher for key expression!\n");
         return -1;
     }
-    
+
     // Setup ostream for serializer
     dds_ostream_t os;
     struct dds_cdrstream_desc desc;
-    
+
     // Allocate buffer for serialized message
     uint8_t *buf = malloc(alloc_size);
-    
-    struct timespec ts;
-    
 
     for (int idx = 0; 1; ++idx) {
         sleep(1);
         printf("Putting Data ('%s')...\n", keyexpr);
-        
+
         // Add ROS2 header
         memcpy(buf, ros2_header, sizeof(ros2_header));
-      
+
         os.m_buffer = buf;
-        os.m_index = sizeof(ros2_header); // Offset for CDR Xtypes header
+        os.m_index = sizeof(ros2_header);  // Offset for CDR Xtypes header
         os.m_size = alloc_size;
         os.m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2;
-        
+
+        struct timespec ts;
         timespec_get(&ts, TIME_UTC);
         msg.stamp.sec = ts.tv_sec;
         msg.stamp.nanosec = ts.tv_nsec;
-        
-        dds_cdrstream_desc_from_topic_desc (&desc, &rcl_interfaces_msg_Log_desc);
-        
+
+        dds_cdrstream_desc_from_topic_desc(&desc, &rcl_interfaces_msg_Log_desc);
+
         // Do serialization
-        bool ret = dds_stream_write_sampleLE ((dds_ostreamLE_t *) &os, (void*)&msg, &desc);
-        dds_cdrstream_desc_fini (&desc);
-        
-        if(ret) {
-          z_publisher_put_options_t options = z_publisher_put_options_default();
-          options.encoding = z_encoding(Z_ENCODING_PREFIX_TEXT_PLAIN, NULL);
-          z_publisher_put(z_publisher_loan(&pub), (const uint8_t *)buf, os.m_index, &options);
+        bool ret = dds_stream_write_sampleLE((dds_ostreamLE_t *)&os, (void *)&msg, &desc);
+        dds_cdrstream_desc_fini(&desc);
+
+        if (ret == true) {
+            z_publisher_put_options_t options = z_publisher_put_options_default();
+            options.encoding = z_encoding(Z_ENCODING_PREFIX_TEXT_PLAIN, NULL);
+            z_publisher_put(z_publisher_loan(&pub), (const uint8_t *)buf, os.m_index, &options);
         }
     }
 
