@@ -7,7 +7,7 @@ A demo for turtlebot3 robots using [zenoh](http://zenoh.io) rust.
 ## Building zlidar-rust demo
 ```bash
 git clone https://github.com/eclipse-zenoh/zenoh-demos.git
-cd turtlebot3/zturtle-rust
+cd turtlebot3/zlidar-rust
 cargo build --release
 ```
 ## Running zlidar-rust demo
