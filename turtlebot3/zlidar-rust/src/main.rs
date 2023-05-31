@@ -98,7 +98,7 @@ fn parse_args() -> (Config, String, String, u32, u64) {
             "-e, --connect=[LOCATOR]...   'Peer locators used to initiate the zenoh session.'",
         ))
         .arg(Arg::from_usage(
-            "-l, --listener=[LOCATOR]...   'Locators to listen on.'",
+            "-l, --listen=[LOCATOR]...   'Locators to listen on.'",
         ))
         .arg(
             Arg::from_usage("-k, --key=[key_expr] 'The key expression to publish LaserReadings'")
