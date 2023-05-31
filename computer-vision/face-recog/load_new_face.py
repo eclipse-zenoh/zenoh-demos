@@ -80,7 +80,7 @@ while True:
             faces = z.get(args.prefix + '/vectors/**', zenoh.ListCollector())
             counter = 0
             for face in faces():
-                chunks = str(face.data.key_expr).split('/')
+                chunks = str(face.ok.key_expr).split('/')
                 name = chunks[-2]
                 if name == args.name:
                     if counter <= int(chunks[-1]):
