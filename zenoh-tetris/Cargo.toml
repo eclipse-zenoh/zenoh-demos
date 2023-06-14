@@ -9,8 +9,16 @@ edition = "2021"
 name = "hot_seat"
 path = "src/hot_seat.rs"
 
+[[bin]]
+name = "zenoh_server"
+path = "src/zenoh_server.rs"
+
+[[bin]]
+name = "zenoh_client"
+path = "src/zenoh_client.rs"
+
 [dependencies]
-gametetris-rs = { path = "../../gametetris-rs" }
+gametetris-rs = { git = "https://github.com/milyin/gametetris-rs" }
 console = "0.15.5"
 zenoh = "0.7.2-rc"
 uuid = "1.1.3"

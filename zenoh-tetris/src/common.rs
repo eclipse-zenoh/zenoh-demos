@@ -10,10 +10,35 @@ use gametetris_rs::PlayerSide;
 use gametetris_rs::StepResult;
 use gametetris_rs::TermRender;
 use gametetris_rs::{Action, TetrisPairState, TetrisPair};
+use zenoh::sample::Sample;
 
-pub fn start_tetris_thread(
-    player_actions: Receiver<Action>,
-    opponent_actions: Receiver<Action>,
+pub struct TetrisThreadAction(Action);
+
+impl TryFrom<Action> for TetrisThreadAction {
+    type Error = ();
+    fn try_from(value: Action) -> Result<Self, Self::Error> {
+        Ok(TetrisThreadAction(value))
+    }
+}
+
+impl TryFrom<Sample> for TetrisThreadAction {
+    type Error = ();
+    fn try_from(value: Sample) -> Result<Self, Self::Error> {
+        let s = value.value.to_string();
+        let action = serde_json::from_str(s.as_str());
+        match action {
+            Ok(action) => Ok(TetrisThreadAction(action)),
+            Err(_) => Err(()),
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub fn start_tetris_thread<
+    T1: TryInto<TetrisThreadAction, Error = ()> + Send + 'static,
+    T2: TryInto<TetrisThreadAction, Error = ()> + Send + 'static>(
+    player_actions: Receiver<T1>,
+    opponent_actions: Receiver<T2>,
 ) -> Receiver<TetrisPairState> {
     let (tx, rx) = flume::unbounded();
     thread::spawn(move || {
@@ -27,11 +52,11 @@ pub fn start_tetris_thread(
 
         loop {
             let start = time::Instant::now();
-            while let Ok(action) = player_actions.try_recv() {
-                tetris_pair.add_player_action(PlayerSide::Player, action);
+            while let Ok(action) = player_actions.try_recv().map_err(|_|()).and_then(|v| v.try_into()) {
+                tetris_pair.add_player_action(PlayerSide::Player, action.0);
             }
-            while let Ok(action) = opponent_actions.try_recv() {
-                tetris_pair.add_player_action(PlayerSide::Opponent, action);
+            while let Ok(action) = opponent_actions.try_recv().map_err(|_|()).and_then(|v| v.try_into()) {
+                tetris_pair.add_player_action(PlayerSide::Opponent, action.0);
             }
 
             if tetris_pair.step() != (StepResult::None, StepResult::None) {
@@ -47,6 +72,7 @@ pub fn start_tetris_thread(
     rx
 }
 
+#[allow(dead_code)]
 pub fn start_read_key_thread() -> (Receiver<Action>, Receiver<Action>) {
     let term = Term::stdout();
     let (tx_player, rx_player) = flume::unbounded();
@@ -63,7 +89,7 @@ pub fn start_read_key_thread() -> (Receiver<Action>, Receiver<Action>) {
     (rx_player, rx_opponent)
 }
 
-fn key_to_action_player(key: &Key) -> Option<Action> {
+pub fn key_to_action_player(key: &Key) -> Option<Action> {
     match key {
         Key::ArrowLeft => Some(Action::MoveLeft),
         Key::ArrowRight => Some(Action::MoveRight),
@@ -74,7 +100,8 @@ fn key_to_action_player(key: &Key) -> Option<Action> {
     }
 }
 
-fn key_to_action_opponent(key: &Key) -> Option<Action> {
+#[allow(dead_code)]
+pub fn key_to_action_opponent(key: &Key) -> Option<Action> {
     match key {
         Key::Char('a') => Some(Action::MoveLeft),
         Key::Char('d') => Some(Action::MoveRight),
