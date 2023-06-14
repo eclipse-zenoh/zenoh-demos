@@ -10,12 +10,12 @@ name = "hot_seat"
 path = "src/hot_seat.rs"
 
 [[bin]]
-name = "zenoh_server"
-path = "src/zenoh_server.rs"
+name = "server"
+path = "src/server.rs"
 
 [[bin]]
-name = "zenoh_client"
-path = "src/zenoh_client.rs"
+name = "client"
+path = "src/client.rs"
 
 [dependencies]
 gametetris-rs = { git = "https://github.com/milyin/gametetris-rs" }
