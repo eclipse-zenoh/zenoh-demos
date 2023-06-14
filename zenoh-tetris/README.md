@@ -2,10 +2,10 @@
 
 The pair tetris game powered with Zenoh. 
 
-Gamwe rules: 
+Game rules: 
 
 - Normal tetris rules
-- When player removes line, randomly filled line pops from bottom in opponnent's glass.
+- When player removes line, randomly filled line pops from the bottom of the opponnent's glass.
 
 Usage:
 
@@ -60,4 +60,4 @@ Usage:
         1: avocado at tetris/5c68ee21-e5da-4c07-9a1a-45b9657889fe
         ```
 
-        Select server and play. Selecting 'ALL' means sending client's actions and receiving picture from to all servers at the same time.
+        Select server and play. Selecting 'ALL' means sending client's actions and receiving picture to all servers at the same time.
