@@ -47,7 +47,7 @@ fn main() {
     println!("Select server:");
     servers.insert(0, ("tetris/*".to_string(), "ALL".to_string()));
     (0..servers.len()).for_each(|n| {
-        println!("{}: {} at {}", n, servers[n].0, servers[n].1)
+        println!("{}: {} at {}", n, servers[n].1, servers[n].0)
     });
     let n = loop {
         let mut line = String::new();

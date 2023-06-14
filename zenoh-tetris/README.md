@@ -56,8 +56,8 @@ Usage:
         You will be asked to select server to play:
         ```
         Select server:
-        0: tetris/* at ALL
-        1: tetris/5c68ee21-e5da-4c07-9a1a-45b9657889fe at avocado
+        0: ALL at tetris/* at ALL
+        1: avocado at tetris/5c68ee21-e5da-4c07-9a1a-45b9657889fe
         ```
 
         Select server and play. Selecting 'ALL' means sending client's actions and receiving picture from to all servers at the same time.
