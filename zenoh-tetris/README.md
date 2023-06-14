@@ -51,4 +51,4 @@ Select server:
 1: tetris/5c68ee21-e5da-4c07-9a1a-45b9657889fe at avocado
 ```
 
-Select server and start play. Selecting 'ALL' means sending you key presses and receiving picture from to all servers at the same time.
+Select server and start play. Selecting 'ALL' means sending client's actions and receiving picture from to all servers at the same time.
