@@ -56,7 +56,7 @@ Usage:
         You will be asked to select server to play:
         ```
         Select server:
-        0: ALL at tetris/* at ALL
+        0: ALL at tetris/*
         1: avocado at tetris/5c68ee21-e5da-4c07-9a1a-45b9657889fe
         ```
 
