@@ -22,7 +22,7 @@ via the zenoh REST API, bridged to ROS2.
       ```
  2. Start the zenoh/DDS bridge, activating its REST API:
       ```bash
-      zenoh-bridge-dds --rest-plugin
+      zenoh-bridge-dds --rest-http-port 8000
       ```
  5. Open the `ros2-teleop.html` file in a Web browser
  6. In this page:
