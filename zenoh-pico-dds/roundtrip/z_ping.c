@@ -235,7 +235,7 @@ void data_handler(const z_sample_t *sample, void *arg)
   readAccess = *exampleAddTimingToTimeStats(&readAccess, difference);
   readAccessOverall = *exampleAddTimingToTimeStats(&readAccessOverall, difference);
 
-  difference = (postDeserTime - z_time_to_dds_time(sample->timestamp.time)) / DDS_NSECS_IN_USEC;
+  difference = (postDeserTime - preWriteTime) / DDS_NSECS_IN_USEC;
   roundTrip = *exampleAddTimingToTimeStats(&roundTrip, difference);
   roundTripOverall = *exampleAddTimingToTimeStats(&roundTripOverall, difference);
 
