@@ -75,3 +75,12 @@ target_link_libraries(z_pub_cdr zenohpico cdr)
 add_executable(z_sub_cdr z_sub_cdr.c HelloWorldData.c)
 add_dependencies(z_sub_cdr zenohpico IdlGenerated_lib)
 target_link_libraries(z_sub_cdr zenohpico cdr)
+
+# CycloneDDS HelloworldPublisher and HelloworldSubscriber
+add_executable(HelloworldPublisher publisher.c HelloWorldData.c)
+add_dependencies(HelloworldPublisher IdlGenerated_lib)
+target_link_libraries(HelloworldPublisher CycloneDDS::ddsc)
+
+add_executable(HelloworldSubscriber subscriber.c HelloWorldData.c)
+add_dependencies(HelloworldSubscriber IdlGenerated_lib)
+target_link_libraries(HelloworldSubscriber CycloneDDS::ddsc)

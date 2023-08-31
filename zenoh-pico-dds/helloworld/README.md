@@ -20,6 +20,10 @@ make
 
 ## Result of build:
 
+ - **`HelloworldSubscriber`**: CycloneDDS' helloworld subscriber example.
+
+ - **`HelloworldPublisher`**: CycloneDDS' helloworld publisher example.
+
  - **`z_sub_cdr`**: an example of zenoh-pico subscriber that decodes the received payloads from CDR as a `HelloWorldData_Msg` (see definition in `idl/HelloWorldData.idl` file).  
    Options:
 
