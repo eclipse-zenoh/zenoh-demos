@@ -220,7 +220,7 @@ void data_handler(const z_sample_t *sample, void *arg)
   dds_istream_t is = {
       .m_buffer = (unsigned char *)sample->payload.start,
       .m_index = cdr_header_size,
-      .m_size = sample->payload.len - cdr_header_size,
+      .m_size = sample->payload.len,
       .m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2};
   dds_stream_read(&is, (void *)&data, &dds_cdrstream_default_allocator, RoundTripModule_DataType_desc.m_ops);
 

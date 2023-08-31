@@ -5,7 +5,7 @@ It shows how to leverage the `idlc` compiler and the CDR encoding/decoding libra
 
 ## Prerequisite:
 
- - CycloneDDS installed and its `idlc` code generator accessible in the `${PATH}`
+ - CycloneDDS (>=0.11 or master branch) installed and its `idlc` code generator accessible in the `${PATH}`
  - CMake 2.14+
  - [zenoh-bridge-dds](https://github.com/eclipse-zenoh/zenoh-plugin-dds)
 

@@ -72,24 +72,17 @@ include_directories(${ZENOHPICO_DIR}/include)
 # Zenoh-Pico z_ping and z_pong
 add_executable(z_ping z_ping.c RoundTrip.c)
 add_dependencies(z_ping zenohpico IdlGenerated_lib)
+target_link_libraries(z_ping zenohpico cdr)
 
 add_executable(z_pong z_pong.c RoundTrip.c)
 add_dependencies(z_pong zenohpico IdlGenerated_lib)
-
-target_link_libraries(z_ping zenohpico cdr)
 target_link_libraries(z_pong zenohpico cdr)
 
 # CycloneDDS RoundtripPing and RoundtripPong
-if(NOT TARGET CycloneDDS::ddsc)
-    # Find the CycloneDDS package.
-    find_package(CycloneDDS REQUIRED)
-endif()
-
 add_executable(RoundtripPing ping.c RoundTrip.c)
 add_dependencies(RoundtripPing IdlGenerated_lib)
+target_link_libraries(RoundtripPing CycloneDDS::ddsc)
 
 add_executable(RoundtripPong pong.c RoundTrip.c)
 add_dependencies(RoundtripPong IdlGenerated_lib)
-
-target_link_libraries(RoundtripPing CycloneDDS::ddsc)
 target_link_libraries(RoundtripPong CycloneDDS::ddsc)

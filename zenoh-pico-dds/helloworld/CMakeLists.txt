@@ -67,16 +67,11 @@ FetchContent_MakeAvailable(zenoh-pico)
 set(ZENOHPICO_DIR ${CMAKE_CURRENT_BINARY_DIR}/zenoh-pico)
 include_directories(${ZENOHPICO_DIR}/include)
 
-# Adding something we can run - Output name matches target name
-add_executable(z_pub_cdr
-    z_pub_cdr.c HelloWorldData.c)
+# z_pub_cdr and z_sub_cdr
+add_executable(z_pub_cdr z_pub_cdr.c HelloWorldData.c)
 add_dependencies(z_pub_cdr zenohpico IdlGenerated_lib)
-
-add_executable(z_sub_cdr
-    z_sub_cdr.c HelloWorldData.c)
-add_dependencies(z_sub_cdr zenohpico IdlGenerated_lib)
-
-set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES /usr/local/lib ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES})
-
-target_link_libraries(z_sub_cdr zenohpico cdr)
 target_link_libraries(z_pub_cdr zenohpico cdr)
+
+add_executable(z_sub_cdr z_sub_cdr.c HelloWorldData.c)
+add_dependencies(z_sub_cdr zenohpico IdlGenerated_lib)
+target_link_libraries(z_sub_cdr zenohpico cdr)

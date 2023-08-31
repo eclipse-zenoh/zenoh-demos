@@ -15,7 +15,7 @@ const struct dds_cdrstream_allocator dds_cdrstream_default_allocator = {malloc, 
 // CDR Xtypes header {0x00, 0x01} indicates it's Little Endian (CDR_LE representation)
 const uint8_t cdr_header[4] = {0x00, 0x01, 0x00, 0x00};
 
-const size_t alloc_size = 4096; // Abitrary size
+const size_t alloc_size = 256; // Abitrary size (dds_stream_write will reallocate if necessary)
 
 long int get_timestamp()
 {
@@ -111,11 +111,11 @@ int main(int argc, char **argv)
         sleep(1);
         printf("Putting Data ('%s')...\n", keyexpr);
 
-        // Add ROS2 header
+        // Add CDR header
         memcpy(buf, cdr_header, sizeof(cdr_header));
 
         os.m_buffer = buf;
-        os.m_index = sizeof(cdr_header); // Offset for CDR Xtypes header
+        os.m_index = sizeof(cdr_header); // Offset for CDR header
         os.m_size = alloc_size;
         os.m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2;
 
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
         {
             z_publisher_put_options_t options = z_publisher_put_options_default();
             options.encoding = z_encoding(Z_ENCODING_PREFIX_TEXT_PLAIN, NULL);
-            z_publisher_put(z_publisher_loan(&pub), (const uint8_t *)buf, os.m_index, &options);
+            z_publisher_put(z_publisher_loan(&pub), (const uint8_t *)os.m_buffer, os.m_index, &options);
         }
     }
 

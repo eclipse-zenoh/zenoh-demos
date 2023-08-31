@@ -12,12 +12,6 @@
 
 const struct dds_cdrstream_allocator dds_cdrstream_default_allocator = {malloc, realloc, free};
 
-void idl_deser(unsigned char *buf, uint32_t sz, void *obj, const dds_topic_descriptor_t *desc)
-{
-    dds_istream_t is = {.m_buffer = buf, .m_index = 0, .m_size = sz, .m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2};
-    dds_stream_read(&is, obj, &dds_cdrstream_default_allocator, desc->m_ops);
-}
-
 void data_handler(const z_sample_t *sample, void *arg)
 {
     (void)(arg);
@@ -26,16 +20,16 @@ void data_handler(const z_sample_t *sample, void *arg)
     printf("=== [Subscriber] Received (on '%s' - %d bytes) : ", z_loan(keystr), (int)sample->payload.len);
     z_drop(z_move(keystr));
 
-    // Approximate amount of memory needed to decode incoming message
-    // We do this so we only have to allocate once to map this easier to smaller microcontrollers
-    size_t decoded_size_approx = sizeof(HelloWorldData_Msg) + sample->payload.len;
-
-    void *msgData = malloc(decoded_size_approx);
-    HelloWorldData_Msg *msg = (HelloWorldData_Msg *)msgData;
+    HelloWorldData_Msg msg;
     // Deserialize Msg
-    idl_deser(((unsigned char *)sample->payload.start + 4), (int)sample->payload.len, msgData, &HelloWorldData_Msg_desc);
+    dds_istream_t is = {
+        .m_buffer = (unsigned char *)sample->payload.start,
+        .m_index = 4,
+        .m_size = sample->payload.len,
+        .m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2};
+    dds_stream_read(&is, (void *)&msg, &dds_cdrstream_default_allocator, HelloWorldData_Msg_desc.m_ops);
 
-    printf("Message (%" PRId32 ", %s)\n", msg->userID, msg->message);
+    printf("Message (%" PRId32 ", %s)\n", msg.userID, msg.message);
     fflush(stdout);
 }
 
