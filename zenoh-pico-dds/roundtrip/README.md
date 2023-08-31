@@ -5,7 +5,7 @@ This example is compatible with CycloneDDS' [roundtrip example](https://github.c
 
 ## Prerequisite:
 
- - CycloneDDS installed and its `idlc` code generator accessible in the `${PATH}`
+ - CycloneDDS (>=0.11 or master branch) installed and its `idlc` code generator accessible in the `${PATH}`
  - CMake 2.14+
  - [zenoh-bridge-dds](https://github.com/eclipse-zenoh/zenoh-plugin-dds)
 
