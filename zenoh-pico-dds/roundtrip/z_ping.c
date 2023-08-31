@@ -181,7 +181,7 @@ void send_ping()
   memcpy(buf, cdr_header, cdr_header_size);
   os.m_buffer = buf;
   os.m_index = cdr_header_size; // Offset for CDR header
-  os.m_size = alloc_size - cdr_header_size;
+  os.m_size = alloc_size;
   os.m_xcdr_version = DDSI_RTPS_CDR_ENC_VERSION_2;
 
   bool ret = dds_stream_write(&os, &dds_cdrstream_default_allocator,
@@ -189,7 +189,7 @@ void send_ping()
   if (ret == true)
   {
     z_publisher_put_options_t options = z_publisher_put_options_default();
-    z_publisher_put(z_publisher_loan(&pub), (const uint8_t *)buf, os.m_index, &options);
+    z_publisher_put(z_publisher_loan(&pub), (const uint8_t *)os.m_buffer, os.m_index, &options);
   }
   else
   {
@@ -333,8 +333,6 @@ int main(int argc, char *argv[])
   zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make("client"));
   zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(locator));
 
-  printf("=== Z_FRAG_MAX_SIZE = %d\n", Z_FRAG_MAX_SIZE);
-  printf("=== Z_BATCH_SIZE_TX = %d\n", Z_BATCH_SIZE_TX);
   printf("Opening session, connecting to %s ...\n", locator);
   session = z_open(z_config_move(&config));
   if (!z_session_check(&session))
@@ -380,14 +378,16 @@ int main(int argc, char *argv[])
     pub_data.payload._buffer[i] = 'a';
   }
 
-  startTime = dds_time();
   /* Send 1st ping */
   send_ping();
 
+  /* Warmup time */
   printf("# Waiting for startup jitter to stabilise\n");
   fflush(stdout);
   z_sleep_ms(WARMUP_TIME_MS);
 
+  /* Start measurements */
+  startTime = dds_time();
   warmUp = false;
   printf("# Warm up complete.\n\n");
   printf("# Latency measurements (in us)\n");

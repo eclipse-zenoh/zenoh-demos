@@ -17,9 +17,6 @@ static z_owned_subscriber_t sub;
 void data_handler(const z_sample_t *sample, void *arg)
 {
   (void)arg;
-  printf(".");
-  fflush(stdout);
-
   /* send payload back to ping */
   z_publisher_put_options_t options = z_publisher_put_options_default();
   z_publisher_put(z_publisher_loan(&pub), sample->payload.start, sample->payload.len, &options);
