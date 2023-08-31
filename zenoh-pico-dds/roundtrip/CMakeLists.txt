@@ -69,16 +69,27 @@ FetchContent_MakeAvailable(zenoh-pico)
 set(ZENOHPICO_DIR ${CMAKE_CURRENT_BINARY_DIR}/zenoh-pico)
 include_directories(${ZENOHPICO_DIR}/include)
 
-# Adding something we can run - Output name matches target name
-add_executable(z_ping
-    z_ping.c RoundTrip.c)
+# Zenoh-Pico z_ping and z_pong
+add_executable(z_ping z_ping.c RoundTrip.c)
 add_dependencies(z_ping zenohpico IdlGenerated_lib)
 
-add_executable(z_pong
-    z_pong.c RoundTrip.c)
+add_executable(z_pong z_pong.c RoundTrip.c)
 add_dependencies(z_pong zenohpico IdlGenerated_lib)
 
-set(CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES /usr/local/lib ${CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES})
-
-target_link_libraries(z_pong zenohpico cdr)
 target_link_libraries(z_ping zenohpico cdr)
+target_link_libraries(z_pong zenohpico cdr)
+
+# CycloneDDS RoundtripPing and RoundtripPong
+if(NOT TARGET CycloneDDS::ddsc)
+    # Find the CycloneDDS package.
+    find_package(CycloneDDS REQUIRED)
+endif()
+
+add_executable(RoundtripPing ping.c RoundTrip.c)
+add_dependencies(RoundtripPing IdlGenerated_lib)
+
+add_executable(RoundtripPong pong.c RoundTrip.c)
+add_dependencies(RoundtripPong IdlGenerated_lib)
+
+target_link_libraries(RoundtripPing CycloneDDS::ddsc)
+target_link_libraries(RoundtripPong CycloneDDS::ddsc)
