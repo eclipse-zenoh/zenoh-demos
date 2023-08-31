@@ -1,5 +1,5 @@
 /*
-  Copied from CycloneDDS' roundtrip example:
+  DDS application - Copied from CycloneDDS' roundtrip example:
   https://github.com/eclipse-cyclonedds/cyclonedds/blob/0.10.2/examples/roundtrip/ping.c
 */
 

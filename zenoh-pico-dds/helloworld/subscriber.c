@@ -1,5 +1,5 @@
 /*
-  Copied from CycloneDDS' helloworld example:
+  DDS application - Copied from CycloneDDS' helloworld example:
   https://github.com/eclipse-cyclonedds/cyclonedds/blob/0.10.2/examples/helloworld/subscriber.c
 */
 

@@ -1,3 +1,7 @@
+/*
+  Zenoh-pico application - equivalent to pong.c
+*/
+
 #include "RoundTrip.h"
 #include <stdio.h>
 #include <stdlib.h>

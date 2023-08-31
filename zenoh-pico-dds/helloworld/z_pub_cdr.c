@@ -1,3 +1,6 @@
+/*
+  Zenoh-pico application - equivalent to publisher.c
+*/
 
 #include <ctype.h>
 #include <stddef.h>
