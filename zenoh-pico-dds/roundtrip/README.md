@@ -24,7 +24,7 @@ make
 
  - **`RoundtripPong`**: CycloneDDS' pong example.
 
- - **`z_ping`**: A zenoh-pico equivalent to RoundtripPing, sending a ping message and waiting for a poing message in return.  
+ - **`z_ping`**: A zenoh-pico equivalent to RoundtripPing, sending a ping message and waiting for a pong message in return.  
    This zenoh-pico application is in **client** mode and tries to establish
    a session with a router or a `zenoh-bridge-dds` on specified `zenoh_locator`.  
    Usage:
