@@ -29,7 +29,7 @@ extern "C"
 
 // Zenoh-specific parameters
 #define MODE "client"
-#define PEER ""
+#define LOCATOR ""
 
 #define TURTLESIM 1
 #if TURTLESIM == 1
@@ -170,9 +170,9 @@ void setup(void)
     // Initialize Zenoh Session and other parameters
     z_owned_config_t config = z_config_default();
     zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0)
+    if (strcmp(LOCATOR, "") != 0)
     {
-        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_CONNECT_KEY, z_string_make(LOCATOR));
     }
 
     // Open Zenoh session
