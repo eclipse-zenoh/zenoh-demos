@@ -24,7 +24,7 @@ fn main() {
 
     // 2. Send the shares to the storages
     for (index, share) in shares.iter().enumerate() {
-        let share_expr = format!("/share/{}{}", index, normalized_expr);
+        let share_expr = format!("share/{}{}", index, normalized_expr);
 
         println!("Putting share {} of '{}'. ", index, share_expr);
         let share_as_bytes: Vec<u8> = share.try_into().unwrap();

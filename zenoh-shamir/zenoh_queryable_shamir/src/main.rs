@@ -39,7 +39,7 @@ fn main() {
             let mut shares: Vec<sharks::Share> = Vec::with_capacity(threshold as usize);
             let mut index = 0;
             while shares.len() < threshold as usize && index < threshold * redundancy {
-                let share_expr = format!("/share/{}{}", index, name);
+                let share_expr = format!("share/{}{}", index, name);
                 print!(
                     "\t>> [zenoh_queryable_shamir] Fetching share '{}': ",
                     share_expr
