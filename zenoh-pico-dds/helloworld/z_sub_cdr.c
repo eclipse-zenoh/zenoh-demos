@@ -75,7 +75,7 @@ int main(int argc, char **argv)
     zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(mode));
     if (locator != NULL)
     {
-        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(locator));
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_CONNECT_KEY, z_string_make(locator));
     }
 
     printf("Opening session...\n");
