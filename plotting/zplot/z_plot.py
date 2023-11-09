@@ -12,12 +12,10 @@
 #   ZettaScale Zenoh Team, <zenoh@zettascale.tech>
 #
 import argparse
-import collections
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy
-import sys
 import time
 import json
 import zenoh

@@ -15,6 +15,7 @@ python3 z_plot.py
 ## Web plot
 
 Run a zenoh router:
+
 ```bash
 zenohd
 ```
@@ -29,6 +30,6 @@ Run a zenoh router with a storage storing `demo/random`:
 zenohd -P storage_manager --cfg 'plugins/storage_manager/storages/demo:{key_expr:"demo/random",volume:"memory",}'
 ```
 
-Browse to http://freeboard.github.io/freeboard/ .
+Browse to <https://freeboard.github.io/freeboard/>.
 
 Click "LOAD FREEBOARD" and provide `dashboard.json` file.
