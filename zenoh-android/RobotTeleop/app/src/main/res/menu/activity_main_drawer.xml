@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:showIn="navigation_view">
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/z_pub"
+            android:title="@string/menu_z_pub" />
+
+        <item
+            android:id="@+id/z_sub"
+            android:title="@string/menu_z_sub" />
+
+        <item
+            android:id="@+id/z_queryable"
+            android:title="@string/menu_z_queryable" />
+
+        <item
+            android:id="@+id/z_put"
+            android:title="@string/menu_z_put" />
+
+        <item
+            android:id="@+id/z_delete"
+            android:title="@string/menu_z_delete" />
+
+        <item
+            android:id="@+id/z_get"
+            android:title="@string/menu_z_get" />
+        <item
+            android:id="@+id/z_teleop"
+            android:title="@string/menu_z_teleop" />
+    </group>
+</menu>
