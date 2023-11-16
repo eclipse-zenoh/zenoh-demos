@@ -2,7 +2,6 @@ use cdr::{CdrLe, Infinite};
 use clap::{App, Arg};
 use hls_lfcd_lds_driver::{LFCDLaser, LaserReading, DEFAULT_BAUD_RATE, DEFAULT_PORT};
 use serde::{Deserialize, Serialize};
-use serde_big_array::BigArray;
 use std::f32::consts::PI;
 use std::time::SystemTime;
 use zenoh::config::Config;
@@ -30,10 +29,8 @@ struct LaserScan {
     scan_time: f32,
     range_min: f32,
     range_max: f32,
-    #[serde(with = "BigArray")]
-    ranges: [f32; 360],
-    #[serde(with = "BigArray")]
-    intensities: [f32; 360],
+    ranges: Vec<f32>,
+    intensities: Vec<f32>,
 }
 
 impl From<LaserReading> for LaserScan {
@@ -56,8 +53,8 @@ impl From<LaserReading> for LaserScan {
             scan_time: 1.0 / (lr.rpms as f32 * 6.0) * 360.0,
             range_min: 0.12,
             range_max: 3.5,
-            ranges: lr.ranges.map(|r| r as f32 / 1000.0),
-            intensities: lr.intensities.map(|r| r as f32),
+            ranges: lr.ranges.map(|r| r as f32 / 1000.0).to_vec(),
+            intensities: lr.intensities.map(|r| r as f32).to_vec(),
         }
     }
 }
