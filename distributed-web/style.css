@@ -2,6 +2,7 @@ body {
     display: grid;
     place-items: center;
     height: 100vh;
+    font-family: sans-serif;
 }
 
 #container {
