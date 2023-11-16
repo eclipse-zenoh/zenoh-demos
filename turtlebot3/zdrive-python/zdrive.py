@@ -1,4 +1,5 @@
 import argparse
+from dataclasses import dataclass
 import time
 import io
 import zenoh
