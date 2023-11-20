@@ -112,10 +112,10 @@
         <form id="Config" class="w3-container w3-hide">
             <label for="linear_scale">Linear scale:</label>
             <input id="linear_scale" class="w3-input w3-border w3-padding-small" type="number" required
-                value="0.1"><br />
+                value="10"><br />
             <label for="angular_scale">Angular scale:</label>
             <input id="angular_scale" class="w3-input w3-border w3-padding-small" type="number" required
-                value="0.5"><br />
+                value="20"><br />
         </form>
     </div>
 
@@ -124,10 +124,10 @@
     <script src="https://cdn.jsdelivr.net/npm/jscdr@0.0.1"></script>
     <script>
         // ROS2 topic names
-        const TOPIC_DRIVE = "rt/cmd_vel";
-        const TOPIC_LIDAR = "rt/scan";
-        const TOPIC_BATTERY = "rt/battery_state";
-        const TOPIC_LOGS = "rt/rosout";
+        const TOPIC_DRIVE = "cmd_vel";
+        const TOPIC_LIDAR = "scan";
+        const TOPIC_BATTERY = "battery_state";
+        const TOPIC_LOGS = "rosout";
 
         // MQTT topic name (for logging)
         const TOPIC_MQTT = "zigbee2mqtt/device/**"
