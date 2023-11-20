@@ -1,20 +1,22 @@
 [package]
 name = "zcam"
 version = "0.1.0"
-authors = ["Olivier Hécart <olivier.hecart@adlinktech.com", 
-           "kydos <angelo@icorsaro.net>"]
+authors = [
+    "Olivier Hécart <olivier.hecart@adlinktech.com",
+    "kydos <angelo@icorsaro.net>",
+]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zenoh = { git = "https://github.com/eclipse-zenoh/zenoh.git" }
+zenoh = "0.10.0-rc"
 async-std = { version = "=1.12.0", features = ["attributes", "unstable"] }
 futures = "0.3.15"
 clap = "3.2.15"
 log = "0.4"
 env_logger = "0.9.0"
-opencv = "0.66.0"
+opencv = { version = "0.86.1", features = ["clang-runtime"] }
 
 [[bin]]
 name = "zdisplay"
