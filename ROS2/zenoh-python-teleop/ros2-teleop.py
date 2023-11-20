@@ -12,8 +12,6 @@
 #   ADLINK zenoh team, <zenoh@adlink-labs.tech>
 #
 
-import sys
-from datetime import datetime
 import argparse
 import curses
 import zenoh
