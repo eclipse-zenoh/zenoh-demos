@@ -29,7 +29,7 @@ extern "C"
 
 // Zenoh-specific parameters
 #define MODE "client"
-#define PEER ""
+#define CONNECT ""
 
 #define TURTLESIM 1
 #if TURTLESIM == 1
@@ -150,7 +150,7 @@ void setup(void)
     {
         delay(1000);
     }
-    Serial.println("Connected to WiFi!");
+    Serial.printf("Connected to WiFi %s!\n", SSID);
 
     // Initialize and calibrate0 MPU6050
     Serial.print("Detecting MPU6050 sensor...");
@@ -170,13 +170,13 @@ void setup(void)
     // Initialize Zenoh Session and other parameters
     z_owned_config_t config = z_config_default();
     zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0)
+    if (strcmp(CONNECT, "") != 0)
     {
-        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_CONNECT_KEY, z_string_make(CONNECT));
     }
 
     // Open Zenoh session
-    Serial.print("Opening Zenoh Session...");
+    Serial.println("Opening Zenoh Session...");
     z_owned_session_t s = z_open(z_config_move(&config));
     if (!z_session_check(&s))
     {
