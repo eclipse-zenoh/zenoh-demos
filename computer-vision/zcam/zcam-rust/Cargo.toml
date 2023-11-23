@@ -16,7 +16,13 @@ futures = "0.3.15"
 clap = "3.2.15"
 log = "0.4"
 env_logger = "0.9.0"
-opencv = { version = "0.86.1", features = ["clang-runtime"] }
+opencv = { version = "0.86.1", default-features = false, features = [
+    "videoio",
+    "imgcodecs",
+    "imgproc",
+    "highgui",
+    "clang-runtime",
+] }
 
 [[bin]]
 name = "zdisplay"
