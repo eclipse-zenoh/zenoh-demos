@@ -23,3 +23,10 @@ and Rust. The game follows the client-server model. A server manages the game
 state, publishes it and subscribes to player input. While a client subscribes to
 the game state, renders it and publishes player input. Thus, clients can play
 against each other from potentially different network hosts.
+
+**zenoh-shamir**: Illustrates [Shamir's secret
+sharing](https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing) by splitting a
+secret into 'shares' and storing them on distinct, interconnected Zenoh routers.
+Another Zenoh node implements a
+[Queryable](https://zenoh.io/docs/manual/abstractions/#queryable) which collects
+all shares into the original secret.
