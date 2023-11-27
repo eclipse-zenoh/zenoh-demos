@@ -1,7 +1,6 @@
 import zenoh
 import argparse
 import imutils
-import io
 import cv2
 import json
 import time

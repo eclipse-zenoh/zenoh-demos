@@ -2,13 +2,10 @@ import argparse
 from imutils.video import VideoStream
 import imutils
 import time
-import io
 import cv2
 import json
 import random
 import zenoh
-import binascii
-import numpy as np
 
 parser = argparse.ArgumentParser(
     prog='capture_video',
