@@ -24,9 +24,19 @@ state, publishes it and subscribes to player input. While a client subscribes to
 the game state, renders it and publishes player input. Thus, clients can play
 against each other from potentially different network hosts.
 
-**zenoh-shamir**: Illustrates [Shamir's secret
+**zenoh-shamir**: illustrates [Shamir's secret
 sharing](https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing) by splitting a
 secret into 'shares' and storing them on distinct, interconnected Zenoh routers.
 Another Zenoh node implements a
 [Queryable](https://zenoh.io/docs/manual/abstractions/#queryable) which collects
 all shares into the original secret.
+
+**zenoh-pico-dds/{helloworld,roundtrip}**: utilize
+[zenoh-plugin-dds](https://github.com/eclipse-zenoh/zenoh-plugin-dds) to connect
+a [CycloneDDS](https://github.com/eclipse-cyclonedds/cyclonedds) node and a
+Zenoh node, enabling either node to publish, or subscribe to, a given
+resource/topic. Data is exchanged using the
+[CDR](https://en.wikipedia.org/wiki/Common_Data_Representation) representation,
+as implemented in CycloneDDS. The `helloworld` demo consists of one publisher
+and one subscriber, while the `rountrip` demo implements a simple ping-pong
+scheme.
