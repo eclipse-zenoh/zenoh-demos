@@ -40,3 +40,12 @@ resource/topic. Data is exchanged using the
 as implemented in CycloneDDS. The `helloworld` demo consists of one publisher
 and one subscriber, while the `rountrip` demo implements a simple ping-pong
 scheme.
+
+**turtlebot/zturtle-{python,rust}**: a [TurtleBot
+3](https://en.wikipedia.org/wiki/TurtleBot) teleoperation application leveraging
+Zenoh. It subscribes to
+[Twist](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/Twist.html)
+messages to control the velocity of the TurtleBot's wheels, publishes a camera
+feed and whenever its Wi-Fi network changes, it connects to a new peer/router
+(e.g. to maintain geo-proximity). The Rust and Python implementations are
+largely equivalent.
