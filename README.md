@@ -46,6 +46,11 @@ scheme.
 Zenoh. It subscribes to
 [Twist](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/Twist.html)
 messages to control the velocity of the TurtleBot's wheels, publishes a camera
-feed and whenever its Wi-Fi network changes, it connects to a new peer/router
+feed, and whenever its Wi-Fi network changes, it connects to a new peer/router
 (e.g. to maintain geo-proximity). The Rust and Python implementations are
 largely equivalent.
+
+**turtlebot/zdrive-python**: a stripped down version of
+**turtlebot/zturtle-python** providing only teleoperation (i.e. no camera feed
+and no dynamic peer/router re-connections). This demo can be less demanding on
+low-bandwidth networks.
