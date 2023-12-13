@@ -92,11 +92,10 @@ messages published by a robot equiped with a
 [Matplotlib](https://matplotlib.org/), it constructs a 2D map of nearby
 obstacles and environment boundaries (e.g. walls of a room).
 
-**ROS2/zenoh-{python,rust,rest}-teleop**: Zenoh nodes that publish
+**ROS2/zenoh-{python,rust}-teleop**: Zenoh nodes that publish
 [Twist](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/Twist.html)
 teleoperation messages by reading keyboard input (i.e. arrow keys). Both of the
-Rust and Python implementations are terminal applications while the REST version
-runs on the browser.
+Rust and Python implementations are terminal applications.
 
 **zenoh-home/{light,soil,temp-humi}-sensor**: Zenoh nodes running Zenoh
 [Pico](https://github.com/eclipse-zenoh/zenoh-pico) on an
@@ -109,3 +108,55 @@ sensor](https://learn.adafruit.com/dht).
 **zenoh-android/ZenohApp**: an Android application written using Zenoh's Kotlin
 bindings. It can declare a subscriber, a publisher or a queryable, as well as
 perform a PUT, GET or DELETE operation.
+
+| ⚠️ The following demos are currently untested |
+|----------------------------------------------|
+
+**zenoh-fence**: a system of four Zenoh nodes made up of (1) a
+robot subscribing to
+[Twist](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/Twist.html)
+teleoperation messages, (2) an
+[Ultrasonic](https://en.wikipedia.org/wiki/Ultrasonic_transducer) sensor
+(representing a 'fence') that publishes the distance between itself and the
+robot, (3) an [ESP32](https://en.wikipedia.org/wiki/ESP32) board (representing a
+'stoplight') which subscribes to the distance between the fence and the robot,
+and publishes on a 'red light' key a boolean value signaling whether the robot
+is _too close_ to the fence (likewise, a 'green light' key indicates if the robot
+isn't too close to the fence), and (4) a modified version of
+**ROS2/zenoh-pico-teleop-gyro** which stops the robot if the 'red light' signals
+that the robot is too close to the fence, thus allowing 'safe' teleoperation of
+the robot (i.e. the operator is protected from driving the robot into dangerous
+areas).
+
+**gamepad-dragonbot**: illustrates [Zenoh
+Flow](https://zenoh.io/blog/2023-02-10-zenoh-flow/) through the teleoperation of
+a robot with
+[Twist](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/Twist.html)
+through a gamepad. Three Zenoh Flow _nodes_ are at play here: (1) a _source_
+node reads input raw data from a gamepad which is sent to (2) an _operator_ node
+that transforms the raw data into its linear & angular velocity components which
+are finally sent to (3) a _sink_ node that serializes the velocities into a
+Twist message and puts it on the Zenoh key that the robot subscribes to.
+
+**ROS2/zenoh-rust-replay**: starts with two ROS2
+[TurtleBots](https://en.wikipedia.org/wiki/TurtleBot) only one of which, say
+robot (1), receives teleoperation messages over
+[DDS](https://en.wikipedia.org/wiki/Data_Distribution_Service). In order to
+'replay' the teleoperation commands of the robot (1) to robot (2), a [Zenoh-DDS
+bridge](https://github.com/eclipse-zenoh/zenoh-plugin-dds) is deployed on the
+same network as the DDS domain the robots, then a Zenoh node connected to the
+bridge (either directly or through a number of hops) will get the teleoperation
+commands sent to robot (1) and re-publish them; the bridge will thus forward
+them to robot (2).
+
+**ROS2/zenoh-pico-cyclonedds-cdr-message-log**: illustrates
+how [Zenoh Pico](https://zenoh.io/blog/2021-10-04-zenoh-pico-guide/) can be used
+to publish messages to a
+[DDS](https://en.wikipedia.org/wiki/Data_Distribution_Service) domain (as well
+as subscribe to messages sent in a DDS domain) using the [Zenoh-DDS
+bridge](https://github.com/eclipse-zenoh/zenoh-plugin-dds). On the Zenoh Pico
+node, serialization & deserialization of
+[CDR](https://en.wikipedia.org/wiki/Common_Data_Representation) messages is perfomed with
+the [CycloneDDS](https://github.com/eclipse-cyclonedds/cyclonedds) CDR library.
+
+**ROS2/zenoh-rest-teleop**: Browser version of **ROS2/zenoh-{python,rust}-teleop** which utilizes Zenoh's [REST API](https://zenoh.io/docs/apis/rest/).
