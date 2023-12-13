@@ -21,8 +21,9 @@
 // For ROS types
 #include <geometry_msgs/Twist.h>
 
-extern "C" {
-    #include "zenoh-pico.h"
+extern "C"
+{
+#include "zenoh-pico.h"
 }
 
 // WiFi-specific parameters
@@ -32,7 +33,7 @@ extern "C" {
 
 // Zenoh-specific parameters
 #define MODE "client"
-#define PEER "tcp/192.168.86.57:7447"
+#define CONNECT "tcp/192.168.86.57:7447"
 
 #define URI "rt/cmd_vel"
 
@@ -46,7 +47,7 @@ extern "C" {
 #define Y_MIN_VALUE -2.50
 #define Y_ZERO_VALUE 0.5
 
-#define CONTROL_MOTOR_SPEED_FREQUENCY 30 //hz
+#define CONTROL_MOTOR_SPEED_FREQUENCY 30 // hz
 
 /* ---------- Print Functions ----------- */
 void printVector(geometry_msgs::Vector3 *v)
@@ -89,11 +90,11 @@ void setup(void)
     // while (!Serial)
     //     delay(10);
 
-
     // Set WiFi in STA mode and trigger attachment
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, PASS);
-    while (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED)
+    {
         delay(1000);
     }
     Serial.println("Connected to WiFi!");
@@ -109,22 +110,27 @@ void setup(void)
     // Initialize Zenoh Session and other parameters
     z_owned_config_t config = z_config_default();
     zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0) {
-        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
+    if (strcmp(CONNECT, "") != 0)
+    {
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_CONNECT_KEY, z_string_make(CONNECT));
     }
 
     s = z_open(z_config_move(&config));
-    if (!z_session_check(&s)) {
+    if (!z_session_check(&s))
+    {
         Serial.print("Unable to open session!\n");
-        while(1);
+        while (1)
+            ;
     }
 
     zp_start_read_task(z_session_loan(&s), NULL);
     zp_start_lease_task(z_session_loan(&s), NULL);
 
     pub_sensor_state = z_declare_publisher(z_session_loan(&s), z_keyexpr(URI), NULL);
-    if (!z_publisher_check(&pub_sensor_state)) {
-        while(1);
+    if (!z_publisher_check(&pub_sensor_state))
+    {
+        while (1)
+            ;
     }
     Serial.println("Zenoh Publisher setup finished!");
 

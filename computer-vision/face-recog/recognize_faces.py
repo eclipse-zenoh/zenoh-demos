@@ -1,6 +1,5 @@
 import argparse
 import time
-import io
 import ast
 import cv2
 import json

@@ -1,0 +1,15 @@
+body {
+    display: grid;
+    place-items: center;
+    height: 100vh;
+    font-family: sans-serif;
+}
+
+#container {
+    width: 60%;
+    height: 60%;
+}
+
+#logo {
+    width: 80%;
+}

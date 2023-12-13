@@ -60,4 +60,5 @@ Usage:
         1: avocado at tetris/5c68ee21-e5da-4c07-9a1a-45b9657889fe
         ```
 
-        Select server and play. Selecting 'ALL' means sending client's actions and receiving picture to all servers at the same time.
+        Select server and play. Selecting 'ALL' means sending the client's
+        actions to and receiving the picture from all servers at the same time.

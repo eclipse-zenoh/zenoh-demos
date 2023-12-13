@@ -13,8 +13,8 @@
 #   Alexandre Humblot, <alexandre.humblot@student-cs.fr>
 
 import argparse
+from dataclasses import dataclass
 import json
-from turtle import stamp
 import zenoh
 import cmath
 import numpy as np
@@ -22,7 +22,7 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.patches import Polygon
 from matplotlib import pyplot as plt
 from pycdr2 import IdlStruct
-from pycdr2.types import int8, int32, uint32, float64, float32, sequence, array
+from pycdr2.types import uint32, float32
 from typing import List
 
 @dataclass
@@ -37,9 +37,7 @@ class Header(IdlStruct, typename="Header"):
 
 @dataclass
 class LaserScan(IdlStruct, typename="LaserScan"):
-    stamp_sec: uint32
-    stamp_nsec: uint32
-    frame_id: str
+    header: Header
     angle_min: float32
     angle_max: float32
     angle_increment: float32
@@ -59,7 +57,7 @@ parser.add_argument('-e', '--connect', type=str, metavar='ENDPOINT', action='app
                     help='zenoh endpoints to connect to.')
 parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='append',
                     help='zenoh endpoints to listen on.')
-parser.add_argument('-k', '--key', type=str, default='rt/turtle1/scan',
+parser.add_argument('-k', '--key', type=str, default='rt/turtle1/lidar',
                     help='The key expression to subscribe for LaserReadings.')
 parser.add_argument('--intensity-treshold', type=float, default=250.0,
                     help='The intensity treshold.')
@@ -84,7 +82,7 @@ ax.set_ylim(-4, 4)
 
 
 def lidar_listener(sample):
-    # print('[DEBUG] Received frame: {}'.format(sample.key_expr))
+    print('[DEBUG] Received frame: {}'.format(sample.key_expr))
     scan = LaserScan.deserialize(sample.payload)
     angles = list(map(lambda x: x*1j+cmath.pi/2j, np.arange(scan.angle_min, scan.angle_max, scan.angle_increment)))
 

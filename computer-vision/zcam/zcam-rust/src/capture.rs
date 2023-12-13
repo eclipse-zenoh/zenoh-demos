@@ -27,12 +27,7 @@ fn main() -> Result<()> {
 
     let zpub = session.declare_publisher(&key_expr).res().unwrap();
 
-    opencv::opencv_branch_32! {
-        let mut cam = videoio::VideoCapture::new_default(0)?; // 0 is the default camera
-    }
-    opencv::not_opencv_branch_32! {
-        let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY)?; // 0 is the default camera
-    }
+    let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY)?;
 
     let opened = videoio::VideoCapture::is_opened(&cam)?;
     if !opened {

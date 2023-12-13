@@ -1,5 +1,4 @@
 import argparse
-from email.policy import default
 from imutils.video import VideoStream
 import imutils
 import time
@@ -52,7 +51,6 @@ vs = VideoStream(src=CAMERA_ID).start()
 time.sleep(1.0)
 
 while True:
-
     raw = vs.read()
     if raw is not None:
         frame = imutils.resize(raw, width=args.width)

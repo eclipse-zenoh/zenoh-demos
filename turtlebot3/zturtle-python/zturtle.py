@@ -1,19 +1,16 @@
 import argparse
-from email.policy import default
+import cv2
+from dataclasses import dataclass
 from imutils.video import VideoStream
 import imutils
-import time
-import io
-import cv2
-import random
-import zenoh
-import binascii
-import numpy as np
 import json
 import subprocess
-from servo import *
+import time
 from pycdr2 import IdlStruct
-from pycdr2.types import int8, int32, uint32, float64
+from pycdr2.types import float64
+import zenoh
+
+from servo import *
 
 @dataclass
 class Vector3(IdlStruct, typename="Vector3"):
@@ -32,7 +29,7 @@ BAUDRATE                    = 115200
 MOTOR_ID                    = 200
 CAMERA_ID                   = 0
 
-def getBSSID():
+def get_bssid():
     result=subprocess.run(['iwconfig'], capture_output=True)
     bssid=next(l for l in result.stdout.decode("utf-8").splitlines() if "Access Point: " in l).split("Access Point: ",1)[1].split(" ", 1)[0]
     if not bssid:
@@ -40,7 +37,7 @@ def getBSSID():
     else:
         return bssid
 
-def getEndpoint(mapping, bssid):
+def get_endpoint(mapping, bssid):
     if bssid in mapping:
         return mapping[bssid]
     elif "default" in mapping:
@@ -71,11 +68,11 @@ args = parser.parse_args()
 count = 0
 cmd = Twist(Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.0, 0.0))
 jpeg_opts = [int(cv2.IMWRITE_JPEG_QUALITY), args.quality]
-bssid = getBSSID()
+bssid = get_bssid()
 mapping = json.loads(open(args.endpoints, "r").read())
 
 conf = zenoh.config_from_file(args.config) if args.config is not None else zenoh.Config()
-conf.insert_json5(zenoh.config.CONNECT_KEY, getEndpoint(mapping, bssid))
+conf.insert_json5(zenoh.config.CONNECT_KEY, get_endpoint(mapping, bssid))
 if args.mode is not None:
     conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
 if args.listen is not None:
@@ -126,11 +123,11 @@ while True:
         _, jpeg = cv2.imencode('.jpg', frame, jpeg_opts)
         cam_pub.put(jpeg.tobytes())
 
-    new_bssid = getBSSID()
+    new_bssid = get_bssid()
     if new_bssid != bssid:
         print("[info] New access point detected")
         bssid = new_bssid
-        peer = getEndpoint(mapping, bssid)
+        peer = get_endpoint(mapping, bssid)
         if peer:
             z.config().insert_json5(zenoh.config.CONNECT_KEY, peer)
 

@@ -20,8 +20,10 @@ path = "src/client.rs"
 [dependencies]
 gametetris-rs = { git = "https://github.com/milyin/gametetris-rs" }
 console = "0.15.5"
-zenoh = "0.7.2-rc"
+zenoh = "0.10.0-rc"
 uuid = "1.1.3"
 human-hash = "0.4.0"
 serde_json = "1.0.96"
-flume = "0.10.14"
+# NOTE(fuzzypixelz): the flume version here should be manually synced with zenoh's.
+# Maybe zenoh should re-export flume types (i.e. Receiver, etc)?
+flume = "0.11"

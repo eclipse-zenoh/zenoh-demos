@@ -1,5 +1,4 @@
 import zenoh
-import sys
 import json
 import argparse
 import time
@@ -39,17 +38,15 @@ time.sleep(0.5)
 
 # If not yet existing, add a memory storage that will store the dataset
 try:
-    print('{}'.format(z.info()['info_router_pid'].split(',')[0]))
-    storage_admin_path = '/@/router/{}/config/plugins/storages/backends/memory/storages/facerecog-store'.format(
-        z.info()['info_router_pid'].split(',')[0])
-    if not z.get(storage_admin_path):
-        key_expr = '{}/vectors/**'.format(args.prefix)
-        print('Add storage: on {}'.format(key_expr))
-        z.put(storage_admin_path, json.dumps({'key_expr': key_expr}))
-        time.sleep(1)
-except:
-    e = sys.exc_info()[0]
-    print('Error creating storage: {}'.format(e))
+    print(f'router pid: {z.info().routers_zid()[0]}')
+    storage_admin_path = f'@/router/{z.info().routers_zid()[0]}/config/plugins/storage_manager/storages/facerecog-store'
+    key_expr = '{}/vectors/**'.format(args.prefix)
+    print('Add storage: on {}'.format(key_expr))
+    x = z.put(storage_admin_path, json.dumps({'key_expr': key_expr, "volume": "memory"}))
+    time.sleep(1)
+except Exception as e:
+    # e = sys.exc_info()[0]
+    print('Error creating storage: {}'.format(str(e)))
 
 
 for k, vs in faces.items():

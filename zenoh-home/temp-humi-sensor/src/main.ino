@@ -15,8 +15,9 @@
 #include <WiFi.h>
 #include <DHT.h>
 
-extern "C" {
-    #include "zenoh-pico.h"
+extern "C"
+{
+#include "zenoh-pico.h"
 }
 
 // WiFi-specific parameters
@@ -25,13 +26,13 @@ extern "C" {
 
 // Zenoh-specific parameters
 #define MODE "client"
-#define PEER ""
+#define CONNECT ""
 
 #define KEYEXPR_TEMPERATURE "paris/saint-aubin/office/rooms/jl-gb/sensor/temperature"
 #define KEYEXPR_HUMIDITY "paris/saint-aubin/office/rooms/jl-gb/sensor/humidity"
 
 #define DHT_PIN 14
-DHT dht(DHT_PIN, DHT22);
+DHT dht(DHT_PIN, DHT11);
 
 z_owned_publisher_t pub_temp;
 z_owned_publisher_t pub_humi;
@@ -40,14 +41,16 @@ void setup()
 {
     // Initialize Serial for debug
     Serial.begin(115200);
-    while (!Serial) {
+    while (!Serial)
+    {
         delay(1000);
     }
 
     // Set WiFi in STA mode and trigger attachment
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, PASS);
-    while (WiFi.status() != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED)
+    {
         delay(1000);
     }
     Serial.println("Connected to WiFi!");
@@ -55,8 +58,9 @@ void setup()
     // Initialize Zenoh Session and other parameters
     z_owned_config_t config = z_config_default();
     zp_config_insert(z_config_loan(&config), Z_CONFIG_MODE_KEY, z_string_make(MODE));
-    if (strcmp(PEER, "") != 0) {
-        zp_config_insert(z_config_loan(&config), Z_CONFIG_PEER_KEY, z_string_make(PEER));
+    if (strcmp(CONNECT, "") != 0)
+    {
+        zp_config_insert(z_config_loan(&config), Z_CONFIG_CONNECT_KEY, z_string_make(CONNECT));
     }
 
     Serial.print("Detecting DHT22 sensor...");
@@ -66,9 +70,11 @@ void setup()
     // Open Zenoh session
     Serial.print("Opening Zenoh Session...");
     z_owned_session_t s = z_open(z_config_move(&config));
-    if (!z_session_check(&s)) {
+    if (!z_session_check(&s))
+    {
         Serial.println("Unable to open session!\n");
-        while(1);
+        while (1)
+            ;
     }
     Serial.println("OK");
 
@@ -81,9 +87,11 @@ void setup()
     Serial.print(KEYEXPR_TEMPERATURE);
     Serial.println("...");
     pub_temp = z_declare_publisher(z_session_loan(&s), z_keyexpr(KEYEXPR_TEMPERATURE), NULL);
-    if (!z_publisher_check(&pub_temp)) {
+    if (!z_publisher_check(&pub_temp))
+    {
         Serial.println("Unable to declare publisher for key expression!\n");
-        while(1);
+        while (1)
+            ;
     }
     Serial.println("OK");
 
@@ -93,9 +101,11 @@ void setup()
     Serial.print(KEYEXPR_HUMIDITY);
     Serial.println("...");
     pub_humi = z_declare_publisher(z_session_loan(&s), z_keyexpr(KEYEXPR_HUMIDITY), NULL);
-    if (!z_publisher_check(&pub_humi)) {
+    if (!z_publisher_check(&pub_humi))
+    {
         Serial.println("Unable to declare publisher for key expression!\n");
-        while(1);
+        while (1)
+            ;
     }
     Serial.println("OK");
     Serial.println("Zenoh setup finished!");
@@ -116,19 +126,20 @@ void loop()
     Serial.println(" ºC");
 
     char buf_humi[10];
-    sprintf(buf_humi,"%f", humi);
-    if (z_publisher_put(z_publisher_loan(&pub_humi), (const uint8_t *)buf_humi, sizeof(buf_humi), NULL) < 0) {
+    sprintf(buf_humi, "%f", humi);
+    if (z_publisher_put(z_publisher_loan(&pub_humi), (const uint8_t *)buf_humi, sizeof(buf_humi), NULL) < 0)
+    {
         Serial.println("Error while publishing data");
     }
 
     delay(100);
 
     char buf_temp[10];
-    sprintf(buf_temp,"%f", temp);
-    if (z_publisher_put(z_publisher_loan(&pub_temp), (const uint8_t *)buf_temp, sizeof(buf_temp), NULL) < 0) {
+    sprintf(buf_temp, "%f", temp);
+    if (z_publisher_put(z_publisher_loan(&pub_temp), (const uint8_t *)buf_temp, sizeof(buf_temp), NULL) < 0)
+    {
         Serial.println("Error while publishing data");
     }
 
     delay(1000);
 }
-

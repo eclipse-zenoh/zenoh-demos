@@ -1,12 +1,10 @@
 import argparse
 import imutils
 import time
-import io
 import cv2
 import json
 import random
 import zenoh
-import binascii
 import numpy as np
 
 parser = argparse.ArgumentParser(
