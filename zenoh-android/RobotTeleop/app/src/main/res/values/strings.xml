@@ -26,8 +26,9 @@
     <string name="start">Start</string>
 <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
-    <string name="buttonFwd">Forward</string>
-    <string name="buttonBwd">Backward</string>
-    <string name="buttonLeft">Left</string>
-    <string name="buttonRight">Right</string>
+    <string name="robot_default_ke">bot2</string>
+    <string name="textViewLinearSensitivity">Linear Sensitivity</string>
+    <string name="textviewAngularSensitivity">Angular Sensitivity</string>
+    <string name="buttonDeclare">Declare</string>
+    <string name="textBattery">Robot Battery</string>
 </resources>

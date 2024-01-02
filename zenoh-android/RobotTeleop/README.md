@@ -2,18 +2,7 @@
 
 An Android application using the [Zenoh-Kotlin bindings](https://github.com/eclipse-zenoh/zenoh-kotlin).
 
-The application features the classic Zenoh examples with the default configuration:
-
-- ZPub: publishes periodically a 'Pub from Android!' into `demo/example/zenoh-android-pub`
-- ZSub: declares a subscriber into `demo/example/**`
-- ZQueryable: declares a queryable into `demo/example/zenoh-android-queryable`
-- ZPut: performs a PUT operation into `demo/example/zenoh-android-put`
-- ZDelete: performs a DELETE operation into `demo/example/zenoh-android-put`
-- ZGet: performs a GET query into `demo/example/**`
-
-To select a different example, open the side navigation menu:
-
-<img alt="zenohapp_menu.jpeg" src="zenohapp_menu.jpeg" width="250"/> <img alt="zenohapp_menu.jpeg" src="zenohapp_zpub.jpeg" width="250"/>
+The application features robotic teleoperation via Zenoh on your android device
 
 ## Requirements
 

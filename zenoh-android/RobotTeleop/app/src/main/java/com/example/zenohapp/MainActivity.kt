@@ -1,23 +1,25 @@
 package com.example.zenohapp
 
-import android.content.res.AssetFileDescriptor
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
-import androidx.drawerlayout.widget.DrawerLayout
-import androidx.lifecycle.ViewModelProvider
+import com.google.android.material.navigation.NavigationView
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
+import androidx.drawerlayout.widget.DrawerLayout
+import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
 import com.example.zenohapp.databinding.ActivityMainBinding
-import com.google.android.material.navigation.NavigationView
 import io.zenoh.Config
 import io.zenoh.Session
 import java.io.File
-
+import java.io.FileOutputStream
+import java.io.InputStream
+import kotlin.io.path.Path
 
 class MainActivity : AppCompatActivity() {
 
@@ -25,8 +27,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var session: Session
     private lateinit var viewModel: ZenohViewModel
-    private lateinit var mZenohConfiguration : Config
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -34,16 +34,17 @@ class MainActivity : AppCompatActivity() {
 
         System.setProperty("zenoh.logger", "debug")
 
+        val config = assets.open("config-inline-prod.json")
+        val tempConfig = File.createTempFile("config", ".json5")
+        tempConfig.deleteOnExit()
+        FileOutputStream(tempConfig).use { output ->
+            config.copyTo(output)
+        }
 
-        val assetManager = assets
-        val descriptor: AssetFileDescriptor = assetManager.openFd("sound/explosion.ogg")
-
-        //
-        // mZenohConfiguration = Config.from(descriptor.fileDescriptor)
-        //Session.open()
-        Session.open().onSuccess {
+        Session.open(Config.Companion.from(Path(tempConfig.absolutePath))).onSuccess {
             viewModel.zenohSession = it
         }.onFailure {
+            Log.e("Zenoh Session", "Zenoh session could not be opened: ${it.message}")
             val alertDialogBuilder = AlertDialog.Builder(this)
             alertDialogBuilder
                 .setTitle("Error")
@@ -74,7 +75,6 @@ class MainActivity : AppCompatActivity() {
                 R.id.z_put,
                 R.id.z_delete,
                 R.id.z_teleop,
-
             ), drawerLayout
         )
         setupActionBarWithNavController(navController, appBarConfiguration)

@@ -39,7 +39,7 @@ android {
 }
 
 dependencies {
-    implementation("io.zenoh:zenoh-kotlin-android:0.11.0-dev")
+    implementation("io.zenoh:zenoh-kotlin-android:0.10.1-rc")
     implementation("commons-net:commons-net:3.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("androidx.core:core-ktx:1.9.0")
