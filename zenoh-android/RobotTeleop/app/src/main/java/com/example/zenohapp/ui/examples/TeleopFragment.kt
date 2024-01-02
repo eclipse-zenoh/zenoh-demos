@@ -50,9 +50,7 @@ import java.nio.ByteBuffer
 import kotlin.random.Random
 
 
-enum class MovementDirection {
-    FWD, BWD, LEFT, RIGHT, STOP
-}
+
 
 
 class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarChangeListener {
@@ -470,5 +468,9 @@ class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarCh
 
     override fun onStopTrackingTouch(seekBar: SeekBar?) {
         return
+    }
+
+    enum class MovementDirection {
+        FWD, BWD, LEFT, RIGHT, STOP
     }
 }

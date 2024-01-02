@@ -3,43 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mobile_navigation"
-    app:startDestination="@+id/z_pub">
+    app:startDestination="@+id/z_teleop">
 
-    <fragment
-        android:id="@+id/z_pub"
-        android:name="com.example.zenohapp.ui.examples.ZPubFragment"
-        android:label="@string/z_pub"
-        tools:layout="@layout/fragment_home" />
-
-    <fragment
-        android:id="@+id/z_sub"
-        android:name="com.example.zenohapp.ui.examples.ZSubFragment"
-        android:label="@string/z_sub"
-        tools:layout="@layout/fragment_home" />
-
-    <fragment
-        android:id="@+id/z_queryable"
-        android:name="com.example.zenohapp.ui.examples.ZQueryableFragment"
-        android:label="@string/z_queryable"
-        tools:layout="@layout/fragment_gallery" />
-
-    <fragment
-        android:id="@+id/z_get"
-        android:name="com.example.zenohapp.ui.examples.ZGetFragment"
-        android:label="@string/z_get"
-        tools:layout="@layout/fragment_slideshow" />
-
-    <fragment
-        android:id="@+id/z_put"
-        android:name="com.example.zenohapp.ui.examples.ZPutFragment"
-        android:label="@string/z_put"
-        tools:layout="@layout/fragment_slideshow" />
-
-    <fragment
-        android:id="@+id/z_delete"
-        android:name="com.example.zenohapp.ui.examples.ZDeleteFragment"
-        android:label="@string/z_delete"
-        tools:layout="@layout/fragment_slideshow" />
     <fragment
         android:id="@+id/z_teleop"
         android:name="com.example.zenohapp.ui.examples.TeleopFragment"
