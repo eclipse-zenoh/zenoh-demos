@@ -71,7 +71,7 @@ jpeg_opts = [int(cv2.IMWRITE_JPEG_QUALITY), args.quality]
 bssid = get_bssid()
 mapping = json.loads(open(args.endpoints, "r").read())
 
-conf = zenoh.config_from_file(args.config) if args.config is not None else zenoh.Config()
+conf = zenoh.Config.from_file(args.config) if args.config is not None else zenoh.Config()
 conf.insert_json5(zenoh.config.CONNECT_KEY, get_endpoint(mapping, bssid))
 if args.mode is not None:
     conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
