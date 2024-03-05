@@ -23,4 +23,6 @@
     <string name="menu_z_get">ZGet</string>
     <string name="stop">Stop</string>
     <string name="start">Start</string>
+    <string name="z_pub_thr">ZPubThr</string>
+    <string name="z_sub_thr">ZSubThr</string>
 </resources>

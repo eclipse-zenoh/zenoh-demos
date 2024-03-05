@@ -40,4 +40,17 @@
         android:name="com.example.zenohapp.ui.examples.ZDeleteFragment"
         android:label="@string/z_delete"
         tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_pub_thr"
+        android:name="com.example.zenohapp.ui.examples.ZPubThrFragment"
+        android:label="@string/z_pub_thr"
+        tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_sub_thr"
+        android:name="com.example.zenohapp.ui.examples.ZSubThrFragment"
+        android:label="@string/z_sub_thr"
+        tools:layout="@layout/fragment_slideshow" />
+
 </navigation>

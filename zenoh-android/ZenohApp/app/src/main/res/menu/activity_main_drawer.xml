@@ -27,5 +27,13 @@
         <item
             android:id="@+id/z_get"
             android:title="@string/menu_z_get" />
+
+        <item
+            android:id="@+id/z_pub_thr"
+            android:title="@string/z_pub_thr" />
+
+        <item
+            android:id="@+id/z_sub_thr"
+            android:title="@string/z_sub_thr" />
     </group>
 </menu>

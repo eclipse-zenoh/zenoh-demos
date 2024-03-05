@@ -1,0 +1,64 @@
+package com.example.zenohapp.ui.examples
+
+import android.util.Log
+import io.zenoh.keyexpr.KeyExpr
+import io.zenoh.keyexpr.intoKeyExpr
+import io.zenoh.prelude.Encoding
+import io.zenoh.prelude.KnownEncoding
+import io.zenoh.publication.Publisher
+import io.zenoh.value.Value
+import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.Dispatchers.Main
+
+class ZPubThrFragment : ZExampleFragment() {
+    companion object {
+        private val TAG = ZPubThrFragment::javaClass.name
+    }
+
+    private var publisher: Publisher? = null
+    private var keyExpr: KeyExpr? = null
+
+    @OptIn(DelicateCoroutinesApi::class)
+    override fun startExample() {
+        val size = 8
+        val data = ByteArray(size)
+        for (i in 0..<size) {
+            data[i] = (i % 10).toByte()
+        }
+        val value = Value(data, Encoding(KnownEncoding.EMPTY))
+
+        viewModel.zenohSession?.apply {
+            "test/thr".intoKeyExpr().onSuccess { key ->
+                keyExpr = key
+                this.declarePublisher(key).res().onSuccess { pub ->
+                    publisher = pub
+                    GlobalScope.launch(IO) {
+                        pub.use {
+                            Log.i(TAG, "Publisher declared on test/thr.")
+                            withContext(Main) {
+                                console.append("Publisher declared on test/thr.\n")
+                            }
+                            while (true) {
+                                pub.put(value).res()
+                            }
+                        }
+                    }
+                }.onFailure {
+                    handleError(TAG, "Failed to launch publisher", it)
+                }
+            }
+        }
+    }
+
+    override fun stopExample() {
+        exampleIsRunning = false
+        publisher?.undeclare()
+        keyExpr?.close()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        stopExample()
+    }
+}
