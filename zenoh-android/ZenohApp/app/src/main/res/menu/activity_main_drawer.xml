@@ -35,5 +35,13 @@
         <item
             android:id="@+id/z_sub_thr"
             android:title="@string/z_sub_thr" />
+
+        <item
+            android:id="@+id/z_ping"
+            android:title="@string/z_ping" />
+
+        <item
+            android:id="@+id/z_pong"
+            android:title="@string/z_pong" />
     </group>
 </menu>

@@ -22,6 +22,8 @@ class ZPubThrFragment : ZExampleFragment() {
     @OptIn(DelicateCoroutinesApi::class)
     override fun startExample() {
         val size = 8
+        val sampleSize = 1000000
+
         val data = ByteArray(size)
         for (i in 0..<size) {
             data[i] = (i % 10).toByte()
@@ -39,8 +41,22 @@ class ZPubThrFragment : ZExampleFragment() {
                             withContext(Main) {
                                 console.append("Publisher declared on test/thr.\n")
                             }
-                            while (true) {
+                            var count = 0
+                            var startTime = System.currentTimeMillis()
+                            while (exampleIsRunning) {
                                 pub.put(value).res()
+                                if (count < sampleSize) {
+                                    count++
+                                } else {
+                                    val elapsedTime = System.currentTimeMillis()
+                                    val msgsPerSec = (count / (elapsedTime - startTime)) * 1_000
+                                    Log.i(TAG, "$msgsPerSec msgs/sec")
+                                    withContext(Main) {
+                                        console.append("$msgsPerSec msgs/sec\n")
+                                    }
+                                    count = 0
+                                    startTime = System.currentTimeMillis()
+                                }
                             }
                         }
                     }

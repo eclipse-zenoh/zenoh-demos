@@ -1,5 +1,6 @@
 package com.example.zenohapp.ui.examples
 
+import android.util.Log
 import io.zenoh.keyexpr.KeyExpr
 import io.zenoh.keyexpr.intoKeyExpr
 import io.zenoh.subscriber.Subscriber
@@ -43,6 +44,7 @@ class ZSubThrFragment : ZExampleFragment() {
         val msgs = n * NANOS_TO_SEC / (stop - startTimestampNs)
         GlobalScope.launch(Dispatchers.IO) {
             withContext(Main) {
+                Log.i(TAG,"$msgs msgs/sec")
                 console.append("$msgs msgs/sec\n")
             }
         }

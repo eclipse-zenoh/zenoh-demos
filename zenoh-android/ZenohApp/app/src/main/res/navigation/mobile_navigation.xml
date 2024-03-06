@@ -53,4 +53,16 @@
         android:label="@string/z_sub_thr"
         tools:layout="@layout/fragment_slideshow" />
 
+    <fragment
+        android:id="@+id/z_ping"
+        android:name="com.example.zenohapp.ui.examples.ZPingFragment"
+        android:label="@string/z_ping"
+        tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_pong"
+        android:name="com.example.zenohapp.ui.examples.ZPongFragment"
+        android:label="@string/z_pong"
+        tools:layout="@layout/fragment_slideshow" />
+
 </navigation>
