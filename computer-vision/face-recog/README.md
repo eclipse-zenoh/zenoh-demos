@@ -26,8 +26,8 @@ enable dynamic configuration.
 
 ## Step II -- Prepare Your Data Set (optional)
 
-The directory **dataset** contains some existing data-set for some of the members of the
-Advanced Technology Office in ADLINK, some famous Tennis players, Soccer Player and Hollywood stars.
+The directory **dataset** contains some existing data-set for some Zettlers, some famous Tennis players, 
+Soccer Player and Hollywood stars.
 The data-set are actually collections of faces pictures organized in subdirectories:
 **dataset/*category*/*name*/\*.jpg**  
 These data-set have already been transformed into face-signature databases (JSON format) in face-sig-db.

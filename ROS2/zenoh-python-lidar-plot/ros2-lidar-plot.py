@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 ADLINK Technology Inc.
+# Copyright (c) 2022 ZettaScale Technology
 #
 # This program and the accompanying materials are made available under the
 # terms of the Eclipse Public License 2.0 which is available at
@@ -9,7 +9,7 @@
 # SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
 #
 # Contributors:
-#   ADLINK zenoh team, <zenoh@adlink-labs.tech>
+#   The Zenoh Team, <zenoh@zettascale.tech>
 #   Alexandre Humblot, <alexandre.humblot@student-cs.fr>
 
 import argparse
@@ -65,7 +65,7 @@ parser.add_argument('-c', '--config', type=str, metavar='FILE',
                     help='A zenoh configuration file.')
 
 args = parser.parse_args()
-conf = zenoh.config_from_file(args.config) if args.config is not None else zenoh.Config()
+conf = zenoh.Config.from_file(args.config) if args.config is not None else zenoh.Config()
 if args.mode is not None:
     conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
 if args.connect is not None:

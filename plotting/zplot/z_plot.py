@@ -38,7 +38,7 @@ parser.add_argument('-c', '--config', type=str, metavar='FILE',
                     help='A zenoh configuration file.')
 
 args = parser.parse_args()
-conf = zenoh.config_from_file(args.config) if args.config is not None else zenoh.Config()
+conf = zenoh.Config.from_file(args.config) if args.config is not None else zenoh.Config()
 if args.mode is not None:
     conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
 if args.connect is not None:
@@ -55,7 +55,7 @@ def listener(sample):
         lines[str(sample.key_expr)] = ax.plot([], [], '-o', label=str(sample.key_expr))[0]
     now = time.time()
     xdata, ydata = lines[str(sample.key_expr)].get_data()
-    xdata = numpy.append(xdata, datetime.fromtimestamp(now if sample.timestamp is None else sample.timestamp.time))
+    xdata = numpy.append(xdata, datetime.fromtimestamp(now if sample.timestamp is None else sample.timestamp.time/4294967295))
     ydata = numpy.append(ydata, float(sample.payload.decode("utf-8")))
     lines[str(sample.key_expr)].set_data(zip(*filter(lambda t: t[0].timestamp() > now - args.history, zip(xdata, ydata))))
 
