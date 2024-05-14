@@ -2,8 +2,8 @@
 name = "zcam"
 version = "0.1.0"
 authors = [
-    "Olivier Hécart <olivier.hecart@adlinktech.com",
-    "kydos <angelo@icorsaro.net>",
+    "Olivier Hécart <olivier.hecart@zettascale.tech",
+    "kydos <kydos@protonmail.com>",
 ]
 edition = "2018"
 

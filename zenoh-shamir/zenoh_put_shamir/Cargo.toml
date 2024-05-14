@@ -1,7 +1,7 @@
 [package]
 name = "zenoh_put_shamir"
 version = "0.0.1"
-authors = ["Julien Loudet <julien.loudet@adlinktech.com>"]
+authors = ["Julien Loudet <julien.loudet@zettascale.tech>"]
 license = " EPL-2.0 OR Apache-2.0"
 categories = ["network-programming"]
 description = "A simple way of using Shamir’s Secret Sharing Scheme on top of Zenoh"
