@@ -50,7 +50,7 @@ def faces_listener(sample):
 
 
 def names_listener(sample):
-    # print('[DEBUG] Received name: {} {} => {}', sample.key_expr, sample.payload)
+    # print('[DEBUG] Received name: {} => {}'.format(sample.key_expr, sample.payload))
     chunks = str(sample.key_expr).split('/')
     cam = chunks[-3]
     face = int(chunks[-2])

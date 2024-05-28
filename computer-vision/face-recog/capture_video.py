@@ -52,7 +52,7 @@ time.sleep(1.0)
 
 while True:
     raw = vs.read()
-    frame = imutils.resize(raw, width=500)
+    frame = imutils.resize(raw, width=args.width)
 
     _, jpeg = cv2.imencode('.jpg', frame, jpeg_opts)
 
