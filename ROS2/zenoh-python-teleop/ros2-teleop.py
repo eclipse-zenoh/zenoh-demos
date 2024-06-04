@@ -124,8 +124,8 @@ def main(stdscr):
 
     def pub_twist(linear, angular):
         print("Pub twist: {} - {}".format(linear, angular))
-        t = Twist(linear=Vector3(x=linear, y=0.0, z=0.0),
-                  angular=Vector3(x=0.0, y=0.0, z=angular))
+        t = Twist(linear=Vector3(x=float(linear), y=0.0, z=0.0),
+                  angular=Vector3(x=0.0, y=0.0, z=float(angular)))
         session.put(cmd_vel, t.serialize())
 
     print("Waiting commands with arrow keys or space bar to stop. Press ESC or 'q' to quit.")
