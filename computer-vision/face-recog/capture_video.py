@@ -1,5 +1,4 @@
 import argparse
-from imutils.video import VideoStream
 import imutils
 import time
 import cv2
@@ -18,6 +17,8 @@ parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='appe
                     help='zenoh endpoints to listen on.')
 parser.add_argument('-i', '--id', type=int, default=random.randint(1, 999),
                     help='The Camera ID.')
+parser.add_argument('-a', '--camera', type=str, default='default', choices=['default', 'picamera'],
+                    help='The type of camera to use.')
 parser.add_argument('-w', '--width', type=int, default=500,
                     help='width of the published frames')
 parser.add_argument('-q', '--quality', type=int, default=95,
@@ -39,6 +40,7 @@ if args.listen is not None:
     conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(args.listen))
 
 jpeg_opts = [int(cv2.IMWRITE_JPEG_QUALITY), args.quality]
+picamera = args.camera.startswith('picamera')
 cam_id = args.id
 
 print('[INFO] Open zenoh session...')
@@ -47,11 +49,22 @@ zenoh.init_logger()
 z = zenoh.open(conf)
 
 print('[INFO] Start video stream - Cam #{}'.format(cam_id))
-vs = VideoStream(src=0).start()
+if picamera:
+    import picamera2
+    vs = picamera2.Picamera2()
+    vs.configure(vs.create_still_configuration({'format': 'XRGB8888'}))
+    vs.start()
+else:
+    from imutils.video import VideoStream
+    vs = VideoStream(src=0).start()
+
 time.sleep(1.0)
 
 while True:
-    raw = vs.read()
+    if picamera:
+        raw = vs.capture_array()
+    else:
+        raw = vs.read()
     frame = imutils.resize(raw, width=args.width)
 
     _, jpeg = cv2.imencode('.jpg', frame, jpeg_opts)
