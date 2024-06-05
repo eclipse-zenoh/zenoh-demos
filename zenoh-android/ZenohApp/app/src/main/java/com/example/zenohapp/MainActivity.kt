@@ -1,5 +1,6 @@
 package com.example.zenohapp
 
+
 import android.os.Bundle
 import android.view.Menu
 import androidx.appcompat.app.AlertDialog
@@ -58,7 +59,9 @@ class MainActivity : AppCompatActivity() {
                 R.id.z_queryable,
                 R.id.z_get,
                 R.id.z_put,
-                R.id.z_delete
+                R.id.z_delete,
+                R.id.z_pub_thr,
+                R.id.z_sub_thr,
             ), drawerLayout
         )
         setupActionBarWithNavController(navController, appBarConfiguration)
