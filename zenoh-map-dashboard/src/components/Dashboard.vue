@@ -17,7 +17,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import Map from './Map.vue'
-import { Zenoh } from 'zenoh-js'
+import { Zenoh } from '@ZettaScaleLabs/zenoh-js'
 
 const endpoint = ref('http://3.71.106.121:8000/')
 const session = ref(null)
