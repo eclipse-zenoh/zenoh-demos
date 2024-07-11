@@ -2,7 +2,7 @@
   <!-- {{ markers }} -->
   <GoogleMap
     ref="mapRef"
-    api-key="API KEY GOES HERE"
+    api-key="TOKEN GOES HERE"
     style="width: 100%; height: 45vw"
     :zoom="16"
     :center="center"
@@ -16,12 +16,16 @@
     <CustomMarker
       v-for="marker in markers"
       :key="marker.id"
-      :options="{ position: marker.position, anchorPoint: 'CENTER' }"
+      :options="{ position: marker.position, anchorPoint: 'BOTTOM_CENTER' }"
     >
-      <div>
-        <div>{{ marker.speed }}</div>
+      <div class="d-flex flex-column justify-content-center align-items-center">
+        <div class="d-sm-inline-flex border rounded-pill bg-light text-dark">
+          <div class="badge badge-secondary">
+            <div style="font-size: small">Driver: {{ marker.id }} Speed: {{ marker.speed }}</div>
+          </div>
+        </div>
         <div
-          style="height: 10px; width: 10px; border-radius: 50%"
+          style="height: 15px; width: 15px; border-radius: 50%"
           :style="{ 'background-color': marker.color }"
         ></div>
       </div>
