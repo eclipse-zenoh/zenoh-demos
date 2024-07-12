@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --port 3000",
+    "dev": "vite --port 3000 --host 0.0.0.0",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "build-only": "vite build",
@@ -13,14 +13,20 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.5.2",
+    "@fortawesome/free-brands-svg-icons": "^6.5.2",
+    "@fortawesome/free-regular-svg-icons": "^6.5.2",
+    "@fortawesome/free-solid-svg-icons": "^6.5.2",
+    "@fortawesome/vue-fontawesome": "^3.0.8",
     "@vitejs/plugin-vue": "^3.1.2",
     "@vue/compat": "^3.2.41",
+    "@ZettaScaleLabs/zenoh-js": "0.0.1-dev.0",
     "bootstrap": "^4.6.2",
+    "bootstrap-icons": "^1.11.3",
     "bootstrap-vue": "npm:@ankurk91/bootstrap-vue@^3.0.2",
     "vue": "^3.4.31",
     "vue-router": "^4.3.3",
-    "vue3-google-map": "^0.20.0",
-    "@ZettaScaleLabs/zenoh-js": "0.0.1-dev.0"
+    "vue3-google-map": "^0.20.0"
   },
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.8.0",

@@ -1,7 +1,4 @@
-/*jslint sub: true, malaterr: 50, indent: 4, browser: true */
-/*global console */
-
-import { Position } from '../types/CarData'
+import type { Position } from '../types/Vehicle'
 
 export class Region {
   points: Array<Position>

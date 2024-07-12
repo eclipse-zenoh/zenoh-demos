@@ -24,23 +24,23 @@
             <div style="font-size: small">Driver: {{ marker.id }} Speed: {{ marker.speed }}</div>
           </div>
         </div>
-        <div
-          style="height: 15px; width: 15px; border-radius: 50%"
-          :style="{ 'background-color': marker.color }"
-        ></div>
+        <FontAwesomeIcon v-if="(marker.kind==='car')" icon="car" size="xl" :style="{ 'color': marker.color }"/>
+        <FontAwesomeIcon v-else-if="(marker.kind==='motorbike')" icon="motorcycle" size="xl" :style="{ 'color': marker.color }" />
+        <FontAwesomeIcon v-else icon="fa-solid fa-circle-question" size="xl" :style="{ 'color': marker.color }" />
       </div>
     </CustomMarker>
   </GoogleMap>
 </template>
 
 <script setup lang="ts">
-import { defineProps, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { GoogleMap, CustomMarker } from 'vue3-google-map'
-import { CarData } from '../types/CarData'
+import { Vehicle } from '../types/Vehicle'
 import { Region } from '../utils/utils'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 type Props = {
-  markers: Array<CarData>
+  markers: Array<Vehicle>
 }
 
 const props = defineProps<Props>()
@@ -52,7 +52,8 @@ watch(
   (new_markers) => {
     const points = new_markers.map((x) => x.position)
     const reg = new Region(points)
-    center.value = reg.centroid()
+    if (points.length > 0)
+      center.value = reg.centroid()
   }
 )
 

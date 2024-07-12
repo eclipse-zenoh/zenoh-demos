@@ -8,24 +8,25 @@
     </div>
     <div class="row">
       <div class="col-12">
-        <Map :markers="cars"></Map>
+        <GMap :markers="cars"></GMap>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import Map from './Map.vue'
+import { ref, onMounted, watch } from 'vue'
+import GMap from './GMap.vue'
 import { Zenoh } from '@ZettaScaleLabs/zenoh-js'
 
 const endpoint = ref('http://3.71.106.121:8000/')
 const session = ref(null)
-const cars = ref([])
+const carsMap = ref(new Map())
+const cars = ref(new Array())
 
 function connect() {
   session.value = new Zenoh(endpoint)
-  session.value.subscribe('demo/cardata', onData)
+  session.value.subscribe('demo/vehicles/*', onData)
 }
 
 function onData(sample) {
@@ -37,12 +38,39 @@ function onData(sample) {
   } else if (zsample.encoding == 'applications/json') {
     value = JSON.parse(value)
   }
-  //console.log('[' + zsample.key + ', ' + zsample.encoding + ', ' + zsample.time + '] - ' + value)
-  // console.log(value)
-  // dataReceived.value = value
-  // cars.value = []
-  cars.value = value
+  let timestamp = new Date(zsample.time.split('/')[0]).getTime();
+  
+  value.timestamp = timestamp
+
+  carsMap.value.set(value.id, value)
+  updateCars()
+
 }
+
+
+function removeDead(){
+  const now = Date.now()
+  let newMap = new Map()
+  
+  for (const [id, car] of carsMap.value) 
+    if (car.timestamp + 10000 > now) newMap.set(id, car)
+
+  carsMap.value = newMap
+  updateCars()
+}
+
+
+function updateCars() {
+  cars.value = new Array()
+  for (const [_, car] of carsMap.value) 
+    cars.value.push(car)
+}
+
+onMounted(() => {
+  setInterval(() => {
+    removeDead()
+  }, 5000)
+})
 
 // here we should subscribe to Zenoh data and update the points in the map
 </script>
