@@ -20,6 +20,12 @@ See [Vite Configuration Reference](https://vitejs.dev/config/).
 npm install
 ```
 
+### Build docker image
+
+```sh
+docker build . -t zenoh-map-dashboard
+```
+
 ### Compile and Hot-Reload for Development
 
 ```sh

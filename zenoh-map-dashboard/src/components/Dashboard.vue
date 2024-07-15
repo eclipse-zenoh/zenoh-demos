@@ -30,6 +30,8 @@ function connect() {
 }
 
 function onData(sample) {
+
+
   const data = sample.data
   const zsample = JSON.parse(data)
   let value = zsample.value

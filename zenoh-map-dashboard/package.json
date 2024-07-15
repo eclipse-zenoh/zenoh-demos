@@ -2,12 +2,11 @@
   "name": "dashboard",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "vite --port 3000 --host 0.0.0.0",
-    "build": "run-p type-check \"build-only {@}\" --",
+    "build": "npm run lint && vue-tsc --noEmit && vite build",
+    "build:production": "vite build --mode production",
     "preview": "vite preview",
-    "build-only": "vite build",
     "type-check": "vue-tsc --build --force",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
     "format": "prettier --write src/"

@@ -2,7 +2,7 @@
   <!-- {{ markers }} -->
   <GoogleMap
     ref="mapRef"
-    api-key="TOKEN GOES HERE"
+    :api-key="apiKey"
     style="width: 100%; height: 45vw"
     :zoom="16"
     :center="center"
@@ -21,7 +21,7 @@
       <div class="d-flex flex-column justify-content-center align-items-center">
         <div class="d-sm-inline-flex border rounded-pill bg-light text-dark">
           <div class="badge badge-secondary">
-            <div style="font-size: small">Driver: {{ marker.id }} Speed: {{ marker.speed }}</div>
+            <div style="font-size: small">ID: {{ marker.id }} Speed: {{ marker.speed }}</div>
           </div>
         </div>
         <FontAwesomeIcon v-if="(marker.kind==='car')" icon="car" size="xl" :style="{ 'color': marker.color }"/>
@@ -46,6 +46,8 @@ type Props = {
 const props = defineProps<Props>()
 const center = ref({ lat: 48.864716, lng: 2.349014 })
 const mapRef = ref(null)
+const apiKey = import.meta.env.VITE_GMAPS_KEY
+
 
 watch(
   () => props.markers,
