@@ -48,9 +48,14 @@ docker build . -t zenoh-map-dashboard
 
 ### Run production server
 
+#### Docker:
 ```sh
 docker run --rm -p 8000:80 zenoh-map-dashboard
 ```
 
+#### docker compose:
+```sh
+docker compose up -d
+```
 
 
