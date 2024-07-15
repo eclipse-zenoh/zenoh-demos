@@ -53,7 +53,7 @@ import kotlin.random.Random
 
 
 
-class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarChangeListener {
+class TeleopFragment : Fragment(), OnTouchListener, OnSeekBarChangeListener {
     private var _binding: FragmentTeleopBinding? = null
     private val binding get() = _binding!!
 
@@ -83,6 +83,7 @@ class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarCh
 
     private val actionDockSuffix = "/dock/_action/send_goal"
     private val cmdVelSuffix = "/cmd_vel"
+    private val cmdSoundSuffix = "/cmd_audio"
     private val batteryStateSuffix = "/battery_state"
     private val imageRawSuffix = "/oakd/rgb/preview/image_raw"
     private var angularScale = 0.5
@@ -190,17 +191,19 @@ class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarCh
         mCameraView = binding.imageViewCamera
         mBatteryBar = binding.robotBatteryBar
 
-//        mCameraView.visibility = View.INVISIBLE
+        
+        mDeclareButton.setOnClickListener {
+            declarePublisher()
+            startPubSub()
+        };
+        mHomeButton.setOnClickListener{sendHomeCmd()}
+        mSoundButton.setOnClickListener{sendSoundCmd()}
 
-
-        mDeclareButton.setOnClickListener(this)
         mAngularSeekBar.setOnSeekBarChangeListener(this)
         mLinearSeekBar.setOnSeekBarChangeListener(this)
 
         mFwdButton.setOnTouchListener(this)
         mBwdButton.setOnTouchListener(this)
-        mHomeButton.setOnClickListener(this)
-        mSoundButton.setOnClickListener(this)
         mLeftButton.setOnTouchListener(this)
         mRightButton.setOnTouchListener(this)
 
@@ -229,9 +232,9 @@ class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarCh
 
     private fun publishCommand(cmd: Twist) {
 
-        var mStream = CDROutputStream()
+        val mStream = CDROutputStream()
         cmd.serialize(mStream)
-        var arr = ByteArray(mStream.buffer.position())
+        val arr = ByteArray(mStream.buffer.position())
         mStream.buffer.rewind()
         mStream.buffer.get(arr)
         val payload = Value(arr, Encoding(KnownEncoding.APP_OCTET_STREAM))
@@ -263,7 +266,6 @@ class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarCh
                 mTwist.angular.z = 0.0
             }
         }
-        //publishCommand(mTwist)
 
     }
 
@@ -274,24 +276,6 @@ class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarCh
             errorMsg,
             Toast.LENGTH_SHORT
         ).show()
-    }
-
-    override fun onClick(v: View?) {
-        when (v?.id) {
-            R.id.buttonDeclare -> {
-                declarePublisher()
-                startPubSub()
-            }
-
-            R.id.goHomeButton -> {
-                sendHomeCmd()
-            }
-            R.id.soundButton -> {
-                sendSoundCmd()
-            }
-
-            else -> {}
-        }
     }
 
     override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -311,13 +295,13 @@ class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarCh
 
     private fun sendHomeCmd() {
         val actionDockKE = mNSEditText.text.toString() + actionDockSuffix
-        var mStream = CDROutputStream()
+        val mStream = CDROutputStream()
         // Request needs a random Uuid, no other fields
         for (i in 0..16) {
             mStream.writeByte(Random.nextBits(8).toByte())
         }
 
-        var arr = ByteArray(mStream.buffer.position())
+        val arr = ByteArray(mStream.buffer.position())
         mStream.buffer.rewind()
         mStream.buffer.get(arr)
         val payload = Value(arr, Encoding(KnownEncoding.APP_OCTET_STREAM))
@@ -337,7 +321,7 @@ class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarCh
     }
 
     private fun sendSoundCmd() {
-        var mStream = CDROutputStream()
+        val mStream = CDROutputStream()
 
         val note1 = AudioNote(369u, Time(0, 355000000u))
         val note2 = AudioNote(300u, Time(0, 533000000u))
@@ -351,13 +335,13 @@ class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarCh
 
         sound.serialize(mStream)
 
-        var arr = ByteArray(mStream.buffer.position())
+        val arr = ByteArray(mStream.buffer.position())
         mStream.buffer.rewind()
         mStream.buffer.get(arr)
         val payload = Value(arr, Encoding(KnownEncoding.APP_OCTET_STREAM))
-
+        val actionSoundKE = mNSEditText.text.toString() + cmdSoundSuffix
         viewModel.zenohSession?.apply {
-            "zbot_2/cmd_audio".intoKeyExpr().onSuccess { ke ->
+            actionSoundKE.intoKeyExpr().onSuccess { ke ->
                 this.put(ke, payload)
                     .res().onSuccess {
                         Log.v(TAG, "Sent sound command")
@@ -392,10 +376,10 @@ class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarCh
                             val iterator = this.iterator()
                             while (iterator.hasNext()) {
                                 val sample = iterator.next()
-                                //Log.v(TAG, "Received data from Zenoh")
+                                Log.v(TAG, "Received data from Zenoh")
                                 val inputStream =
                                     CDRInputStream(ByteBuffer.wrap(sample.value.payload))
-                                //Log.v(TAG, "Size from Zenoh is: ${inputStream.buffer.capacity()} - Position: ${inputStream.buffer.position()}")
+                                Log.v(TAG, "Size from Zenoh is: ${inputStream.buffer.capacity()} - Position: ${inputStream.buffer.position()}")
                                 val battery = Battery(inputStream)
                                 Log.v(TAG, "Battery percentage: ${battery.percentage}")
                                 mBatteryBar.progress = (battery.percentage * 100.0f).toInt()
@@ -424,36 +408,6 @@ class TeleopFragment : Fragment(), OnTouchListener, OnClickListener, OnSeekBarCh
                 delay(100)
             }
         }
-
-        // Subscribe camera coorutine
-//        viewModel.zenohSession?.apply {
-//            (mNSEditText.text.toString() + imageRawSuffix).intoKeyExpr().onSuccess { key ->0-
-//                Log.v(TAG, "Subscribing battery state on: $key")
-//                this.declareSubscriber(key).res().onSuccess { sub ->
-//                    mBatterySubscriber = sub
-//                        mCameraSubJob = GlobalScope.launch(Dispatchers.Main) {
-//                        sub.receiver?.apply {
-//                            val iterator = this.iterator()
-//                            while (iterator.hasNext()) {
-//                                val sample = iterator.next()
-//                                //Log.v(TAG, "Received data from Zenoh")
-//                                val inputStream =
-//                                    CDRInputStream(ByteBuffer.wrap(sample.value.payload))
-//                                //Log.v(TAG, "Size from Zenoh is: ${inputStream.buffer.capacity()} - Position: ${inputStream.buffer.position()}")
-//                                val image = Image(inputStream)
-//                                Log.v(TAG, "Image is ${image.height}x${image.width} format: ${image.encoding}")
-//
-//                                val bmp = image.toBitmap()
-//                                mCameraView.setImageBitmap(bmp)
-//
-//
-//
-//                            }
-//                        }
-//                    }
-//                }.onFailure { Log.w(TAG, "Unable to subscribe to battery") }
-//            }.onFailure { Log.w(TAG, "Unable to get session") }
-//        }
     }
 
     private fun setScale() {

@@ -8,7 +8,7 @@ import com.example.zenohapp.ros.Time
 class Header constructor(var time: Time, var frameId: String) {
 
     constructor(inputStream : CDRInputStream) : this( Time(inputStream), inputStream.readString()) {
-        //Log.v("Header","streamPos: ${inputStream.buffer.position()} - ${this.toString()}")
+        Log.v("Header","streamPos: ${inputStream.buffer.position()} - ${this.toString()}")
     }
 
     override fun toString() : String {

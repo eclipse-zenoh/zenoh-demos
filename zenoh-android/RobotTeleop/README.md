@@ -59,6 +59,10 @@ In case we want to install the application without Android Studio then:
    ```
 6. Run the app on the phone
 
+You will have the following page to control the robot
+
+![zenoapp](zenohapp_menu.jpeg "Teleoperation page")
+
 ## Logs
 
 To enable the zenoh logs (visible on LogCat) add the following entry to the `gradle.properties` file:

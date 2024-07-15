@@ -41,7 +41,7 @@ class Battery constructor(
         inputStream.readString(),
         inputStream.readString(),
     ) {
-        //Log.v("BatteryConstructor", "streamPos: ${inputStream.buffer.position()} - ${this.toString()}")
+        Log.v("BatteryConstructor", "streamPos: ${inputStream.buffer.position()} - ${this.toString()}")
     }
 
 

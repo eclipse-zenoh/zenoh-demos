@@ -6,7 +6,7 @@ import com.example.zenohapp.cdr.CDROutputStream
 
 class Time constructor(var sec: Int, var nsec: UInt) {
     constructor(inputStream : CDRInputStream) : this( inputStream.readInt(), inputStream.readUInt()) {
-        //Log.v("Time","streamPos: ${inputStream.buffer.position()} - ${this.toString()}")
+        Log.v("Time","streamPos: ${inputStream.buffer.position()} - ${this.toString()}")
     }
 
     override fun toString() : String {
