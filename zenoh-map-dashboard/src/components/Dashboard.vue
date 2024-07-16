@@ -26,7 +26,7 @@ const cars = ref(new Array())
 
 function connect() {
   session.value = new Zenoh(endpoint)
-  session.value.subscribe('demo/vehicles/*', onData)
+  session.value.subscribe('demo/tracker/*', onData)
 }
 
 function onData(sample) {
@@ -48,7 +48,6 @@ function onData(sample) {
   updateCars()
 
 }
-
 
 function removeDead(){
   const now = Date.now()
