@@ -31,21 +31,26 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import GMap from './GMap.vue'
-import { Zenoh } from '@ZettaScaleLabs/zenoh-js'
+// import { Zenoh } from '@ZettaScaleLabs/zenoh-js'
 import { DistanceAlert } from '../types/DistanceAlert.vue'
+
+import { Config, Subscriber, Session, Sample } from "zenoh";
+// import { Sample } from "zenoh-ts/sample";
 
 const endpoint = ref('http://3.71.106.121:8000/')
 const session = ref(null)
+const mobsSubscriber = ref(null)
+const alertSubscriber = ref(null)
 const alertDiv = ref(null)
 const carsMap = ref(new Map())
 const cars = ref(new Array())
 const alertMsg = ref('No Alerts')
 const status = ref('primary')
 
-function connect() {
-  session.value = new Zenoh(endpoint)
-  session.value.subscribe('demo/tracker/mobs/*', onMobsData)
-  session.value.subscribe('demo/tracker/alert/distance', onAlertData)
+async function connect() {
+  session.value = await Session.open(Config.new(endpoint))
+  mobsSubscriber.value = await session.value.declare_subscriber('demo/tracker/mobs/*', onMobsData)
+  alertSubscriber.value = await session.value.declare_subscriber('demo/tracker/alert/distance', onAlertData)
 }
 
 function onMobsData(sample) {
