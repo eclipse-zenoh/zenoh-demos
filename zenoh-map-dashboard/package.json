@@ -25,7 +25,7 @@
     "vue": "^3.4.31",
     "vue-router": "^4.3.3",
     "vue3-google-map": "^0.20.0",
-    "zenoh": "https://github.com/ZettaScaleLabs/zenoh-ts#refs/heads/feat/remote-api"
+    "@ZettaScaleLabs/zenoh-ts": "0.0.1"
   },
   "devDependencies": {
     "@rushstack/eslint-patch": "^1.8.0",

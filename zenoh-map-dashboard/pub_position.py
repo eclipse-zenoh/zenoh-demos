@@ -18,7 +18,6 @@ import argparse
 import itertools
 import json
 import zenoh
-from zenoh import config, Encoding
 
 # --- Command line argument parsing --- --- --- --- --- ---
 parser = argparse.ArgumentParser(
@@ -31,8 +30,8 @@ parser.add_argument('--v', '-v', dest='vehicle',
 
 args = parser.parse_args()
 conf = zenoh.Config()
-conf.insert_json5(zenoh.config.MODE_KEY, json.dumps("client"))
-conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(["tcp/3.71.106.121:7447"]))
+conf.insert_json5("mode", json.dumps("client"))
+conf.insert_json5("connect/endpoints", json.dumps(["tcp/127.0.0.1:7447"]))
 
 vehicle = args.vehicle - 1
 
@@ -74,25 +73,25 @@ cars = [
   }
 ]
 
-key = f'demo/vehicles/{cars[vehicle]['id']}'
+key = f'demo/tracker/mobs/{cars[vehicle]['id']}'
 
 
 def main():
     # initiate logging
-    zenoh.init_logger()
+    zenoh.try_init_log_from_env()
 
     print("Opening session...")
     session = zenoh.open(conf)
 
     print(f"Declaring Publisher on '{key}'...")
-    pub = session.declare_publisher(key)
+    pub = session.declare_publisher(key, encoding=zenoh.Encoding.APPLICATION_JSON)
 
     print("Press CTRL-C to quit...")
     while True:
         time.sleep(0.5)
         buf = json.dumps(cars[vehicle]).encode("utf-8")
         print(f"Putting Data ('{key}': '{buf}')...")
-        pub.put(value=buf, encoding=Encoding.APP_JSON())
+        pub.put(buf)
 
         cars[vehicle]['position']['lat'] += 0.00001
         cars[vehicle]['position']['lng'] += 0.00001
