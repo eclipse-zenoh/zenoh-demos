@@ -1,0 +1,6 @@
+services:
+  dasboard:
+    image: zettascaletech/zenoh-map-dashboard-demo:latest
+    ports:
+    - 8000:80/tcp
+    restart: unless-stopped
