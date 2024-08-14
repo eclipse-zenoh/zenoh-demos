@@ -14,9 +14,9 @@ A program to test the interoperability of [zenoh-plugin-dds](https://github.com/
 Build the Zenoh-DDS bridge
 
 ```bash
-git clone https://github.com:eclipse-zenoh/zenoh-plugin-dds.git
+git clone https://github.com/eclipse-zenoh/zenoh-plugin-dds.git
 cd zenoh-plugin-dds
-cargo build --release
+cargo build
 ```
 
 Build the shapes demo for Zenoh
@@ -24,13 +24,13 @@ Build the shapes demo for Zenoh
 ```bash
 git clone https://github.com/eclipse-zenoh/zenoh-demos.git
 cd zenoh-demos/zenoh-dds-interop/shapes_demo
-cargo build --release
+cargo build
 ```
 
 Build RustDDS and its Shapes Demo
 
 ```bash
-git clone https://github.com:jhelovuo/RustDDS.git
+git clone https://github.com/jhelovuo/RustDDS.git
 cd RustDDS
 cargo build --examples
 ```
