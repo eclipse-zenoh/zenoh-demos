@@ -1,0 +1,16 @@
+[package]
+name = "shapes-demo"
+authors = [ "Juhana Helovuo <juhana.helovuo@atostek.com" ]
+version = "0.1.0"
+edition = "2021"
+license = "EPL-2.0 OR Apache-2.0"
+categories = ["network-programming"]
+
+[dependencies]
+zenoh = { version = "0.11" }
+zenoh-util = "0.11"
+tokio = "1"
+cdr-encoding = "0.10"
+clap = { version = "4", features = ["derive"] }
+serde = "1"
+byteorder = "1"
