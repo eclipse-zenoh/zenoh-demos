@@ -33,9 +33,9 @@ via the zenoh REST API, bridged to ROS2.
 
 4. In this page:
 
-     * If needed, adapt the "URL of your zenoh-bridge-ros2dds" to the host where your bridge is running
-     * Set the `Scope` input to `turtle1`
-     * All the messages published on "\<scope\>/rosout" via ROS2 should be displayed in the bottom box.
+     * If needed, adapt the "Zenoh REST API" URL to the host where your bridge is running
+     * Keep pressing the arrow buttons (or arrows on your keyboard) to publish Twist messages (a STOP Twist with 0 speed is published when released).
+     * All the messages published on "rosout" via ROS2 will be displayed in the bottom box.
 
 
 ⚠️ Note: this demo depends on the Ros2 Middleware implementation being set to CycloneDDS  
