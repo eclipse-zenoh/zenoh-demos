@@ -7,7 +7,9 @@ A program to test the interoperability of [zenoh-plugin-dds](https://github.com/
 
 - [Rust](http://rust-lang.org) installation instructions are available [here](https://www.rust-lang.org/tools/install)
 - [zenoh-plugin-dds](https://github.com/eclipse-zenoh/zenoh-plugin-dds)
-- A DDS Shapes Demo application, using e.g. [RustDDS](https://atostek.com/en/services/rust-dds/) that has a built-in [Shapes Demo](https://github.com/jhelovuo/RustDDS/tree/master/examples/shapes_demo).
+- A DDS Shapes Demo application, using e.g. 
+    - [RustDDS](https://github.com/jhelovuo/RustDDS) → [Shapes Demo](https://github.com/jhelovuo/RustDDS/tree/master/examples/shapes_demo) or
+    - [CycloneDDS](https://github.com/eclipse-cyclonedds/cyclonedds) → [Shapes Demo](https://github.com/atolab/dds-ishapes)
 
 ## Building Shapes Demo
 
