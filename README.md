@@ -109,6 +109,8 @@ sensor](https://learn.adafruit.com/dht).
 bindings. It can declare a subscriber, a publisher or a queryable, as well as
 perform a PUT, GET or DELETE operation.
 
+**zenoh-dds-interop/shapes_demo**: A program to test the interoperability of [zenoh-plugin-dds](https://github.com/eclipse-zenoh/zenoh-plugin-dds) against various DDS implementations.
+
 | ⚠️ The following demos are currently untested |
 |----------------------------------------------|
 
