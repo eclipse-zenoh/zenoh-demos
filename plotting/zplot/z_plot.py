@@ -56,7 +56,7 @@ def listener(sample):
     now = time.time()
     xdata, ydata = lines[str(sample.key_expr)].get_data()
     xdata = numpy.append(xdata, datetime.fromtimestamp(now if sample.timestamp is None else sample.timestamp.time/4294967295))
-    ydata = numpy.append(ydata, float(sample.payload.decode("utf-8")))
+    ydata = numpy.append(ydata, float(sample.payload.to_string()))
     lines[str(sample.key_expr)].set_data(zip(*filter(lambda t: t[0].timestamp() > now - args.history, zip(xdata, ydata))))
 
 def update(_):
@@ -64,8 +64,6 @@ def update(_):
         ax.axes.relim()
         ax.axes.autoscale_view(True,True,True)
         ax.legend(loc=2)
-
-zenoh.init_logger()
 
 print("Openning session...")
 z = zenoh.open(conf)
