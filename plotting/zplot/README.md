@@ -12,7 +12,7 @@ python3 z_pub_rand.py
 python3 z_plot.py
 ```
 
-## Web plot
+## SSE plot
 
 Run a zenoh router:
 
@@ -21,6 +21,24 @@ zenohd
 ```
 
 Open `z_plot.html`
+
+## TypeScript plot
+
+Run a zenoh router with remote api plugin:
+
+```bash
+zenohd --cfg plugins/remote_api/websocket_port:10000
+```
+
+Run z_plot_ts:
+
+```bash
+cd z_plot_ts
+npm install
+npm run dev
+```
+
+Browse to <http://localhost:5173/>
 
 ## Freeboard plot
 
