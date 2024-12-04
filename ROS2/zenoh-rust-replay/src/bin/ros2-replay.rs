@@ -14,12 +14,11 @@
 use async_std::task;
 use cdr::CdrLe;
 use cdr::Infinite;
-use clap::{App, Arg};
+use clap::Parser;
 use futures::prelude::*;
 use serde_derive::{Deserialize, Serialize};
-use zenoh::buffers::{reader::HasReader, ZBuf};
-use zenoh::prelude::r#async::AsyncResolve;
-use zenoh::prelude::*;
+use serde_json::json;
+use zenoh::{bytes::ZBytes, config::WhatAmI, query::ConsolidationMode, Config};
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
 struct Vector3 {
@@ -37,38 +36,43 @@ struct Twist {
 #[async_std::main]
 async fn main() {
     // Initiate logging
-    env_logger::init();
+    zenoh::init_log_from_env_or("error");
 
-    let (config, query_selector, pub_expr, time_scale, is_twist, angular_scale, linear_scale) =
-        parse_args();
+    let args = Args::parse();
+    let config: Config = (&args).into();
 
     println!("Opening session...");
-    let session = zenoh::open(config).res().await.unwrap();
-    let publisher = session.declare_publisher(pub_expr).res().await.unwrap();
+    let session = zenoh::open(config).await.unwrap();
+    let publisher = session.declare_publisher(args.output_topic).await.unwrap();
+
+    let mut query_selector = args.input_topic;
+    if !args.filter.is_empty() {
+        query_selector.push('?');
+        query_selector.push_str(&args.filter);
+    }
 
     // Get stored publications
     println!("Sending Query '{}'...", query_selector);
     let mut replies = session
         .get(&query_selector)
-        .target(QueryTarget::All)
-        .res()
+        .consolidation(ConsolidationMode::None)
         .await
         .unwrap()
         .stream()
-        .filter_map(|r| async { r.sample.ok() })
+        .filter_map(|r| async move { r.into_result().ok() })
         .collect::<Vec<_>>()
         .await;
 
     // Sort publications by timestamps
-    replies.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap());
+    replies.sort_by(|a, b| a.timestamp().partial_cmp(&b.timestamp()).unwrap());
 
     if replies.is_empty() {
         println!("No publications found - nothing to replay.");
         return;
     }
 
-    let first_ts = replies.first().unwrap().timestamp.unwrap();
-    let last_ts = replies.last().unwrap().timestamp.unwrap();
+    let first_ts = replies.first().unwrap().timestamp().unwrap();
+    let last_ts = replies.last().unwrap().timestamp().unwrap();
     println!(
         "Replay {} publications that were made between {} and {} ",
         replies.len(),
@@ -77,46 +81,48 @@ async fn main() {
     );
     println!(
         "Initial duration: {} seconds => with time-scale={}, new duration: {} seconds",
-        last_ts.get_diff_duration(&first_ts).as_secs_f32(),
-        time_scale,
+        last_ts.get_diff_duration(first_ts).as_secs_f32(),
+        args.time_scale,
         last_ts
-            .get_diff_duration(&first_ts)
-            .mul_f64(time_scale)
+            .get_diff_duration(first_ts)
+            .mul_f64(args.time_scale)
             .as_secs_f32(),
     );
 
     let mut ts = None;
     for s in replies {
         // compute time difference and sleep (*time_scale)
-        let now = match (ts, s.timestamp) {
+        let now = match (ts, s.timestamp()) {
             (Some(t1), Some(t2)) => {
-                task::sleep(t2.get_diff_duration(&t1).mul_f64(time_scale)).await;
+                task::sleep(t2.get_diff_duration(&t1).mul_f64(args.time_scale)).await;
                 t2
             }
             (None, Some(t2)) => t2,
             _ => panic!(),
         };
-        ts = s.timestamp;
+        ts = s.timestamp().copied();
 
         println!(
             "[{}] Replay publication from '{}' to '{}'",
             now.get_time(),
-            s.key_expr,
+            s.key_expr(),
             publisher.key_expr()
         );
+        println!("   {:?}", s.payload());
 
-        if is_twist {
+        if args.twist {
             // payload is a Twist, apply scales and replay
-            let new_payload = transform_twist(&s.value.payload, linear_scale, angular_scale);
-            publisher.put(new_payload).res().await.unwrap();
+            let new_payload = transform_twist(s.payload(), args.linear_scale, args.angular_scale);
+            println!(" ! {:?} ", new_payload);
+            publisher.put(new_payload).await.unwrap();
         } else {
             // replay payload unchanged
-            publisher.put(s.value.payload).res().await.unwrap();
+            publisher.put(s.payload().clone()).await.unwrap();
         }
     }
 }
 
-fn transform_twist(payload: &ZBuf, linear_scale: f64, angular_scale: f64) -> Vec<u8> {
+fn transform_twist(payload: &ZBytes, linear_scale: f64, angular_scale: f64) -> Vec<u8> {
     let mut twist = cdr::deserialize_from::<_, Twist, _>(payload.reader(), Infinite).unwrap();
     twist.linear.x *= linear_scale;
     twist.linear.y *= linear_scale;
@@ -128,83 +134,107 @@ fn transform_twist(payload: &ZBuf, linear_scale: f64, angular_scale: f64) -> Vec
     cdr::serialize::<_, _, CdrLe>(&twist, Infinite).unwrap()
 }
 
-fn parse_args() -> (Config, String, String, f64, bool, f64, f64) {
-    let args = App::new("ros2-replay")
-        .arg(
-            Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode (peer by default).")
-                .possible_values(["peer", "client"]),
-        )
-        .arg(Arg::from_usage(
-            "-e, --connect=[LOCATOR]... 'Locators to connect to.'",
-        ))
-        .arg(Arg::from_usage(
-            "-c, --config=[FILE] 'A configuration file.'",
-        ))
-        .arg(Arg::from_usage(
-            "--no-multicast-scouting 'Disable the multicast-based scouting mechanism.'",
-        ))
-        .arg(
-            Arg::from_usage("-f, --filter=[String] 'The 'filter' for querying. E.g. \"_time=[now(-1h)..]\"'")
-                .default_value("_time=[now(-5m)..]"),
-        )
-        .arg(
-            Arg::from_usage("-i, --input-path=[String] 'A complete overwrite of the input zenoh resrouce (option -i will be ignored).'")
-                .default_value("simu/rt/cmd_vel"),
-        )
-        .arg(
-            Arg::from_usage("-o, --output-path=[String] 'A complete overwrite of the output zenoh resrouce (option -o will be ignored).'")
-                .default_value("bot1/rt/cmd_vel"),
-        )
-        .arg(Arg::from_usage("-t, --time-scale=[FLOAT] 'The time scale (i.e. multiplier of time interval between each re-publication).").default_value("1.0"))
-        .arg(Arg::from_usage("-w, --twist 'The data is a ROS2 Twist message. --angular-scale and --linear-scale will appli"))
-        .arg(
-            Arg::from_usage("-a, --angular-scale=[FLOAT] 'The angular scale (apply only if  --twist is set).'")
-                .default_value("1.0"),
-        )
-        .arg(Arg::from_usage("-x, --linear-scale=[FLOAT] 'The linear scale (apply only if  --twist is set).").default_value("1.0"))
-        .get_matches();
+#[derive(clap::Parser, Clone, Debug)]
+pub struct Args {
+    #[arg(short, long)]
+    /// A configuration file.
+    config: Option<String>,
+    #[arg(long)]
+    /// Allows arbitrary configuration changes as column-separated KEY:VALUE pairs, where:
+    ///   - KEY must be a valid config path.
+    ///   - VALUE must be a valid JSON5 string that can be deserialized to the expected type for the KEY field.
+    ///
+    /// Example: `--cfg='transport/unicast/max_links:2'`
+    #[arg(long)]
+    cfg: Vec<String>,
+    #[arg(short, long)]
+    /// The Zenoh session mode [default: peer].
+    mode: Option<WhatAmI>,
+    #[arg(short = 'e', long)]
+    /// Endpoints to connect to.
+    connect: Vec<String>,
+    #[arg(short, long)]
+    /// Endpoints to listen on.
+    listen: Vec<String>,
+    #[arg(long)]
+    /// Disable the multicast-based scouting mechanism.
+    no_multicast_scouting: bool,
+    #[arg(long)]
+    /// Enable shared-memory feature.
+    enable_shm: bool,
 
-    let mut config = if let Some(conf_file) = args.value_of("config") {
-        Config::from_file(conf_file).unwrap()
-    } else {
-        Config::default()
-    };
-    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
-        config.set_mode(Some(mode)).unwrap();
-    }
-    if let Some(values) = args.values_of("connect") {
+    #[arg(short, long, default_value = "_time=[now(-10m)..]")]
+    // The 'filter' for querying. E.g. "_time=[now(-1h)..]"
+    filter: String,
+    #[arg(short, long, default_value = "rt/turtle1/cmd_vel")]
+    // The recorded topic to query from storage.
+    input_topic: String,
+    #[arg(short, long, default_value = "replay/rt/turtle1/cmd_vel")]
+    // The topic to replay on.
+    output_topic: String,
+    #[arg(short, long, default_value = "1.0")]
+    // The time scale (i.e. multiplier of time interval between each re-publication).
+    time_scale: f64,
+    #[arg(short = 'w')]
+    // The time scale (i.e. multiplier of time interval between each re-publication).
+    twist: bool,
+    #[arg(short = 'a', long, default_value = "1.0")]
+    // The time scale (i.e. multiplier of time interval between each re-publication).
+    angular_scale: f64,
+    #[arg(short = 'x', long, default_value = "1.0")]
+    // The time scale (i.e. multiplier of time interval between each re-publication).
+    linear_scale: f64,
+}
+
+impl From<&Args> for Config {
+    fn from(args: &Args) -> Self {
+        let mut config = match &args.config {
+            Some(path) => Config::from_file(path).unwrap(),
+            None => Config::default(),
+        };
+        if let Some(mode) = args.mode {
+            config
+                .insert_json5("mode", &json!(mode.to_str()).to_string())
+                .unwrap();
+        }
+
+        if !args.connect.is_empty() {
+            config
+                .insert_json5("connect/endpoints", &json!(args.connect).to_string())
+                .unwrap();
+        }
+        if !args.listen.is_empty() {
+            config
+                .insert_json5("listen/endpoints", &json!(args.listen).to_string())
+                .unwrap();
+        }
+        if args.no_multicast_scouting {
+            config
+                .insert_json5("scouting/multicast/enabled", &json!(false).to_string())
+                .unwrap();
+        }
+        if args.enable_shm {
+            #[cfg(feature = "shared-memory")]
+            config
+                .insert_json5("transport/shared_memory/enabled", &json!(true).to_string())
+                .unwrap();
+            #[cfg(not(feature = "shared-memory"))]
+            {
+                eprintln!("`--enable-shm` argument: SHM cannot be enabled, because Zenoh is compiled without shared-memory feature!");
+                std::process::exit(-1);
+            }
+        }
+        for json in &args.cfg {
+            if let Some((key, value)) = json.split_once(':') {
+                if let Err(err) = config.insert_json5(key, value) {
+                    eprintln!("`--cfg` argument: could not parse `{json}`: {err}");
+                    std::process::exit(-1);
+                }
+            } else {
+                eprintln!("`--cfg` argument: expected KEY:VALUE pair, got {json}");
+                std::process::exit(-1);
+            }
+        }
         config
-            .connect
-            .endpoints
-            .extend(values.map(|v| v.parse().unwrap()))
     }
-    if args.is_present("no-multicast-scouting") {
-        config.scouting.multicast.set_enabled(Some(false)).unwrap();
-    }
-
-    let ipath = args.value_of("input-path").unwrap().to_string();
-    let opath = args.value_of("output-path").unwrap().to_string();
-    let filter = args.value_of("filter").unwrap().to_string();
-    let time_scale: f64 = args.value_of("time-scale").unwrap().parse().unwrap();
-    let is_twist = args.is_present("twist");
-    let angular_scale: f64 = args.value_of("angular-scale").unwrap().parse().unwrap();
-    let linear_scale: f64 = args.value_of("linear-scale").unwrap().parse().unwrap();
-
-    let mut query_selector = ipath;
-    if !filter.is_empty() {
-        query_selector.push('?');
-        query_selector.push_str(filter.as_str());
-    }
-
-    let pub_expr = opath;
-
-    (
-        config,
-        query_selector,
-        pub_expr,
-        time_scale,
-        is_twist,
-        angular_scale,
-        linear_scale,
-    )
 }
