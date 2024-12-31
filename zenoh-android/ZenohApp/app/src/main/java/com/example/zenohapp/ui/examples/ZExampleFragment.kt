@@ -6,13 +6,20 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.zenohapp.R
 import com.example.zenohapp.ZenohViewModel
 import com.example.zenohapp.databinding.FragmentExampleBinding
+import com.example.zenohapp.ui.examples.utils.ConsoleAdapter
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 abstract class ZExampleFragment : Fragment() {
 
@@ -21,8 +28,9 @@ abstract class ZExampleFragment : Fragment() {
 
     protected var exampleIsRunning: Boolean = false
     protected lateinit var viewModel: ZenohViewModel
-    protected lateinit var console: TextView
-    private lateinit var button: Button
+    protected lateinit var button: Button
+    private lateinit var consoleView: RecyclerView
+    private val consoleAdapter: ConsoleAdapter = ConsoleAdapter()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -31,10 +39,13 @@ abstract class ZExampleFragment : Fragment() {
     ): View {
         _binding = FragmentExampleBinding.inflate(inflater, container, false)
         val root: View = binding.root
-        console = binding.console
+        consoleView = binding.recyclerView
         button = binding.controlButton
 
-        viewModel = ViewModelProvider(requireActivity()).get(ZenohViewModel::class.java)
+        consoleView.layoutManager = LinearLayoutManager(context)
+        consoleView.adapter = consoleAdapter
+
+        viewModel = ViewModelProvider(requireActivity())[ZenohViewModel::class.java]
 
         button.setText(R.string.start)
         button.setOnClickListener {
@@ -60,6 +71,16 @@ abstract class ZExampleFragment : Fragment() {
 
     protected abstract fun stopExample()
 
+    @OptIn(DelicateCoroutinesApi::class)
+    protected fun writeToConsole(text: String) {
+        GlobalScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                consoleAdapter.addNewEntry(text)
+                consoleView.scrollToPosition(consoleAdapter.itemCount - 1)
+            }
+        }
+    }
+
     protected fun handleError(tag: String, errorMsg: String, error: Throwable) {
         Log.e(tag, "$errorMsg: $error")
         Toast.makeText(
@@ -69,8 +90,13 @@ abstract class ZExampleFragment : Fragment() {
         ).show()
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     protected fun resetState() {
         exampleIsRunning = false
-        button.text = getString(R.string.start)
+        GlobalScope.launch(Dispatchers.IO) {
+            withContext(Dispatchers.Main) {
+                button.text = getString(R.string.start)
+            }
+        }
     }
 }

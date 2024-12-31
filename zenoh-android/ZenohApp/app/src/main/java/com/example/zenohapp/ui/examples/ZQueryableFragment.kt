@@ -1,10 +1,10 @@
 package com.example.zenohapp.ui.examples
 
+import io.zenoh.bytes.ZBytes
 import io.zenoh.keyexpr.KeyExpr
 import io.zenoh.keyexpr.intoKeyExpr
-import io.zenoh.prelude.SampleKind
-import io.zenoh.queryable.Query
-import io.zenoh.queryable.Queryable
+import io.zenoh.query.Query
+import io.zenoh.query.Queryable
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Dispatchers.Main
@@ -20,26 +20,23 @@ class ZQueryableFragment : ZExampleFragment() {
     }
 
     private var queryable: Queryable<Channel<Query>>? = null
-    private var keyExpr: KeyExpr? = null
 
     @OptIn(DelicateCoroutinesApi::class)
     override fun startExample() {
-        viewModel.zenohSession?.apply {
-            "demo/example/zenoh-android-queryable".intoKeyExpr().onSuccess { key ->
-                keyExpr = key
-                console.append("Declaring Queryable on '$key'...\n")
-                this.declareQueryable(key).res().onSuccess {
-                    queryable = it
-                    GlobalScope.launch(Dispatchers.IO) {
-                        it.receiver?.apply {
-                            handleRequests(this, key)
-                        }
-                    }
-                }.onFailure {
-                    handleError(TAG, "Failed to launch queryable", it)
+        val session = viewModel.zenohSession!!
+        val keyExpr = "demo/example/zenoh-android-queryable".intoKeyExpr().getOrThrow()
+        writeToConsole("Declaring Queryable on '$keyExpr'...\n")
+        session.declareQueryable(keyExpr, channel = Channel()).onSuccess {
+            queryable = it
+            GlobalScope.launch(Dispatchers.IO) {
+                it.receiver.apply {
+                    handleRequests(this, keyExpr)
                 }
             }
+        }.onFailure {
+            handleError(TAG, "Failed to launch queryable", it)
         }
+
     }
 
     override fun stopExample() {
@@ -48,7 +45,6 @@ class ZQueryableFragment : ZExampleFragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        keyExpr?.close()
         queryable?.close()
     }
 
@@ -58,13 +54,16 @@ class ZQueryableFragment : ZExampleFragment() {
         val iterator = receiverChannel.iterator()
         while (iterator.hasNext()) {
             iterator.next().use { query ->
-                val valueInfo = query.value?.let { value -> " with value '$value'" } ?: ""
+                val valueInfo = query.payload?.let { value -> " with value '$value'" } ?: ""
                 withContext(Main) {
-                    console.append(">> [Queryable] Received Query '${query.selector}' $valueInfo\n")
+                    writeToConsole(">> [Queryable] Received Query '${query.selector}' $valueInfo")
                 }
-                query.reply(keyExpr).success("Queryable from Android!").withKind(SampleKind.PUT)
-                    .withTimeStamp(TimeStamp.getCurrentTime()).res()
-                    .onFailure { withContext(Main) { console.append(">> [Queryable ] Error sending reply: $it\n") } }
+                query.reply(
+                    keyExpr,
+                    payload = ZBytes.from("Queryable from Android"),
+                    timestamp = TimeStamp.getCurrentTime()
+                )
+                    .onFailure { withContext(Main) { writeToConsole(">> [Queryable ] Error sending reply: $it\n") } }
             }
         }
     }

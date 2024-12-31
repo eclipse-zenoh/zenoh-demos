@@ -27,5 +27,42 @@
         <item
             android:id="@+id/z_get"
             android:title="@string/menu_z_get" />
+
+        <item
+            android:id="@+id/z_get_liveliness"
+            android:title="@string/z_get_liveliness" />
+
+        <item
+            android:id="@+id/z_info"
+            android:title="@string/z_info" />
+
+        <item
+            android:id="@+id/z_liveliness"
+            android:title="@string/z_liveliness" />
+
+        <item
+            android:id="@+id/z_sub_liveliness"
+            android:title="@string/z_sub_liveliness" />
+
+        <item
+            android:id="@+id/z_ping"
+            android:title="@string/z_ping" />
+
+        <item
+            android:id="@+id/z_pong"
+            android:title="@string/z_pong" />
+
+        <item
+            android:id="@+id/z_pub_thr"
+            android:title="@string/z_pub_thr" />
+
+        <item
+            android:id="@+id/z_sub_thr"
+            android:title="@string/z_sub_thr" />
+
+        <item
+            android:id="@+id/z_scout"
+            android:title="@string/z_scout" />
+
     </group>
 </menu>

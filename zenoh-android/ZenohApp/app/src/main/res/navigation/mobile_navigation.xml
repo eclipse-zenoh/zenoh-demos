@@ -40,4 +40,58 @@
         android:name="com.example.zenohapp.ui.examples.ZDeleteFragment"
         android:label="@string/z_delete"
         tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_get_liveliness"
+        android:name="com.example.zenohapp.ui.examples.ZGetLivelinessFragment"
+        android:label="@string/z_get_liveliness"
+        tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_info"
+        android:name="com.example.zenohapp.ui.examples.ZInfoFragment"
+        android:label="@string/z_info"
+        tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_liveliness"
+        android:name="com.example.zenohapp.ui.examples.ZLivelinessFragment"
+        android:label="@string/z_liveliness"
+        tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_sub_liveliness"
+        android:name="com.example.zenohapp.ui.examples.ZSubLivelinessFragment"
+        android:label="@string/z_sub_liveliness"
+        tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_ping"
+        android:name="com.example.zenohapp.ui.examples.ZPingFragment"
+        android:label="@string/z_ping"
+        tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_pong"
+        android:name="com.example.zenohapp.ui.examples.ZPongFragment"
+        android:label="@string/z_pong"
+        tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_pub_thr"
+        android:name="com.example.zenohapp.ui.examples.ZPubThrFragment"
+        android:label="@string/z_pub_thr"
+        tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_sub_thr"
+        android:name="com.example.zenohapp.ui.examples.ZSubThrFragment"
+        android:label="@string/z_sub_thr"
+        tools:layout="@layout/fragment_slideshow" />
+
+    <fragment
+        android:id="@+id/z_scout"
+        android:name="com.example.zenohapp.ui.examples.ZScoutFragment"
+        android:label="@string/z_scout"
+        tools:layout="@layout/fragment_slideshow" />
 </navigation>

@@ -13,7 +13,9 @@ import androidx.drawerlayout.widget.DrawerLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.example.zenohapp.databinding.ActivityMainBinding
+import io.zenoh.Config
 import io.zenoh.Session
+import io.zenoh.Zenoh
 
 class MainActivity : AppCompatActivity() {
 
@@ -24,10 +26,11 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        viewModel = ViewModelProvider(this).get(ZenohViewModel::class.java)
+        viewModel = ViewModelProvider(this)[ZenohViewModel::class.java]
 
-        System.setProperty("zenoh.logger", "debug")
-        Session.open().onSuccess {
+        Zenoh.initLogFromEnvOr("error")
+
+        Zenoh.open(Config.default()).onSuccess {
             viewModel.zenohSession = it
         }.onFailure {
             val alertDialogBuilder = AlertDialog.Builder(this)
@@ -57,8 +60,17 @@ class MainActivity : AppCompatActivity() {
                 R.id.z_sub,
                 R.id.z_queryable,
                 R.id.z_get,
+                R.id.z_get_liveliness,
                 R.id.z_put,
-                R.id.z_delete
+                R.id.z_delete,
+                R.id.z_info,
+                R.id.z_liveliness,
+                R.id.z_sub_liveliness,
+                R.id.z_ping,
+                R.id.z_pong,
+                R.id.z_pub_thr,
+                R.id.z_sub_thr,
+                R.id.z_scout
             ), drawerLayout
         )
         setupActionBarWithNavController(navController, appBarConfiguration)
