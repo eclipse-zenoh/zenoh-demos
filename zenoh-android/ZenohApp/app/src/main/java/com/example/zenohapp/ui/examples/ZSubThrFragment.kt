@@ -88,7 +88,8 @@ class ZSubThrFragment : ZExampleFragment() {
     }
 
     override fun onDestroyView() {
+        exampleIsRunning = false
+        subscriber?.undeclare()
         super.onDestroyView()
-        stopExample()
     }
 }
