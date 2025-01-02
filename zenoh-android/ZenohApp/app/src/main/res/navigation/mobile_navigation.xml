@@ -8,90 +8,75 @@
     <fragment
         android:id="@+id/z_pub"
         android:name="com.example.zenohapp.ui.examples.ZPubFragment"
-        android:label="@string/z_pub"
-        tools:layout="@layout/fragment_home" />
+        android:label="@string/z_pub"/>
 
     <fragment
         android:id="@+id/z_sub"
         android:name="com.example.zenohapp.ui.examples.ZSubFragment"
-        android:label="@string/z_sub"
-        tools:layout="@layout/fragment_home" />
+        android:label="@string/z_sub" />
 
     <fragment
         android:id="@+id/z_queryable"
         android:name="com.example.zenohapp.ui.examples.ZQueryableFragment"
-        android:label="@string/z_queryable"
-        tools:layout="@layout/fragment_gallery" />
+        android:label="@string/z_queryable"/>
 
     <fragment
         android:id="@+id/z_get"
         android:name="com.example.zenohapp.ui.examples.ZGetFragment"
-        android:label="@string/z_get"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_get" />
 
     <fragment
         android:id="@+id/z_put"
         android:name="com.example.zenohapp.ui.examples.ZPutFragment"
-        android:label="@string/z_put"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_put" />
 
     <fragment
         android:id="@+id/z_delete"
         android:name="com.example.zenohapp.ui.examples.ZDeleteFragment"
-        android:label="@string/z_delete"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_delete" />
 
     <fragment
         android:id="@+id/z_get_liveliness"
         android:name="com.example.zenohapp.ui.examples.ZGetLivelinessFragment"
-        android:label="@string/z_get_liveliness"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_get_liveliness" />
 
     <fragment
         android:id="@+id/z_info"
         android:name="com.example.zenohapp.ui.examples.ZInfoFragment"
-        android:label="@string/z_info"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_info" />
 
     <fragment
         android:id="@+id/z_liveliness"
         android:name="com.example.zenohapp.ui.examples.ZLivelinessFragment"
-        android:label="@string/z_liveliness"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_liveliness" />
 
     <fragment
         android:id="@+id/z_sub_liveliness"
         android:name="com.example.zenohapp.ui.examples.ZSubLivelinessFragment"
-        android:label="@string/z_sub_liveliness"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_sub_liveliness" />
 
     <fragment
         android:id="@+id/z_ping"
         android:name="com.example.zenohapp.ui.examples.ZPingFragment"
-        android:label="@string/z_ping"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_ping" />
 
     <fragment
         android:id="@+id/z_pong"
         android:name="com.example.zenohapp.ui.examples.ZPongFragment"
-        android:label="@string/z_pong"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_pong" />
 
     <fragment
         android:id="@+id/z_pub_thr"
         android:name="com.example.zenohapp.ui.examples.ZPubThrFragment"
-        android:label="@string/z_pub_thr"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_pub_thr" />
 
     <fragment
         android:id="@+id/z_sub_thr"
         android:name="com.example.zenohapp.ui.examples.ZSubThrFragment"
-        android:label="@string/z_sub_thr"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_sub_thr" />
 
     <fragment
         android:id="@+id/z_scout"
         android:name="com.example.zenohapp.ui.examples.ZScoutFragment"
-        android:label="@string/z_scout"
-        tools:layout="@layout/fragment_slideshow" />
+        android:label="@string/z_scout" />
 </navigation>
