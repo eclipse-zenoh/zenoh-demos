@@ -31,13 +31,13 @@ import com.example.zenohapp.ros.Image
 import com.example.zenohapp.ros.Time
 import com.example.zenohapp.ros.Twist
 import com.example.zenohapp.ros.Vector3
+import io.zenoh.bytes.Encoding
+import io.zenoh.bytes.ZBytes
 import io.zenoh.keyexpr.intoKeyExpr
-import io.zenoh.prelude.Encoding
-import io.zenoh.prelude.KnownEncoding
-import io.zenoh.publication.Publisher
+import io.zenoh.pubsub.Publisher
+import io.zenoh.pubsub.Subscriber
+import io.zenoh.query.intoSelector
 import io.zenoh.sample.Sample
-import io.zenoh.subscriber.Subscriber
-import io.zenoh.value.Value
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
@@ -48,10 +48,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
 import kotlin.random.Random
-
-
-
-
 
 class TeleopFragment : Fragment(), OnTouchListener, OnSeekBarChangeListener {
     private var _binding: FragmentTeleopBinding? = null
@@ -219,9 +215,9 @@ class TeleopFragment : Fragment(), OnTouchListener, OnSeekBarChangeListener {
         mKeyExpr = mNSEditText.text.toString()+cmdVelSuffix
         viewModel.zenohSession?.apply {
             mKeyExpr.intoKeyExpr().onSuccess { ke ->
-                this.declarePublisher(ke).res().onSuccess { pub ->
+                this.declarePublisher(ke).onSuccess { pub ->
                     mPublisher = pub
-                    Log.v(TAG, "Declared publiser on: ${mNSEditText.text.toString()}")
+                    Log.v(TAG, "Declared publiser on: ${mNSEditText.text}")
                 }
                     .onFailure { handleError(TAG, "Failed to launch publisher", it) }
             }
@@ -237,9 +233,10 @@ class TeleopFragment : Fragment(), OnTouchListener, OnSeekBarChangeListener {
         val arr = ByteArray(mStream.buffer.position())
         mStream.buffer.rewind()
         mStream.buffer.get(arr)
-        val payload = Value(arr, Encoding(KnownEncoding.APP_OCTET_STREAM))
+        val payload = ZBytes.from(arr)
 
-        mPublisher.put(payload).res().onFailure { Log.e(TAG, "Error when publishing", it) }
+        mPublisher.put(payload, encoding = Encoding.APPLICATION_OCTET_STREAM)
+            .onFailure { Log.e(TAG, "Error when publishing", it) }
             .onSuccess { Log.v(TAG, "Published command!") }
     }
 
@@ -304,16 +301,12 @@ class TeleopFragment : Fragment(), OnTouchListener, OnSeekBarChangeListener {
         val arr = ByteArray(mStream.buffer.position())
         mStream.buffer.rewind()
         mStream.buffer.get(arr)
-        val payload = Value(arr, Encoding(KnownEncoding.APP_OCTET_STREAM))
+        val payload = ZBytes.from(arr)
 
         viewModel.zenohSession?.apply {
-            actionDockKE.intoKeyExpr().onSuccess { ke ->
-                this.get(ke)
-                    .withValue(payload)
-                    .res().onSuccess {
-
-                        Log.v(TAG, "Sent dock action publiser : $actionDockKE")
-                    }
+            actionDockKE.intoSelector().onSuccess { ke ->
+                this.get(ke, callback = {}, payload, encoding = Encoding.APPLICATION_OCTET_STREAM)
+                    .onSuccess { Log.v(TAG, "Sent dock action publiser : $actionDockKE") }
                     .onFailure { handleError(TAG, "Failed to send action dock", it) }
             }
                 .onFailure { handleError(TAG, "Failed to parse keyExpr", it) }
@@ -338,17 +331,14 @@ class TeleopFragment : Fragment(), OnTouchListener, OnSeekBarChangeListener {
         val arr = ByteArray(mStream.buffer.position())
         mStream.buffer.rewind()
         mStream.buffer.get(arr)
-        val payload = Value(arr, Encoding(KnownEncoding.APP_OCTET_STREAM))
         val actionSoundKE = mNSEditText.text.toString() + cmdSoundSuffix
         viewModel.zenohSession?.apply {
             actionSoundKE.intoKeyExpr().onSuccess { ke ->
-                this.put(ke, payload)
-                    .res().onSuccess {
-                        Log.v(TAG, "Sent sound command")
-                    }
+                this.put(ke, payload = ZBytes.from(arr), encoding = Encoding.APPLICATION_OCTET_STREAM)
+                    .onSuccess { Log.v(TAG, "Sent sound command") }
                     .onFailure { handleError(TAG, "Failed to send action dock", it) }
             }
-                .onFailure { handleError(TAG, "Failed to parse keyExpr", it) }
+            .onFailure { handleError(TAG, "Failed to parse keyExpr", it) }
         }
 
     }
@@ -369,16 +359,16 @@ class TeleopFragment : Fragment(), OnTouchListener, OnSeekBarChangeListener {
         viewModel.zenohSession?.apply {
             (mNSEditText.text.toString() + batteryStateSuffix).intoKeyExpr().onSuccess { key ->
                 Log.v(TAG, "Subscribing battery state on: $key")
-                this.declareSubscriber(key).res().onSuccess { sub ->
+                this.declareSubscriber(key, Channel()).onSuccess { sub ->
                     mBatterySubscriber = sub
                     mBatterySubJob =  GlobalScope.launch(Dispatchers.IO) {
-                        sub.receiver?.apply {
+                        sub.receiver.apply {
                             val iterator = this.iterator()
                             while (iterator.hasNext()) {
                                 val sample = iterator.next()
                                 Log.v(TAG, "Received data from Zenoh")
                                 val inputStream =
-                                    CDRInputStream(ByteBuffer.wrap(sample.value.payload))
+                                    CDRInputStream(ByteBuffer.wrap(sample.payload.toBytes()))
                                 Log.v(TAG, "Size from Zenoh is: ${inputStream.buffer.capacity()} - Position: ${inputStream.buffer.position()}")
                                 val battery = Battery(inputStream)
                                 Log.v(TAG, "Battery percentage: ${battery.percentage}")

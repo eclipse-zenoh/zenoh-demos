@@ -16,9 +16,9 @@ import androidx.lifecycle.ViewModelProvider
 import com.example.zenohapp.databinding.ActivityMainBinding
 import io.zenoh.Config
 import io.zenoh.Session
+import io.zenoh.Zenoh
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
 import kotlin.io.path.Path
 
 class MainActivity : AppCompatActivity() {
@@ -32,16 +32,17 @@ class MainActivity : AppCompatActivity() {
 
         viewModel = ViewModelProvider(this).get(ZenohViewModel::class.java)
 
-        System.setProperty("zenoh.logger", "debug")
+        Zenoh.initLogFromEnvOr("debug")
 
-        val config = assets.open("config-inline-prod.json")
+        val configFile = assets.open("config-inline-prod.json")
         val tempConfig = File.createTempFile("config", ".json5")
         tempConfig.deleteOnExit()
         FileOutputStream(tempConfig).use { output ->
-            config.copyTo(output)
+            configFile.copyTo(output)
         }
 
-        Session.open(Config.Companion.from(Path(tempConfig.absolutePath))).onSuccess {
+        val config = Config.fromFile(Path(tempConfig.absolutePath)).getOrThrow()
+        Zenoh.open(config).onSuccess {
             viewModel.zenohSession = it
         }.onFailure {
             Log.e("Zenoh Session", "Zenoh session could not be opened: ${it.message}")
