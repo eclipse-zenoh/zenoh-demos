@@ -23,4 +23,13 @@
     <string name="menu_z_get">ZGet</string>
     <string name="stop">Stop</string>
     <string name="start">Start</string>
+    <string name="z_get_liveliness">ZGetLiveliness</string>
+    <string name="z_info">ZInfo</string>
+    <string name="z_liveliness">ZLiveliness</string>
+    <string name="z_sub_liveliness">ZSubLiveliness</string>
+    <string name="z_ping">ZPing</string>
+    <string name="z_pong">ZPong</string>
+    <string name="z_pub_thr">ZPubThr</string>
+    <string name="z_sub_thr">ZSubThr</string>
+    <string name="z_scout">ZScout</string>
 </resources>

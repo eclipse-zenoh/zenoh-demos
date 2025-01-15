@@ -10,10 +10,17 @@ The application features the classic Zenoh examples with the default configurati
 - ZPut: performs a PUT operation into `demo/example/zenoh-android-put`
 - ZDelete: performs a DELETE operation into `demo/example/zenoh-android-put`
 - ZGet: performs a GET query into `demo/example/**`
+- ZGetLiveliness: performs a GET Liveliness on `group1/**`
+- ZInfo: shows information about the Zenoh session
+- ZLiveliness: declares a liveliness token on `group1/zenoh-kotlin-android`
+- ZSubLiveliness: declares a liveliness subscriber on `group1/**`
+- ZPing & ZPong: examples to measure the latency
+- ZPubThr & ZSubThr: examples to measure the average throughput
+- ZScout: Scouting example for retrieving information on other Zenoh nodes
 
 To select a different example, open the side navigation menu:
 
-<img alt="zenohapp_menu.jpeg" src="zenohapp_menu.jpeg" width="250"/> <img alt="zenohapp_menu.jpeg" src="zenohapp_zpub.jpeg" width="250"/>
+<img alt="zenohapp_menu.jpeg" src="zenohapp_menu.png" width="250"/> <img alt="zenohapp_menu.png" src="zenohapp_zpub.png" width="250"/>
 
 ## Requirements
 
@@ -69,11 +76,3 @@ In case we want to install the application without Android Studio then:
    $ adb install -r app/build/outputs/apk/debug/app-debug.apk
    ```
 6. Run the app on the phone
-
-## Logs
-
-To enable the zenoh logs (visible on LogCat) add the following entry to the `gradle.properties` file:
-
-```
-zenoh.logger=debug
-```

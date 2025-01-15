@@ -1,9 +1,8 @@
 package com.example.zenohapp.ui.examples
 
-import io.zenoh.keyexpr.KeyExpr
 import io.zenoh.keyexpr.intoKeyExpr
 import io.zenoh.sample.Sample
-import io.zenoh.subscriber.Subscriber
+import io.zenoh.pubsub.Subscriber
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Dispatchers.Main
@@ -13,34 +12,25 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class ZSubFragment : ZExampleFragment() {
-    companion object {
-        private val TAG = ZSubFragment::javaClass.name
-    }
 
     private var subscriber: Subscriber<Channel<Sample>>? = null
-    private var keyExpr: KeyExpr? = null
 
     @OptIn(DelicateCoroutinesApi::class)
     override fun startExample() {
-        viewModel.zenohSession?.apply {
-            "demo/example/**".intoKeyExpr().onSuccess { key ->
-                keyExpr = key
-                console.append("Declaring Subscriber on '$key'...\n")
-                this.declareSubscriber(key).res().onSuccess { sub ->
-                    subscriber = sub
-                    GlobalScope.launch(Dispatchers.IO) {
-                        sub.receiver?.apply {
-                            val iterator = this.iterator()
-                            while (iterator.hasNext()) {
-                                val sample = iterator.next()
-                                withContext(Main) {
-                                    console.append(">> [Subscriber] Received ${sample.kind} ('${sample.keyExpr}': '${sample.value}')\n")
-                                }
-                            }
-                        }
-                    }
-                }.onFailure {
-                    handleError(TAG, "Failed to launch subscriber", it)
+        val session = viewModel.zenohSession!!
+        val keyExpr = "demo/example/**".intoKeyExpr().getOrThrow()
+        writeToConsole("Declaring Subscriber on '$keyExpr'...")
+        subscriber = session.declareSubscriber(keyExpr, Channel()).getOrThrow()
+        GlobalScope.launch(Dispatchers.IO) {
+            val iterator = subscriber!!.receiver.iterator()
+            while (iterator.hasNext()) {
+                val sample = iterator.next()
+                withContext(Main) {
+                    writeToConsole(">> [Subscriber] Received ${sample.kind} ('${sample.keyExpr}': '${sample.payload}'" + "${
+                        sample.attachment?.let {
+                            ", with attachment: $it"
+                        } ?: ""
+                    })")
                 }
             }
         }
@@ -48,7 +38,6 @@ class ZSubFragment : ZExampleFragment() {
 
     override fun stopExample() {
         subscriber?.undeclare()
-        keyExpr?.close()
     }
 
     override fun onDestroyView() {
