@@ -10,7 +10,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zenoh = "1.1.0"
+zenoh = { version = "1.1.0", features = ["unstable"] }
 async-std = { version = "=1.12.0", features = ["attributes", "unstable"] }
 futures = "0.3.15"
 clap = "3.2.15"

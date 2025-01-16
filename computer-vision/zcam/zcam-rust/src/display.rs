@@ -12,11 +12,13 @@
 //   The Zenoh Team, <zenoh@zettascale.tech>
 //
 use clap::{App, Arg};
-use opencv::{highgui, prelude::*, Result};
+use futures::{select, FutureExt};
+use opencv::{highgui, prelude::*};
 use serde_json::json;
 use zenoh::{config::Config, Wait};
 
-fn main() -> Result<()> {
+#[async_std::main]
+async fn main() {
     // initiate logging
     env_logger::init();
     let (config, key_expr) = parse_args();
@@ -25,24 +27,41 @@ fn main() -> Result<()> {
     let session = zenoh::open(config).wait().unwrap();
     let sub = session.declare_subscriber(&key_expr).wait().unwrap();
 
-    while let Ok(sample) = sub.recv() {
-        let decoded = opencv::imgcodecs::imdecode(
-            &opencv::types::VectorOfu8::from_slice(sample.payload().to_bytes().as_ref()),
-            opencv::imgcodecs::IMREAD_COLOR,
-        )?;
+    let conf_sub = session
+        .declare_subscriber(format!("{}/zdisplay/conf/**", key_expr))
+        .wait()
+        .unwrap();
 
-        if decoded.size().unwrap().width > 0 {
-            highgui::imshow(sample.key_expr().as_str(), &decoded)?;
-        }
+    loop {
+        select!(
+            sample = sub.recv_async().fuse() => {
+                let sample = sample.unwrap();
+                let decoded = opencv::imgcodecs::imdecode(
+                    &opencv::types::VectorOfu8::from_slice(&sample.payload().to_bytes()),
+                    opencv::imgcodecs::IMREAD_COLOR,
+                ).unwrap();
 
-        if highgui::wait_key(10)? == 113 {
-            // 'q'
-            break;
-        }
+                if decoded.size().unwrap().width > 0 {
+                    highgui::imshow(sample.key_expr().as_str(), &decoded).unwrap();
+                }
+
+                if highgui::wait_key(10).unwrap() == 113 {
+                    // 'q'
+                    break;
+                }
+            },
+
+            sample = conf_sub.recv_async().fuse() => {
+                let sample = sample.unwrap();
+                let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
+                let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
+                let _ = session.config().insert_json5(conf_key, &conf_val);
+            },
+        );
     }
+    conf_sub.undeclare().wait().unwrap();
     sub.undeclare().wait().unwrap();
     session.close().wait().unwrap();
-    Ok(())
 }
 
 fn parse_args() -> (Config, String) {
