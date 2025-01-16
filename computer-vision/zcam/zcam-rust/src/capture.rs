@@ -13,8 +13,8 @@
 //
 use clap::{App, Arg};
 use opencv::{prelude::*, videoio, Result};
-use zenoh::config::Config;
-use zenoh::prelude::sync::SyncResolve;
+use serde_json::json;
+use zenoh::{config::Config, Wait};
 
 fn main() -> Result<()> {
     // initiate logging
@@ -22,10 +22,10 @@ fn main() -> Result<()> {
 
     let (config, key_expr, resolution, delay) = parse_args();
 
-    println!("Openning session...");
-    let session = zenoh::open(config).res().unwrap();
+    println!("Opening session...");
+    let session = zenoh::open(config).wait().unwrap();
 
-    let zpub = session.declare_publisher(&key_expr).res().unwrap();
+    let zpub = session.declare_publisher(&key_expr).wait().unwrap();
 
     let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY)?;
 
@@ -56,7 +56,7 @@ fn main() -> Result<()> {
             let mut buf = opencv::types::VectorOfu8::new();
             opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options)?;
 
-            zpub.put(buf.to_vec()).res().unwrap();
+            zpub.put(buf.to_vec()).wait().unwrap();
             std::thread::sleep(std::time::Duration::from_millis(delay));
         } else {
             println!("Reading empty buffer from camera... Waiting some more....");
@@ -101,14 +101,15 @@ fn parse_args() -> (Config, String, Vec<i32>, u64) {
     } else {
         Config::default()
     };
-    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
-        config.set_mode(Some(mode)).unwrap();
-    }
-    if let Some(connect) = args.values_of("connect") {
+    if let Some(mode) = args.value_of("mode") {
         config
-            .connect
-            .endpoints
-            .extend(connect.map(|p| p.parse().unwrap()))
+            .insert_json5("mode", &json!(mode).to_string())
+            .unwrap();
+    }
+    if let Some(peers) = args.values_of("peer") {
+        config
+            .insert_json5("connect/endpoints", &json!(peers.collect::<Vec<&str>>()).to_string())
+            .unwrap();
     }
 
     let key_expr = args.value_of("key").unwrap().to_string();
