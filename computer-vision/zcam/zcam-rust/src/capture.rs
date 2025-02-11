@@ -114,7 +114,7 @@ fn parse_args() -> (Config, String, Vec<i32>, u64) {
             .insert_json5("mode", &json!(mode).to_string())
             .unwrap();
     }
-    if let Some(peers) = args.values_of("peer") {
+    if let Some(peers) = args.values_of("connect") {
         config
             .insert_json5("connect/endpoints", &json!(peers.collect::<Vec<&str>>()).to_string())
             .unwrap();

@@ -76,7 +76,7 @@ fn parse_args() -> (Config, String) {
                 .default_value("demo/zcam"),
         )
         .arg(Arg::from_usage(
-            "-e, --peer=[LOCATOR]...  'Peer locators used to initiate the zenoh session.'",
+            "-e, --connect=[LOCATOR]...  'Peer locators used to initiate the zenoh session.'",
         ))
         .arg(Arg::from_usage(
             "-c, --config=[FILE]      'A configuration file.'",
@@ -95,7 +95,7 @@ fn parse_args() -> (Config, String) {
             .insert_json5("mode", &json!(mode).to_string())
             .unwrap();
     }
-    if let Some(peers) = args.values_of("peer") {
+    if let Some(peers) = args.values_of("connect") {
         config
             .insert_json5("connect/endpoints", &json!(peers.collect::<Vec<&str>>()).to_string())
             .unwrap();
