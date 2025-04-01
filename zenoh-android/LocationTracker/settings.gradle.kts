@@ -15,17 +15,10 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
-        mavenCentral()
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/eclipse-zenoh/zenoh-kotlin")
-            credentials {
-                username = providers.gradleProperty("user").get()
-                password = providers.gradleProperty("token").get()
-            }
-        }
+        mavenCentral(
+            implementation("org.eclipse.zenoh:zenoh-kotlin:1.3.0")
+        )
     }
 }
-
 rootProject.name = "LocationTracker"
 include(":app")
