@@ -60,7 +60,7 @@ dashboard. Three subscriber frontends are provided: a Python script using
 [Matplotlib](https://matplotlib.org/), a browser client and a
 [Freeboard](https://freeboard.github.io) configuation.
 
-**computer-vision/zcam/zcam-{python,rust,rest}**: consists of two Zenoh nodes: a
+**computer-vision/zcam/zcam-{python,rust,rest,rs-python}**: consists of two Zenoh nodes: a
 publisher capturing a camera video stream and a subscriber displaying said video
 stream. Both of the Python and Rust implementations use
 [OpenCV](https://opencv.org/) to encode and decode data.
@@ -96,6 +96,10 @@ obstacles and environment boundaries (e.g. walls of a room).
 [Twist](https://docs.ros.org/en/noetic/api/geometry_msgs/html/msg/Twist.html)
 teleoperation messages by reading keyboard input (i.e. arrow keys). Both of the
 Rust and Python implementations are terminal applications.
+
+**ROS2/zenoh-python-float32-data**: Zenoh nodes that publish
+[Float32](https://docs.ros.org/en/noetic/api/std_msgs/html/msg/Float32.html)
+Float32 message might be used to publish real-time sensor data such as temperature readings, velocity, or any other numerical value.
 
 **zenoh-home/{light,soil,temp-humi}-sensor**: Zenoh nodes running Zenoh
 [Pico](https://github.com/eclipse-zenoh/zenoh-pico) on an
