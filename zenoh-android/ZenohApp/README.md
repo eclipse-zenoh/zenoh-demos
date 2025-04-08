@@ -35,20 +35,6 @@ To install this application, it's required:
   - X86
   - X86_64
 
-## Configuration
-
-This Android app imports the zenoh kotlin library from [Github packages](https://github.com/eclipse-zenoh/zenoh-kotlin/packages/1968034). Eventhough it's a public
-package, Github requires us to specify an user and a token to download the package. Therefore it's
-necessary that you specify on the `gradle.properties` file your github user and github access token as
-`user` and `token` respectively
-
-```
-user=<github_account>
-token=<github_token>
-```
-
-That will enable the github packages repository (see [settings.gradle.kts](/settings.gradle.kts)).
-
 ## Installation
 
 ### Android Studio
