@@ -11,33 +11,34 @@
 // Contributors:
 //   The Zenoh Team, <zenoh@zettascale.tech>
 //
-use clap::{App, Arg};
+use clap::Parser;
 use futures::{select, FutureExt};
 use opencv::{highgui, prelude::*};
 use serde_json::json;
 use zenoh::{config::Config, Wait};
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     // initiate logging
     env_logger::init();
     let (config, key_expr) = parse_args();
 
     println!("Opening session...");
-    let session = zenoh::open(config).wait().unwrap();
-    let sub = session.declare_subscriber(&key_expr).wait().unwrap();
+    let z = zenoh::open(config).wait().unwrap();
+    let sub = z.declare_subscriber(&key_expr).wait().unwrap();
 
-    let conf_sub = session
-        .declare_subscriber(format!("{}/zdisplay/conf/**", key_expr))
+    let conf_sub = 
+        z.declare_subscriber(format!("{}/zdisplay/conf/**", key_expr))
         .wait()
         .unwrap();
 
-    loop {
+    loop {        
         select!(
             sample = sub.recv_async().fuse() => {
                 let sample = sample.unwrap();
+                let bs = opencv::core::Vector::<u8>::from(sample.payload().to_bytes().to_vec());
                 let decoded = opencv::imgcodecs::imdecode(
-                    &opencv::types::VectorOfu8::from_slice(&sample.payload().to_bytes()),
+                    &bs,
                     opencv::imgcodecs::IMREAD_COLOR,
                 ).unwrap();
 
@@ -55,50 +56,52 @@ async fn main() {
                 let sample = sample.unwrap();
                 let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
                 let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
-                let _ = session.config().insert_json5(conf_key, &conf_val);
+                let _ = z.config().insert_json5(conf_key, &conf_val);
             },
         );
     }
     conf_sub.undeclare().wait().unwrap();
     sub.undeclare().wait().unwrap();
-    session.close().wait().unwrap();
+    z.close().wait().unwrap();
+}
+
+#[derive(clap::Parser, Clone, PartialEq, Eq, Hash, Debug)]
+struct Args {
+    #[arg(short, long)]
+    mode: Option<String>,
+    
+    #[arg(short, long, default_value="demo/zcam")]
+    key: String,
+    
+    #[arg(short('e'), long)]
+    connect: Option<Vec<String>>,
+    
+    #[arg(short, long)]
+    config: Option<String>
 }
 
 fn parse_args() -> (Config, String) {
-    let args = App::new("zenoh video display example")
-        .arg(
-            Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
-                .possible_values(["peer", "client"])
-                .default_value("peer"),
-        )
-        .arg(
-            Arg::from_usage("-k, --key=[KEY_EXPR] 'The key expression to subscribe to.")
-                .default_value("demo/zcam"),
-        )
-        .arg(Arg::from_usage(
-            "-e, --connect=[LOCATOR]...  'Peer locators used to initiate the zenoh session.'",
-        ))
-        .arg(Arg::from_usage(
-            "-c, --config=[FILE]      'A configuration file.'",
-        ))
-        .get_matches();
+    let args = Args::parse();
+    let mut c = 
+        if let Some(f) = args.config { zenoh::Config::from_file(f).expect("Invalid Zenoh Configuraiton File") } 
+        else { zenoh::Config::default() };
 
-    let key_expr = args.value_of("key").unwrap().to_string();
+    if let Some(ls) = args.connect {
+        let sls: String = {
+            let mut s = ls.iter().fold("[".to_string(), |s, l| { s + l + "," });
+            s.pop();
+            s + "]"
+        };
+        let json_arg = json!(sls[0..sls.len()-2]).to_string();
 
-    let mut config = if let Some(conf_file) = args.value_of("config") {
-        Config::from_file(conf_file).unwrap()
-    } else {
-        Config::default()
-    };
-    if let Some(mode) = args.value_of("mode") {
-        config
-            .insert_json5("mode", &json!(mode).to_string())
-            .unwrap();
+        println!("locator JSON = {}", &json_arg);
+        let _ = c.insert_json5("connect/endpoints", &json_arg);        
     }
-    if let Some(peers) = args.values_of("connect") {
-        config
-            .insert_json5("connect/endpoints", &json!(peers.collect::<Vec<&str>>()).to_string())
-            .unwrap();
+    if let Some(m) = args.mode {
+        println!("Overriding mode");
+        let _ = c.insert_json5("mode", &json!(m).to_string());
     }
-    (config, key_expr)
+    
+    println!("{}", c);
+    (c, args.key)
 }
