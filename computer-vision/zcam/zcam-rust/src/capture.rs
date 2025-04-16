@@ -110,19 +110,10 @@ fn parse_args() -> (Config, String, Vec<i32>, u64, zenoh::qos::Reliability, zeno
         if let Some(f) = args.config { zenoh::Config::from_file(f).expect("Invalid Zenoh Configuraiton File") } 
         else { zenoh::Config::default() };
 
-    if let Some(ls) = args.connect {
-        let sls: String = {
-            let mut s = ls.iter().fold("[".to_string(), |s, l| { s + l + "," });
-            s.pop();
-            s + "]"
-        };
-        let json_arg = json!(sls[0..sls.len()-2]).to_string();
-
-        println!("locator JSON = {}", &json_arg);
-        let _ = c.insert_json5("connect/endpoints", &json_arg);        
+    if let Some(ls) = args.connect {                
+        let _ = c.insert_json5("connect/endpoints", &json!(ls).to_string());        
     }
-    if let Some(m) = args.mode {
-        println!("Overriding mode");
+    if let Some(m) = args.mode {        
         let _ = c.insert_json5("mode", &json!(m).to_string());
     }
 
@@ -134,8 +125,6 @@ fn parse_args() -> (Config, String, Vec<i32>, u64, zenoh::qos::Reliability, zeno
     let congestion_control = 
         if args.block_on_congestion {zenoh::qos::CongestionControl::Block} else {zenoh::qos::CongestionControl::Drop};
     let reliability = if args.best_effort {zenoh::qos::Reliability::BestEffort} else { zenoh::qos::Reliability::Reliable };
-
-
     
     (c, args.key, resolution, args.delay, reliability, congestion_control)
 }
