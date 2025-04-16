@@ -22,21 +22,23 @@ async fn main() {
     // initiate logging
     env_logger::init();
 
-    let (config, key_expr, resolution, delay) = parse_args();
+    let (config, key_expr, resolution, 
+        delay, reliability, congestion_ctrl) = parse_args();
 
     println!("Opening session...");
-    let session = zenoh::open(config).wait().unwrap();
+    let z = zenoh::open(config).await.unwrap();
 
-    let publ = session.declare_publisher(&key_expr).wait().unwrap();
+    let publ = z.declare_publisher(&key_expr)
+        .reliability(reliability)
+        .congestion_control(congestion_ctrl)
+        .await.unwrap();
 
-    let conf_sub = session
-        .declare_subscriber(format!("{}/zcapture/conf/**", key_expr))
-        .wait()
-        .unwrap();
+    let conf_sub = z.declare_subscriber(format!("{}/zcapture/conf/**", key_expr)).await.unwrap();                
 
     let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap();
 
     let opened = videoio::VideoCapture::is_opened(&cam).unwrap();
+    
     if !opened {
         panic!("Unable to open default camera!");
     }
@@ -67,7 +69,7 @@ async fn main() {
                 let sample = sample.unwrap();
                 let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
                 let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
-                let _ = session.config().insert_json5(conf_key, &conf_val);
+                let _ = z.config().insert_json5(conf_key, &conf_val);
             },
         );
     }
@@ -91,10 +93,18 @@ struct Args {
     resolution: String,
 
     #[arg(short, long, default_value="40")]
-    delay: u64
+    delay: u64,
+
+    #[arg(long, default_value="false")]
+    best_effort: bool,
+
+    #[arg(long, default_value="false")]
+    block_on_congestion: bool
+
+
 }
 
-fn parse_args() -> (Config, String, Vec<i32>, u64) {
+fn parse_args() -> (Config, String, Vec<i32>, u64, zenoh::qos::Reliability, zenoh::qos::CongestionControl) {
     let args = Args::parse();
     let mut c = 
         if let Some(f) = args.config { zenoh::Config::from_file(f).expect("Invalid Zenoh Configuraiton File") } 
@@ -121,8 +131,11 @@ fn parse_args() -> (Config, String, Vec<i32>, u64) {
         .map(|s| s.parse::<i32>().unwrap())
         .collect::<Vec<i32>>();
         
+    let congestion_control = 
+        if args.block_on_congestion {zenoh::qos::CongestionControl::Block} else {zenoh::qos::CongestionControl::Drop};
+    let reliability = if args.best_effort {zenoh::qos::Reliability::BestEffort} else { zenoh::qos::Reliability::Reliable };
 
 
     
-    (c, args.key, resolution, args.delay)
+    (c, args.key, resolution, args.delay, reliability, congestion_control)
 }
