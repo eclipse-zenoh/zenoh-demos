@@ -23,7 +23,7 @@ async fn main() {
     env_logger::init();
 
     let (config, key_expr, resolution, 
-        delay, reliability, congestion_ctrl) = parse_args();
+        delay, reliability, congestion_ctrl, image_quality) = parse_args();
 
     println!("Opening session...");
     let z = zenoh::open(config).await.unwrap();
@@ -42,9 +42,9 @@ async fn main() {
     if !opened {
         panic!("Unable to open default camera!");
     }
-    let mut encode_options = opencv::core::Vector::<i32>::new();
+    let mut encode_options = opencv::core::Vector::<i32>::new();    
     encode_options.push(opencv::imgcodecs::IMWRITE_JPEG_QUALITY);
-    encode_options.push(90);
+    encode_options.push(image_quality);
 
     loop {
         select!(
@@ -99,12 +99,14 @@ struct Args {
     best_effort: bool,
 
     #[arg(long, default_value="false")]
-    block_on_congestion: bool
+    block_on_congestion: bool,
 
+    #[arg(long, default_value="18")]
+    image_quality: i32,
 
 }
 
-fn parse_args() -> (Config, String, Vec<i32>, u64, zenoh::qos::Reliability, zenoh::qos::CongestionControl) {
+fn parse_args() -> (Config, String, Vec<i32>, u64, zenoh::qos::Reliability, zenoh::qos::CongestionControl, i32) {
     let args = Args::parse();
     let mut c = 
         if let Some(f) = args.config { zenoh::Config::from_file(f).expect("Invalid Zenoh Configuraiton File") } 
@@ -126,5 +128,5 @@ fn parse_args() -> (Config, String, Vec<i32>, u64, zenoh::qos::Reliability, zeno
         if args.block_on_congestion {zenoh::qos::CongestionControl::Block} else {zenoh::qos::CongestionControl::Drop};
     let reliability = if args.best_effort {zenoh::qos::Reliability::BestEffort} else { zenoh::qos::Reliability::Reliable };
     
-    (c, args.key, resolution, args.delay, reliability, congestion_control)
+    (c, args.key, resolution, args.delay, reliability, congestion_control, args.image_quality)
 }
