@@ -18,14 +18,13 @@ use serde_json::json;
 use zenoh::{config::Config, Wait};
 
 #[tokio::main]
-async fn main() {
-    // initiate logging
+async fn main() {    
     env_logger::init();
     let (config, key_expr) = parse_args();
 
     println!("Opening session...");
     let z = zenoh::open(config).wait().unwrap();
-    let sub = z.declare_subscriber(&key_expr).wait().unwrap();
+    let sub = z.declare_subscriber(&key_expr).await.unwrap();
 
     let conf_sub = 
         z.declare_subscriber(format!("{}/zdisplay/conf/**", key_expr))
@@ -65,7 +64,7 @@ async fn main() {
     z.close().wait().unwrap();
 }
 
-#[derive(clap::Parser, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(clap::Parser, Clone, PartialEq, Eq, Hash)]
 struct Args {
     #[arg(short, long)]
     mode: Option<String>,
@@ -86,22 +85,12 @@ fn parse_args() -> (Config, String) {
         if let Some(f) = args.config { zenoh::Config::from_file(f).expect("Invalid Zenoh Configuraiton File") } 
         else { zenoh::Config::default() };
 
-    if let Some(ls) = args.connect {
-        let sls: String = {
-            let mut s = ls.iter().fold("[".to_string(), |s, l| { s + l + "," });
-            s.pop();
-            s + "]"
-        };
-        let json_arg = json!(sls[0..sls.len()-2]).to_string();
-
-        println!("locator JSON = {}", &json_arg);
-        let _ = c.insert_json5("connect/endpoints", &json_arg);        
+    if let Some(ls) = args.connect {                
+        let _ = c.insert_json5("connect/endpoints", &json!(ls).to_string());
     }
-    if let Some(m) = args.mode {
-        println!("Overriding mode");
+    if let Some(m) = args.mode {    
         let _ = c.insert_json5("mode", &json!(m).to_string());
     }
-    
-    println!("{}", c);
+        
     (c, args.key)
 }
