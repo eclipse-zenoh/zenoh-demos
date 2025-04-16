@@ -11,114 +11,178 @@
 // Contributors:
 //   The Zenoh Team, <zenoh@zettascale.tech>
 //
-use clap::{App, Arg};
-use opencv::{prelude::*, videoio, Result};
-use zenoh::config::Config;
-use zenoh::prelude::sync::SyncResolve;
+use clap::Parser;
+use futures::{select, FutureExt};
+use opencv::{prelude::*, videoio};
+use serde_json::json;
+use zenoh::{config::Config, Wait};
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() {
     // initiate logging
     env_logger::init();
 
     let (config, key_expr, resolution, delay) = parse_args();
 
-    println!("Openning session...");
-    let session = zenoh::open(config).res().unwrap();
+    println!("Opening session...");
+    let session = zenoh::open(config).wait().unwrap();
 
-    let zpub = session.declare_publisher(&key_expr).res().unwrap();
+    let publ = session.declare_publisher(&key_expr).wait().unwrap();
 
-    let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY)?;
+    let conf_sub = session
+        .declare_subscriber(format!("{}/zcapture/conf/**", key_expr))
+        .wait()
+        .unwrap();
 
-    let opened = videoio::VideoCapture::is_opened(&cam)?;
+    let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap();
+
+    let opened = videoio::VideoCapture::is_opened(&cam).unwrap();
     if !opened {
         panic!("Unable to open default camera!");
     }
-    let mut encode_options = opencv::types::VectorOfi32::new();
+    let mut encode_options = opencv::core::Vector::<i32>::new();
     encode_options.push(opencv::imgcodecs::IMWRITE_JPEG_QUALITY);
     encode_options.push(90);
 
     loop {
-        let mut frame = Mat::default();
+        select!(
+            _ = tokio::time::sleep(std::time::Duration::from_millis(delay)).fuse() => {
+                let mut frame = Mat::default();
+                cam.read(&mut frame).unwrap();
 
-        cam.read(&mut frame)?;
+                if !frame.empty() {
+                    let mut reduced = Mat::default();
+                    opencv::imgproc::resize(&frame, &mut reduced, opencv::core::Size::new(resolution[0], resolution[1]), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
 
-        if !frame.empty() {
-            let mut reduced = Mat::default();
-            opencv::imgproc::resize(
-                &frame,
-                &mut reduced,
-                opencv::core::Size::new(resolution[0], resolution[1]),
-                0.0,
-                0.0,
-                opencv::imgproc::INTER_LINEAR,
-            )?;
+                    let mut buf = opencv::core::Vector::<u8>::new();
+                    opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();
 
-            let mut buf = opencv::types::VectorOfu8::new();
-            opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options)?;
+                    publ.put(buf.to_vec()).wait().unwrap();
+                } else {
+                    println!("Reading empty buffer from camera... Waiting some more....");
+                }
+            },
 
-            zpub.put(buf.to_vec()).res().unwrap();
-            std::thread::sleep(std::time::Duration::from_millis(delay));
-        } else {
-            println!("Reading empty buffer from camera... Waiting some more....");
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
+            sample = conf_sub.recv_async().fuse() => {
+                let sample = sample.unwrap();
+                let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
+                let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
+                let _ = session.config().insert_json5(conf_key, &conf_val);
+            },
+        );
     }
+}
+
+#[derive(clap::Parser, Clone, PartialEq, Eq, Hash, Debug)]
+struct Args {
+    #[arg(short, long)]
+    mode: Option<String>,
+    
+    #[arg(short, long, default_value="demo/zcam")]
+    key: String,
+    
+    #[arg(short('e'), long)]
+    connect: Option<Vec<String>>,
+    
+    #[arg(short, long)]
+    config: Option<String>,
+
+    #[arg(short, long, default_value="640x360")]
+    resolution: String,
+
+    #[arg(short, long, default_value="40")]
+    delay: u64
 }
 
 fn parse_args() -> (Config, String, Vec<i32>, u64) {
-    let args = App::new("zenoh videocapture example")
-        .arg(
-            Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
-                .possible_values(["peer", "client"])
-                .default_value("peer"),
-        )
-        .arg(Arg::from_usage(
-            "-e, --connect=[LOCATOR]...  'Endpoints to connect to.'",
-        ))
-        .arg(
-            Arg::from_usage(
-                "-k, --key=[KEY_EXPR] 'The key expression on which the video will be published.",
-            )
-            .default_value("demo/zcam"),
-        )
-        .arg(
-            Arg::from_usage(
-                "-r, --resolution=[RESOLUTION] 'The resolution of the published video.",
-            )
-            .default_value("640x360"),
-        )
-        .arg(
-            Arg::from_usage("-d, --delay=[DELAY] 'The delay between each frame in milliseconds.")
-                .default_value("40"),
-        )
-        .arg(Arg::from_usage(
-            "-c, --config=[FILE]      'A configuration file.'",
-        ))
-        .get_matches();
+    let args = Args::parse();
+    let mut c = 
+        if let Some(f) = args.config { zenoh::Config::from_file(f).expect("Invalid Zenoh Configuraiton File") } 
+        else { zenoh::Config::default() };
 
-    let mut config = if let Some(conf_file) = args.value_of("config") {
-        Config::from_file(conf_file).unwrap()
-    } else {
-        Config::default()
-    };
-    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
-        config.set_mode(Some(mode)).unwrap();
+    if let Some(ls) = args.connect {
+        let sls: String = {
+            let mut s = ls.iter().fold("[".to_string(), |s, l| { s + l + "," });
+            s.pop();
+            s + "]"
+        };
+        let json_arg = json!(sls[0..sls.len()-2]).to_string();
+
+        println!("locator JSON = {}", &json_arg);
+        let _ = c.insert_json5("connect/endpoints", &json_arg);        
     }
-    if let Some(connect) = args.values_of("connect") {
-        config
-            .connect
-            .endpoints
-            .extend(connect.map(|p| p.parse().unwrap()))
+    if let Some(m) = args.mode {
+        println!("Overriding mode");
+        let _ = c.insert_json5("mode", &json!(m).to_string());
     }
 
-    let key_expr = args.value_of("key").unwrap().to_string();
-    let resolution = args
-        .value_of("resolution")
-        .unwrap()
+    let resolution = args.resolution        
         .split('x')
         .map(|s| s.parse::<i32>().unwrap())
         .collect::<Vec<i32>>();
-    let delay = args.value_of("delay").unwrap().parse::<u64>().unwrap();
+        
 
-    (config, key_expr, resolution, delay)
+
+    
+    (c, args.key, resolution, args.delay)
 }
+
+
+// fn parse_args() -> (Config, String, Vec<i32>, u64) {
+//     let args = App::new("zenoh videocapture example")
+//         .arg(
+//             Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
+//                 .possible_values(["peer", "client"])
+//                 .default_value("peer"),
+//         )
+//         .arg(Arg::from_usage(
+//             "-e, --connect=[LOCATOR]...  'Endpoints to connect to.'",
+//         ))
+//         .arg(
+//             Arg::from_usage(
+//                 "-k, --key=[KEY_EXPR] 'The key expression on which the video will be published.",
+//             )
+//             .default_value("demo/zcam"),
+//         )
+//         .arg(
+//             Arg::from_usage(
+//                 "-r, --resolution=[RESOLUTION] 'The resolution of the published video.",
+//             )
+//             .default_value("640x360"),
+//         )
+//         .arg(
+//             Arg::from_usage("-d, --delay=[DELAY] 'The delay between each frame in milliseconds.")
+//                 .default_value("40"),
+//         )
+//         .arg(Arg::from_usage(
+//             "-c, --config=[FILE]      'A configuration file.'",
+//         ))
+//         .get_matches();
+
+//     let mut config = if let Some(conf_file) = args.value_of("config") {
+//         Config::from_file(conf_file).unwrap()
+//     } else {
+//         Config::default()
+//     };
+//     if let Some(mode) = args.value_of("mode") {
+//         config
+//             .insert_json5("mode", &json!(mode).to_string())
+//             .unwrap();
+//     }
+//     if let Some(peers) = args.values_of("connect") {
+//         config
+//             .insert_json5("connect/endpoints", &json!(peers.collect::<Vec<&str>>()).to_string())
+//             .unwrap();
+//     }
+
+//     let key_expr = args.value_of("key").unwrap().to_string();
+//     let resolution = args
+//         .value_of("resolution")
+//         .unwrap()
+//         .split('x')
+//         .map(|s| s.parse::<i32>().unwrap())
+//         .collect::<Vec<i32>>();
+//     let delay = args.value_of("delay").unwrap().parse::<u64>().unwrap();
+
+//     (config, key_expr, resolution, delay)
+// }
