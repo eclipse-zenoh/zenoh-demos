@@ -1,4 +1,4 @@
-package com.example.zenohapp.ui.examples
+package com.example.zenohdemo.ui.examples
 
 import android.os.Bundle
 import android.util.Log
@@ -11,10 +11,10 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.zenohapp.R
-import com.example.zenohapp.ZenohViewModel
-import com.example.zenohapp.databinding.FragmentExampleBinding
-import com.example.zenohapp.ui.examples.utils.ConsoleAdapter
+import com.example.zenohdemo.R
+import com.example.zenohdemo.ZenohViewModel
+import com.example.zenohdemo.databinding.FragmentExampleBinding
+import com.example.zenohdemo.ui.examples.utils.ConsoleAdapter
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope

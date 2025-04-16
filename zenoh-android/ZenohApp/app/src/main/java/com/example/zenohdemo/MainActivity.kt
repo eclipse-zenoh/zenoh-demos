@@ -1,4 +1,4 @@
-package com.example.zenohapp
+package com.example.zenohdemo
 
 import android.os.Bundle
 import android.view.Menu
@@ -12,7 +12,7 @@ import androidx.navigation.ui.setupWithNavController
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
-import com.example.zenohapp.databinding.ActivityMainBinding
+import com.example.zenohdemo.databinding.ActivityMainBinding
 import io.zenoh.Config
 import io.zenoh.Session
 import io.zenoh.Zenoh

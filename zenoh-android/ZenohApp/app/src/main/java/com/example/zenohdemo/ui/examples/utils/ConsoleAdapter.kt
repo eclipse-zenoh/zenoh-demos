@@ -1,9 +1,9 @@
-package com.example.zenohapp.ui.examples.utils
+package com.example.zenohdemo.ui.examples.utils
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.example.zenohapp.R
+import com.example.zenohdemo.R
 
 class ConsoleAdapter: RecyclerView.Adapter<ConsoleViewHolder>() {
 

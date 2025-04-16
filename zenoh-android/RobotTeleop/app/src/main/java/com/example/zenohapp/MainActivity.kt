@@ -34,14 +34,15 @@ class MainActivity : AppCompatActivity() {
 
         Zenoh.initLogFromEnvOr("debug")
 
-        val configFile = assets.open("config-inline-prod.json")
-        val tempConfig = File.createTempFile("config", ".json5")
-        tempConfig.deleteOnExit()
-        FileOutputStream(tempConfig).use { output ->
-            configFile.copyTo(output)
-        }
+//        val configFile = assets.open("config-inline-prod.json")
+//        val tempConfig = File.createTempFile("config", ".json5")
+//        tempConfig.deleteOnExit()
+//        FileOutputStream(tempConfig).use { output ->
+//            configFile.copyTo(output)
+//        }
 
-        val config = Config.fromFile(Path(tempConfig.absolutePath)).getOrThrow()
+//        val config = Config.fromFile(Path(tempConfig.absolutePath)).getOrThrow()
+        val config = Config.default()
         Zenoh.open(config).onSuccess {
             viewModel.zenohSession = it
         }.onFailure {

@@ -1,4 +1,4 @@
-package com.example.zenohapp.ui.examples
+package com.example.zenohdemo.ui.examples
 
 import io.zenoh.bytes.ZBytes
 import io.zenoh.keyexpr.intoKeyExpr

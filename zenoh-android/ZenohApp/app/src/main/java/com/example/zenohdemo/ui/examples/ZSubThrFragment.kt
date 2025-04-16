@@ -1,6 +1,6 @@
-package com.example.zenohapp.ui.examples
+package com.example.zenohdemo.ui.examples
 
-import com.example.zenohapp.R
+import com.example.zenohdemo.R
 import io.zenoh.keyexpr.intoKeyExpr
 import io.zenoh.pubsub.Subscriber
 import kotlinx.coroutines.DelicateCoroutinesApi

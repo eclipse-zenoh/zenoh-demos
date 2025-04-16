@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.zenohapp"
+    namespace = "com.example.zenohdemo"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.zenohapp"
+        applicationId = "com.example.zenoh"
         minSdk = 30
         targetSdk = 33
         versionCode = 1

@@ -11,17 +11,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/eclipse-zenoh/zenoh-kotlin")
-            credentials {
-                username = providers.gradleProperty("user").get()
-                password = providers.gradleProperty("token").get()
-            }
-        }
     }
 }
 
-rootProject.name = "ZenohApp"
+rootProject.name = "ZenohRobotTeleop"
 include(":app")
  

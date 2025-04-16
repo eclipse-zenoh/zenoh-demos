@@ -14,6 +14,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ZenohApp"
+rootProject.name = "ZenohDemo"
 include(":app")
  
