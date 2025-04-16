@@ -1,12 +1,12 @@
 //
 // Copyright (c) 2017, 2020 ZettaScale Technology
-//
 // This program and the accompanying materials are made available under the
 // terms of the Eclipse Public License 2.0 which is available at
 // http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
 // which is available at https://www.apache.org/licenses/LICENSE-2.0.
 //
 // SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+//
 //
 // Contributors:
 //   The Zenoh Team, <zenoh@zettascale.tech>
@@ -15,34 +15,51 @@ use clap::Parser;
 use futures::{select, FutureExt};
 use opencv::{prelude::*, videoio};
 use serde_json::json;
-use zenoh::{config::Config, Wait};
+use zenoh::{config::Config, shm::*, Wait};
+
+const SHM_BUF_SIZE: usize = 64 * 1024 * 1024;
 
 #[tokio::main]
 async fn main() {
     // initiate logging
     env_logger::init();
 
-    let (config, key_expr, resolution, 
-        delay, reliability, congestion_ctrl, image_quality) = parse_args();
+    let shm_back_end = zenoh::shm::PosixShmProviderBackend::builder()
+        .with_size(SHM_BUF_SIZE)
+        .unwrap()
+        .wait()
+        .unwrap();
+    let shm_provider: ShmProvider<StaticProtocolID<0>, PosixShmProviderBackend> = ShmProviderBuilder::builder()
+        .protocol_id::<POSIX_PROTOCOL_ID>()
+        .backend(shm_back_end)
+        .wait();
+
+    let (config, key_expr, resolution, delay, reliability, congestion_ctrl, image_quality) =
+        parse_args();
 
     println!("Opening session...");
     let z = zenoh::open(config).await.unwrap();
 
-    let publ = z.declare_publisher(&key_expr)
+    let publ = z
+        .declare_publisher(&key_expr)
         .reliability(reliability)
         .congestion_control(congestion_ctrl)
-        .await.unwrap();
+        .await
+        .unwrap();
 
-    let conf_sub = z.declare_subscriber(format!("{}/zcapture/conf/**", key_expr)).await.unwrap();                
+    let conf_sub = z
+        .declare_subscriber(format!("{}/zcapture/conf/**", key_expr))
+        .await
+        .unwrap();
 
     let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap();
 
     let opened = videoio::VideoCapture::is_opened(&cam).unwrap();
-    
+
     if !opened {
         panic!("Unable to open default camera!");
     }
-    let mut encode_options = opencv::core::Vector::<i32>::new();    
+    let mut encode_options = opencv::core::Vector::<i32>::new();
     encode_options.push(opencv::imgcodecs::IMWRITE_JPEG_QUALITY);
     encode_options.push(image_quality);
 
@@ -57,14 +74,18 @@ async fn main() {
                     opencv::imgproc::resize(&frame, &mut reduced, opencv::core::Size::new(resolution[0], resolution[1]), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
 
                     let mut buf = opencv::core::Vector::<u8>::new();
-                    opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();
-
-                    publ.put(buf.to_vec()).wait().unwrap();
+                    opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();                    
+                    let shm_len = ((buf.len() >> 8) + 1) << 8;                    
+                    let mut shm_buf = shm_provider
+                        .alloc(shm_len)
+                        .with_policy::<BlockOn<Defragment<GarbageCollect>>>()
+                        .wait().expect("Failed to allocate SHM buffer");                    
+                    shm_buf.copy_from_slice(buf.as_slice());                    
+                    publ.put(shm_buf).wait().unwrap();
                 } else {
                     println!("Reading empty buffer from camera... Waiting some more....");
                 }
             },
-
             sample = conf_sub.recv_async().fuse() => {
                 let sample = sample.unwrap();
                 let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
@@ -79,54 +100,79 @@ async fn main() {
 struct Args {
     #[arg(short, long)]
     mode: Option<String>,
-    
-    #[arg(short, long, default_value="demo/zcam")]
+
+    #[arg(short, long, default_value = "demo/zcam")]
     key: String,
-    
+
     #[arg(short('e'), long)]
     connect: Option<Vec<String>>,
-    
+
     #[arg(short, long)]
     config: Option<String>,
 
-    #[arg(short, long, default_value="640x360")]
+    #[arg(short, long, default_value = "640x360")]
     resolution: String,
 
-    #[arg(short, long, default_value="40")]
+    #[arg(short, long, default_value = "40")]
     delay: u64,
 
-    #[arg(long, default_value="false")]
+    #[arg(long, default_value = "false")]
     best_effort: bool,
 
-    #[arg(long, default_value="false")]
+    #[arg(long, default_value = "false")]
     block_on_congestion: bool,
 
-    #[arg(long, default_value="18")]
+    #[arg(long, default_value = "18")]
     image_quality: i32,
-
 }
 
-fn parse_args() -> (Config, String, Vec<i32>, u64, zenoh::qos::Reliability, zenoh::qos::CongestionControl, i32) {
+fn parse_args() -> (
+    Config,
+    String,
+    Vec<i32>,
+    u64,
+    zenoh::qos::Reliability,
+    zenoh::qos::CongestionControl,
+    i32,
+) {
     let args = Args::parse();
-    let mut c = 
-        if let Some(f) = args.config { zenoh::Config::from_file(f).expect("Invalid Zenoh Configuraiton File") } 
-        else { zenoh::Config::default() };
+    let mut c = if let Some(f) = args.config {
+        zenoh::Config::from_file(f).expect("Invalid Zenoh Configuraiton File")
+    } else {
+        zenoh::Config::default()
+    };
 
-    if let Some(ls) = args.connect {                
-        let _ = c.insert_json5("connect/endpoints", &json!(ls).to_string());        
+    if let Some(ls) = args.connect {
+        let _ = c.insert_json5("connect/endpoints", &json!(ls).to_string());
     }
-    if let Some(m) = args.mode {        
+    if let Some(m) = args.mode {
         let _ = c.insert_json5("mode", &json!(m).to_string());
     }
 
-    let resolution = args.resolution        
+    let resolution = args
+        .resolution
         .split('x')
         .map(|s| s.parse::<i32>().unwrap())
         .collect::<Vec<i32>>();
-        
-    let congestion_control = 
-        if args.block_on_congestion {zenoh::qos::CongestionControl::Block} else {zenoh::qos::CongestionControl::Drop};
-    let reliability = if args.best_effort {zenoh::qos::Reliability::BestEffort} else { zenoh::qos::Reliability::Reliable };
-    
-    (c, args.key, resolution, args.delay, reliability, congestion_control, args.image_quality)
+
+    let congestion_control = if args.block_on_congestion {
+        zenoh::qos::CongestionControl::Block
+    } else {
+        zenoh::qos::CongestionControl::Drop
+    };
+    let reliability = if args.best_effort {
+        zenoh::qos::Reliability::BestEffort
+    } else {
+        zenoh::qos::Reliability::Reliable
+    };
+
+    (
+        c,
+        args.key,
+        resolution,
+        args.delay,
+        reliability,
+        congestion_control,
+        args.image_quality,
+    )
 }
