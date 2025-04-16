@@ -48,6 +48,6 @@ z = zenoh.open(conf)
 while True:
     x = random.randint(0, args.max)
     print("Putting Data ('{}': {})...".format(args.key, x))
-    z.put(args.key, x)
+    z.put(args.key, json.dumps(x), encoding=zenoh.Encoding.APPLICATION_JSON)
 
     time.sleep(args.delay)

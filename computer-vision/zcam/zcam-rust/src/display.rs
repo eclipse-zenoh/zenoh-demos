@@ -11,75 +11,97 @@
 // Contributors:
 //   The Zenoh Team, <zenoh@zettascale.tech>
 //
-use clap::{App, Arg};
-use opencv::{highgui, prelude::*, Result};
-use zenoh::config::Config;
-use zenoh::prelude::sync::SyncResolve;
-use zenoh::prelude::SplitBuffer;
+use clap::Parser;
+use futures::{select, FutureExt};
+use opencv::{highgui, prelude::*};
+use serde_json::json;
+use zenoh::{config::Config, Wait};
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() {
     // initiate logging
     env_logger::init();
     let (config, key_expr) = parse_args();
 
-    println!("Openning session...");
-    let session = zenoh::open(config).res().unwrap();
-    let sub = session.declare_subscriber(&key_expr).res().unwrap();
+    println!("Opening session...");
+    let z = zenoh::open(config).wait().unwrap();
+    let sub = z.declare_subscriber(&key_expr).wait().unwrap();
 
-    while let Ok(sample) = sub.recv() {
-        let decoded = opencv::imgcodecs::imdecode(
-            &opencv::types::VectorOfu8::from_slice(sample.value.payload.contiguous().as_ref()),
-            opencv::imgcodecs::IMREAD_COLOR,
-        )?;
+    let conf_sub = 
+        z.declare_subscriber(format!("{}/zdisplay/conf/**", key_expr))
+        .wait()
+        .unwrap();
 
-        if decoded.size().unwrap().width > 0 {
-            highgui::imshow(sample.key_expr.as_str(), &decoded)?;
-        }
+    loop {        
+        select!(
+            sample = sub.recv_async().fuse() => {
+                let sample = sample.unwrap();
+                let bs = opencv::core::Vector::<u8>::from(sample.payload().to_bytes().to_vec());
+                let decoded = opencv::imgcodecs::imdecode(
+                    &bs,
+                    opencv::imgcodecs::IMREAD_COLOR,
+                ).unwrap();
 
-        if highgui::wait_key(10)? == 113 {
-            // 'q'
-            break;
-        }
+                if decoded.size().unwrap().width > 0 {
+                    highgui::imshow(sample.key_expr().as_str(), &decoded).unwrap();
+                }
+
+                if highgui::wait_key(10).unwrap() == 113 {
+                    // 'q'
+                    break;
+                }
+            },
+
+            sample = conf_sub.recv_async().fuse() => {
+                let sample = sample.unwrap();
+                let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
+                let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
+                let _ = z.config().insert_json5(conf_key, &conf_val);
+            },
+        );
     }
-    sub.undeclare().res().unwrap();
-    session.close().res().unwrap();
-    Ok(())
+    conf_sub.undeclare().wait().unwrap();
+    sub.undeclare().wait().unwrap();
+    z.close().wait().unwrap();
+}
+
+#[derive(clap::Parser, Clone, PartialEq, Eq, Hash, Debug)]
+struct Args {
+    #[arg(short, long)]
+    mode: Option<String>,
+    
+    #[arg(short, long, default_value="demo/zcam")]
+    key: String,
+    
+    #[arg(short('e'), long)]
+    connect: Option<Vec<String>>,
+    
+    #[arg(short, long)]
+    config: Option<String>
 }
 
 fn parse_args() -> (Config, String) {
-    let args = App::new("zenoh video display example")
-        .arg(
-            Arg::from_usage("-m, --mode=[MODE] 'The zenoh session mode.")
-                .possible_values(["peer", "client"])
-                .default_value("peer"),
-        )
-        .arg(
-            Arg::from_usage("-k, --key=[KEY_EXPR] 'The key expression to subscribe to.")
-                .default_value("demo/zcam"),
-        )
-        .arg(Arg::from_usage(
-            "-e, --peer=[LOCATOR]...  'Peer locators used to initiate the zenoh session.'",
-        ))
-        .arg(Arg::from_usage(
-            "-c, --config=[FILE]      'A configuration file.'",
-        ))
-        .get_matches();
+    let args = Args::parse();
+    let mut c = 
+        if let Some(f) = args.config { zenoh::Config::from_file(f).expect("Invalid Zenoh Configuraiton File") } 
+        else { zenoh::Config::default() };
 
-    let key_expr = args.value_of("key").unwrap().to_string();
+    if let Some(ls) = args.connect {
+        let sls: String = {
+            let mut s = ls.iter().fold("[".to_string(), |s, l| { s + l + "," });
+            s.pop();
+            s + "]"
+        };
+        let json_arg = json!(sls[0..sls.len()-2]).to_string();
 
-    let mut config = if let Some(conf_file) = args.value_of("config") {
-        Config::from_file(conf_file).unwrap()
-    } else {
-        Config::default()
-    };
-    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
-        config.set_mode(Some(mode)).unwrap();
+        println!("locator JSON = {}", &json_arg);
+        let _ = c.insert_json5("connect/endpoints", &json_arg);        
     }
-    if let Some(peers) = args.values_of("peer") {
-        config
-            .connect
-            .endpoints
-            .extend(peers.map(|p| p.parse().unwrap()))
+    if let Some(m) = args.mode {
+        println!("Overriding mode");
+        let _ = c.insert_json5("mode", &json!(m).to_string());
     }
-    (config, key_expr)
+    
+    println!("{}", c);
+    (c, args.key)
 }

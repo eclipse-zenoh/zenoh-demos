@@ -1,39 +1,42 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <link rel="stylesheet" href="https://uicdn.toast.com/chart/latest/toastui-chart.min.css" />
-        <script src="https://uicdn.toast.com/chart/latest/toastui-chart.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/1.33.1/plotly.min.js"></script>
     </head>
-    <body style="width: 100vw; height: 100vh;">
+    <body>
+        <div id="plot"></div>
         <script type="text/javascript">
-            series = {};
-            chart = toastui.Chart.lineChart({ 
-                el: document.body,
-                data: { series: [] },
-                options: {
-                chart: { height: 'auto', width: 'auto', animation: false },
-                xAxis: {date: true},
-                yAxis: {scale: {min:0}},
-                },
-            });
             if(typeof(EventSource) !== "undefined") {
+                Plotly.newPlot('plot', [{x: [], y: [], mode: 'lines'}]);
                 var source = new EventSource("http://localhost:8000/demo/random");
                 source.addEventListener("PUT", function(e) {
-                    sample = JSON.parse(e.data);
-                    if (!series[sample.key]) {series[sample.key] = {value: [], checked: true};} 
-                    series[sample.key].value.push([new Date(sample.time.split('/')[0]), sample.value]);
+                    const sample = JSON.parse(e.data);
+
+                    var traceIdx = document.getElementById('plot').data.findIndex(v => v.name === sample.key);
+                    if (traceIdx == -1 ) {
+                        Plotly.addTraces('plot', {x: [], y: [], name: sample.key, mode: 'lines'}, 0);
+                        traceIdx = 0;
+                    }
+
+                    var time = new Date(sample.timestamp.split('/')[0] / 4294967.295);
+                    var update = {
+                        x: [[time]],
+                        y: [[sample.value]],
+                    }
+
+                    var olderTime = time.setMinutes(time.getMinutes() - 1);
+                    var futureTime = time.setMinutes(time.getMinutes() + 1);
+
+                    var minuteView = {
+                        xaxis: {
+                            type: 'date',
+                            range: [olderTime,futureTime]
+                        }
+                    };
+
+                    Plotly.relayout('plot', minuteView);
+                    Plotly.extendTraces('plot', update, [traceIdx])
                 }, false);
-                setInterval(function() {
-                    now = Date.now();
-                    for (key of  Object.keys(series)) { 
-                        series[key].value = series[key].value.filter(x => x[0] > (now - 10000))
-                    }
-                    chart.setData({ series: Object.keys(series).map(name => {return {name, data: series[name].value}})});
-                    legend = chart.store.state.legend.data;
-                    for (l of legend) {
-                        chart.store.state.legend.data.find(data => data.label === l.label).checked = l.checked;
-                    }
-                }, 500);
             } else {
                 document.body.innerHTML = "Sorry, your browser does not support server-sent events...";
             }
