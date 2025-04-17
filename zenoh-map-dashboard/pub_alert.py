@@ -23,57 +23,15 @@ import zenoh
 parser = argparse.ArgumentParser(
     prog='z_pub',
     description='zenoh pub example')
-parser.add_argument('--v', '-v', dest='vehicle',
-                    choices=[1,2,3,4],
-                    type=int,
-                    help='The vehicle to send')
 
 args = parser.parse_args()
 conf = zenoh.Config()
 conf.insert_json5("mode", json.dumps("client"))
 conf.insert_json5("connect/endpoints", json.dumps(["tcp/127.0.0.1:7447"]))
 
-vehicle = args.vehicle - 1
 
-cars = [
-  {
-    'position': { 'lat': 48.864950, 'lng': 2.349000 },
-    'speed': 10,
-    'color': '#ff0000',
-    'id': 'luca',
-    'kind':'car'
-  },
-  {
-    'position': { 'lat': 48.865250, 'lng': 2.347200 },
-    'speed': 10,
-    'color': '#000000',
-    'id': 'test',
-    'kind':'whoknows'
-  },
-  {
-    'position': { 'lat': 48.864750, 'lng': 2.349200 },
-    'speed': 20,
-    'color': '#ffffff',
-    'id': 'angelo',
-    'kind':"motorbike"
-  },
-  {
-    'position': { 'lat': 48.864550, 'lng': 2.349550 },
-    'speed': 30,
-    'color': '#0000ff',
-    'id': 'gabriele',
-    "kind":"motorbike",
-  },
-    {
-    'position': { 'lat': 48.865500, 'lng': 2.349550 },
-    'speed': 40,
-    'color': '#ff00ff',
-    'id': 'steven',
-    "kind":"car",
-  }
-]
 
-key = f'demo/tracker/mobs/{cars[vehicle]['id']}'
+key = 'demo/tracker/alert/distance'
 
 
 def main():
@@ -88,14 +46,12 @@ def main():
 
     print("Press CTRL-C to quit...")
     while True:
-        time.sleep(0.5)
-        buf = json.dumps(cars[vehicle]).encode("utf-8")
+        buf = json.dumps({'ida':'test', 'idb':'test',"distance":"12", 'kind':'DANGER'}).encode("utf-8")
         print(f"Putting Data ('{key}': '{buf}')...")
         pub.put(buf)
+        time.sleep(5)
 
-        cars[vehicle]['position']['lat'] += 0.00001
-        cars[vehicle]['position']['lng'] += 0.00001
-        # cars[vehicle]['position']['timestamp'] = time.time()
+        
 
     pub.undeclare()
     session.close()
