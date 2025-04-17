@@ -79,8 +79,11 @@ async fn main() {
                     let mut shm_buf = shm_provider
                         .alloc(shm_len)
                         .with_policy::<BlockOn<Defragment<GarbageCollect>>>()
-                        .wait().expect("Failed to allocate SHM buffer");                    
-                    shm_buf.copy_from_slice(buf.as_slice());                    
+                        .wait().expect("Failed to allocate SHM buffer");                                    
+                    let bs = buf.to_vec();
+                    for i in 0.. bs.len() {
+                        shm_buf[i] = bs[i];
+                    }                    
                     publ.put(shm_buf).wait().unwrap();
                 } else {
                     println!("Reading empty buffer from camera... Waiting some more....");
