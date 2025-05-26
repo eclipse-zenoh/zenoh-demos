@@ -47,7 +47,7 @@ def frames_listener(sample):
 
 print('[INFO] Open zenoh session...')
 
-zenoh.init_logger()
+zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 
 print('[INFO] Start detection')
@@ -62,7 +62,7 @@ while True:
         if ret_qr:
             for i, info, points in zip(range(len(points)), decoded_info, points):
                 z.put('{}/codes/{}/{}'.format(args.prefix, cam, i),
-                    {'info': info, 'box': points.tolist()})
+                    json.dumps({'info': info, 'box': points.tolist()}))
 
     time.sleep(args.delay)
 

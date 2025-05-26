@@ -97,7 +97,7 @@ def lidar_listener(sample):
     line.set_data(X, Y)
 
 print("[INFO] Openning zenoh session...")
-zenoh.init_logger()
+zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 
 print("[INFO] Creating Subscriber on '{}'...".format(args.key))
