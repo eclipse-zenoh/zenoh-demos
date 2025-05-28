@@ -79,7 +79,7 @@ key = f'demo/vehicles/{cars[vehicle]['id']}'
 
 def main():
     # initiate logging
-    zenoh.init_logger()
+    zenoh.init_log_from_env_or("error")
 
     print("Opening session...")
     session = zenoh.open(conf)

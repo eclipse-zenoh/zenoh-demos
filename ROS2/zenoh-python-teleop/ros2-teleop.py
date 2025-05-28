@@ -108,7 +108,7 @@ def main(stdscr):
     # zenoh-net code  --- --- --- --- --- --- --- --- --- --- ---
 
     # initiate logging
-    zenoh.init_logger()
+    zenoh.init_log_from_env_or("error")
 
     print("Openning session...")
     session = zenoh.open(conf)

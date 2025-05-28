@@ -49,8 +49,8 @@ def add_face_to_data(fdata, key, value):
 
 
 def update_face_data(sample):
-    if sample.kind == zenoh.SampleKind.PUT():
-        add_face_to_data(data, str(sample.key_expr), sample.payload.decode("utf-8"))
+    if sample.kind == zenoh.SampleKind.PUT:
+        add_face_to_data(data, str(sample.key_expr), sample.payload.to_string())
 
 
 def faces_listener(sample):
@@ -66,12 +66,12 @@ def faces_listener(sample):
 
 
 print('[INFO] Open zenoh session...')
-zenoh.init_logger()
+zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 time.sleep(0.5)
 
 print('[INFO] Retrieve faces vectors...')
-for vector in z.get(args.prefix + '/vectors/**', zenoh.ListCollector())():
+for vector in z.get(args.prefix + '/vectors/**'):
     add_face_to_data(data, str(vector.data.key_expr), vector.data.payload.decode("utf-8"))
 
 print('[INFO] Start recognition...')

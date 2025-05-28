@@ -56,12 +56,12 @@ def codes_listener(sample):
     if code not in cams[cam]['codes']:
         cams[cam]['codes'][code] = {}
 
-    cams[cam]['codes'][code] = json.loads(sample.payload.decode("utf-8"))
+    cams[cam]['codes'][code] = json.loads(sample.payload.to_string())
     cams[cam]['codes'][code]['time'] = time.time()
 
 print('[INFO] Open zenoh session...')
 
-zenoh.init_logger()
+zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 
 sub = z.declare_subscriber(args.prefix + '/cams/*', frames_listener)
