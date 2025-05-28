@@ -1,11 +1,11 @@
 use cdr::{CdrLe, Infinite};
-use clap::{App, Arg};
+use clap::Parser;
 use hls_lfcd_lds_driver::{LFCDLaser, LaserReading, DEFAULT_BAUD_RATE, DEFAULT_PORT};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::f32::consts::PI;
 use std::time::SystemTime;
-use zenoh::config::Config;
-use zenoh::prelude::r#async::AsyncResolve;
+use zenoh::{config::WhatAmI, Config, key_expr::KeyExpr};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Time {
@@ -59,9 +59,9 @@ impl From<LaserReading> for LaserScan {
     }
 }
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
-    env_logger::init();
+    zenoh::init_log_from_env_or("error");
 
     let (config, key, port, baud_rate, delay) = parse_args();
     println!("Opening LDS01 on {} with {}", port, baud_rate);
@@ -69,77 +69,109 @@ async fn main() {
     let mut port = LFCDLaser::new(port, baud_rate).unwrap();
 
     println!("Opening session...");
-    let session = zenoh::open(config).res().await.unwrap();
+    let session = zenoh::open(config).await.unwrap();
 
-    let publisher = session.declare_publisher(key).res().await.unwrap();
+    let publisher = session.declare_publisher(key).await.unwrap();
     loop {
         let laser_scan: LaserScan = port.read().await.unwrap().into();
         println!("Putting Data '{}': {:?}", publisher.key_expr(), laser_scan);
         publisher
             .put(cdr::serialize::<_, _, CdrLe>(&laser_scan, Infinite).unwrap())
-            .res()
+            
             .await
             .unwrap();
-        async_std::task::sleep(std::time::Duration::from_millis(delay)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
     }
 }
 
-fn parse_args() -> (Config, String, String, u32, u64) {
-    let args = App::new("zlidar")
-        .about("zenoh turtlebot3 lidar demo")
-        .arg(
-            Arg::from_usage("-m, --mode=[MODE]  'The zenoh session mode (peer by default).")
-                .possible_values(["peer", "client"]),
-        )
-        .arg(Arg::from_usage(
-            "-e, --connect=[LOCATOR]...   'Peer locators used to initiate the zenoh session.'",
-        ))
-        .arg(Arg::from_usage(
-            "-l, --listen=[LOCATOR]...   'Locators to listen on.'",
-        ))
-        .arg(
-            Arg::from_usage("-k, --key=[key_expr] 'The key expression to publish LaserReadings'")
-                .default_value("rt/turtle1/lidar"),
-        )
-        .arg(Arg::from_usage("-p, --port=[port] 'The serial port.'").default_value(DEFAULT_PORT))
-        .arg(
-            Arg::from_usage("-b, --baud-rate=[baud-rate] 'The baud rate.'")
-                .default_value(DEFAULT_BAUD_RATE),
-        )
-        .arg(
-            Arg::from_usage("-d, --delay=[DELAY] 'The delay between each read in milliseconds.")
-                .default_value("40"),
-        )
-        .arg(Arg::from_usage(
-            "-c, --config=[FILE]      'A configuration file.'",
-        ))
-        .get_matches();
+#[derive(clap::Parser, Clone, PartialEq, Eq, Hash, Debug)]
+pub struct Args {
+    #[arg(short, long)]
+    /// A configuration file.
+    config: Option<String>,
+    #[arg(long)]
+    /// Allows arbitrary configuration changes as column-separated KEY:VALUE pairs, where:
+    ///   - KEY must be a valid config path.
+    ///   - VALUE must be a valid JSON5 string that can be deserialized to the expected type for the KEY field.
+    ///
+    /// Example: `--cfg='transport/unicast/max_links:2'`
+    #[arg(long)]
+    cfg: Vec<String>,
+    #[arg(short, long)]
+    /// The Zenoh session mode [default: peer].
+    mode: Option<WhatAmI>,
+    #[arg(short = 'e', long)]
+    /// Endpoints to connect to.
+    connect: Vec<String>,
+    #[arg(short, long)]
+    /// Endpoints to listen on.
+    listen: Vec<String>,
+    #[arg(long)]
+    /// Disable the multicast-based scouting mechanism.
+    no_multicast_scouting: bool,
+    #[arg(short, long, default_value = "rt/turtle1/lidar")]
+    /// The key expression to publish LaserReadings.
+    key: KeyExpr<'static>,
+    #[arg(short, long, default_value = DEFAULT_PORT)]
+    /// The serial port.
+    port: String,
+    #[arg(short, long, default_value = DEFAULT_BAUD_RATE)]
+    /// The baud rate.
+    baud_rate: u32,
+    #[arg(short, long, default_value = "40")]
+    /// The delay between each read in milliseconds.
+    delay: u64,
+}
 
-    let mut config = if let Some(conf_file) = args.value_of("config") {
-        Config::from_file(conf_file).unwrap()
-    } else {
-        Config::default()
-    };
-    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
-        config.set_mode(Some(mode)).unwrap();
+impl From<Args> for Config {
+    fn from(value: Args) -> Self {
+        (&value).into()
     }
-    if let Some(values) = args.values_of("connect") {
+}
+
+impl From<&Args> for Config {
+    fn from(args: &Args) -> Self {
+        let mut config = match &args.config {
+            Some(path) => Config::from_file(path).unwrap(),
+            None => Config::default(),
+        };
+        if let Some(mode) = args.mode {
+            config
+                .insert_json5("mode", &json!(mode.to_str()).to_string())
+                .unwrap();
+        }
+
+        if !args.connect.is_empty() {
+            config
+                .insert_json5("connect/endpoints", &json!(args.connect).to_string())
+                .unwrap();
+        }
+        if !args.listen.is_empty() {
+            config
+                .insert_json5("listen/endpoints", &json!(args.listen).to_string())
+                .unwrap();
+        }
+        if args.no_multicast_scouting {
+            config
+                .insert_json5("scouting/multicast/enabled", &json!(false).to_string())
+                .unwrap();
+        }
+        for json in &args.cfg {
+            if let Some((key, value)) = json.split_once(':') {
+                if let Err(err) = config.insert_json5(key, value) {
+                    eprintln!("`--cfg` argument: could not parse `{json}`: {err}");
+                    std::process::exit(-1);
+                }
+            } else {
+                eprintln!("`--cfg` argument: expected KEY:VALUE pair, got {json}");
+                std::process::exit(-1);
+            }
+        }
         config
-            .connect
-            .endpoints
-            .extend(values.map(|v| v.parse().unwrap()))
     }
-    if let Some(values) = args.values_of("listen") {
-        config
-            .listen
-            .endpoints
-            .extend(values.map(|v| v.parse().unwrap()))
-    }
+}
 
-    let key = args.value_of("key").unwrap().to_string();
-    let port = args.value_of("port").unwrap().to_string();
-    let baud_rate: u32 = args.value_of("baud-rate").unwrap().parse().unwrap();
-    let delay: u64 = args.value_of("delay").unwrap().parse().unwrap();
-
-    (config, key, port, baud_rate, delay)
+fn parse_args() -> (Config, KeyExpr<'static>, String, u32, u64) {
+    let args = Args::parse();
+    ((&args).into(), args.key, args.port, args.baud_rate, args.delay)
 }
