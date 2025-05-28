@@ -80,7 +80,7 @@ if args.listen is not None:
 
 
 print('[INFO] Open zenoh session...')
-zenoh.init_logger()
+zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 
 heartbeat_pub = z.declare_publisher('{}/heartbeat'.format(args.prefix))
