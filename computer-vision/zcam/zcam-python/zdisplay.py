@@ -41,7 +41,7 @@ def frames_listener(sample):
 
 
 print('[INFO] Open zenoh session...')
-zenoh.init_logger()
+zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 
 sub = z.declare_subscriber(args.key, frames_listener)

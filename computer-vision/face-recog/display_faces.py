@@ -60,16 +60,16 @@ def names_listener(sample):
     if face not in cams[cam]:
         cams[cam][face] = {'img': b'', 'name': '', 'time': 0}
 
-    cams[cam][face]['name'] = sample.payload.decode("utf-8")
+    cams[cam][face]['name'] = sample.payload.to_string()
 
 
 print('[INFO] Open zenoh session...')
-zenoh.init_logger()
+zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 sub1 = z.declare_subscriber(args.prefix + '/faces/*/*', faces_listener)
 sub2 = z.declare_subscriber(args.prefix + '/faces/*/*/name', names_listener)
 
-for data in z.get(args.prefix + '/faces/*/*/name', zenoh.ListCollector())():
+for data in z.get(args.prefix + '/faces/*/*/name'):
     names_listener(data)
 
 print('[INFO] Display detected faces ...')

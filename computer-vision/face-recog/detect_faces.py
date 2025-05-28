@@ -55,7 +55,7 @@ def frames_listener(sample):
 
 print('[INFO] Open zenoh session...')
 
-zenoh.init_logger()
+zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 
 detector = cv2.CascadeClassifier(args.cascade)
@@ -86,7 +86,7 @@ while True:
             # print('[DEBUG] Put detected face: {}/faces/{}/{}'.format(args.prefix, cam, i))
             z.put('{}/faces/{}/{}'.format(args.prefix, cam, i), jpeg.tobytes())
             z.put('{}/faces/{}/{}/box'.format(args.prefix, cam, i),
-                {'left': int(left), 'right': int(right), 'top': int(top), 'bottom': int(bottom)})
+                json.dumps({'left': int(left), 'right': int(right), 'top': int(top), 'bottom': int(bottom)}))
 
     time.sleep(args.delay)
 

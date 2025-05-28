@@ -40,7 +40,7 @@ if args.listen is not None:
 detector = cv2.CascadeClassifier(args.cascade)
 
 print('[INFO] Open zenoh session...')
-zenoh.init_logger()
+zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 
 vs = VideoStream(src=0).start()
@@ -77,9 +77,9 @@ while True:
             encoding = face_recognition.face_encodings(rgb, box)[0]
             elist = encoding.tolist()
 
-            faces = z.get(args.prefix + '/vectors/**', zenoh.ListCollector())
+            faces = z.get(args.prefix + '/vectors/**')
             counter = 0
-            for face in faces():
+            for face in faces:
                 chunks = str(face.ok.key_expr).split('/')
                 name = chunks[-2]
                 if name == args.name:

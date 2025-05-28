@@ -32,7 +32,7 @@ f = open(args.dataset)
 faces = json.load(f)
 
 print('[INFO] Open zenoh session...')
-zenoh.init_logger()
+zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 time.sleep(0.5)
 
