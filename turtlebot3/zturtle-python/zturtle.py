@@ -87,7 +87,7 @@ heartbeat_pub = z.declare_publisher('{}/heartbeat'.format(args.prefix))
 
 def listener(sample):
     global cmd
-    cmd = Twist.deserialize(sample.value.payload)
+    cmd = Twist.deserialize(bytes(sample.payload))
 
 print('[INFO] Connect to motor...')
 servo = Servo(DEVICENAME, PROTOCOL_VERSION, BAUDRATE, MOTOR_ID)
@@ -115,7 +115,7 @@ while True:
         servo.write4ByteTxRx(CMD_VELOCITY_ANGULAR_Z, int(cmd.angular.z))
     cmd = Twist(Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.0, 0.0))
 
-    heartbeat_pub.put(count)
+    heartbeat_pub.put(str(count))
 
     raw = vs.read()
     if raw is not None:
