@@ -72,11 +72,11 @@ bssid = get_bssid()
 mapping = json.loads(open(args.endpoints, "r").read())
 
 conf = zenoh.Config.from_file(args.config) if args.config is not None else zenoh.Config()
-conf.insert_json5(zenoh.config.CONNECT_KEY, get_endpoint(mapping, bssid))
+conf.insert_json5('connect/endpoints', get_endpoint(mapping, bssid))
 if args.mode is not None:
-    conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
+    conf.insert_json5('mode', json.dumps(args.mode))
 if args.listen is not None:
-    conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(args.listen))
+    conf.insert_json5('listen/endpoints', json.dumps(args.listen))
 
 
 print('[INFO] Open zenoh session...')
@@ -129,7 +129,7 @@ while True:
         bssid = new_bssid
         peer = get_endpoint(mapping, bssid)
         if peer:
-            z.config().insert_json5(zenoh.config.CONNECT_KEY, peer)
+            z.config().insert_json5('connect/endpoints', peer)
 
     count += 1
     if count > 255:

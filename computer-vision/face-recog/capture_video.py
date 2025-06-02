@@ -33,11 +33,11 @@ parser.add_argument('-c', '--config', type=str, metavar='FILE',
 args = parser.parse_args()
 conf = zenoh.Config.from_file(args.config) if args.config is not None else zenoh.Config()
 if args.mode is not None:
-    conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
+    conf.insert_json5('mode', json.dumps(args.mode))
 if args.connect is not None:
-    conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(args.connect))
+    conf.insert_json5('connect/endpoints', json.dumps(args.connect))
 if args.listen is not None:
-    conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(args.listen))
+    conf.insert_json5('listen/endpoints', json.dumps(args.listen))
 
 jpeg_opts = [int(cv2.IMWRITE_JPEG_QUALITY), args.quality]
 picamera = args.camera.startswith('picamera')

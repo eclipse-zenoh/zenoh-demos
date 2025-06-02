@@ -47,11 +47,11 @@ cmd = Twist(Vector3(0.0, 0.0, 0.0), Vector3(0.0, 0.0, 0.0))
 
 conf = zenoh.Config.from_file(args.config) if args.config is not None else zenoh.Config()
 if args.connect is not None:
-    conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(args.connect))
+    conf.insert_json5('connect/endpoints', json.dumps(args.connect))
 if args.mode is not None:
-    conf.insert_json5(zenoh.config.MODE_KEY, json.dumps(args.mode))
+    conf.insert_json5('mode', json.dumps(args.mode))
 if args.listen is not None:
-    conf.insert_json5(zenoh.config.LISTEN_KEY, json.dumps(args.listen))
+    conf.insert_json5('listen/endpoints', json.dumps(args.listen))
 
 
 print('[INFO] Open zenoh session...')

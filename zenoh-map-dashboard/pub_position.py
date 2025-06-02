@@ -31,8 +31,8 @@ parser.add_argument('--v', '-v', dest='vehicle',
 
 args = parser.parse_args()
 conf = zenoh.Config()
-conf.insert_json5(zenoh.config.MODE_KEY, json.dumps("client"))
-conf.insert_json5(zenoh.config.CONNECT_KEY, json.dumps(["tcp/3.71.106.121:7447"]))
+conf.insert_json5('mode', json.dumps("client"))
+conf.insert_json5('connect/endpoints', json.dumps(["tcp/3.71.106.121:7447"]))
 
 vehicle = args.vehicle - 1
 
