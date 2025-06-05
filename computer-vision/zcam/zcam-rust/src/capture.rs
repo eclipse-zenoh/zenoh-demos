@@ -63,6 +63,7 @@ async fn main() {
     encode_options.push(opencv::imgcodecs::IMWRITE_JPEG_QUALITY);
     encode_options.push(image_quality);
 
+    let mut buf = opencv::core::Vector::<u8>::new();
     loop {
         select!(
             _ = tokio::time::sleep(std::time::Duration::from_millis(delay)).fuse() => {
@@ -73,17 +74,13 @@ async fn main() {
                     let mut reduced = Mat::default();
                     opencv::imgproc::resize(&frame, &mut reduced, opencv::core::Size::new(resolution[0], resolution[1]), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
 
-                    let mut buf = opencv::core::Vector::<u8>::new();
                     opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();                    
-                    let shm_len = ((buf.len() >> 8) + 1) << 8;                    
                     let mut shm_buf = shm_provider
-                        .alloc(shm_len)
+                        .alloc(buf.len())
+                        .with_alignment(AllocAlignment::new(0).unwrap())
                         .with_policy::<BlockOn<Defragment<GarbageCollect>>>()
-                        .wait().expect("Failed to allocate SHM buffer");                                    
-                    let bs = buf.to_vec();
-                    for i in 0.. bs.len() {
-                        shm_buf[i] = bs[i];
-                    }                    
+                        .wait().expect("Failed to allocate SHM buffer");                                                        
+                    shm_buf.copy_from_slice(buf.as_slice());
                     publ.put(shm_buf).wait().unwrap();
                 } else {
                     println!("Reading empty buffer from camera... Waiting some more....");
