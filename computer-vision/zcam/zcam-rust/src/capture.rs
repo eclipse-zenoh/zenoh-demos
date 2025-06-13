@@ -24,15 +24,8 @@ async fn main() {
     // initiate logging
     env_logger::init();
 
-    let shm_back_end = zenoh::shm::PosixShmProviderBackend::builder()
-        .with_size(SHM_BUF_SIZE)
-        .unwrap()
-        .wait()
-        .unwrap();
-    let shm_provider: ShmProvider<StaticProtocolID<0>, PosixShmProviderBackend> = ShmProviderBuilder::builder()
-        .protocol_id::<POSIX_PROTOCOL_ID>()
-        .backend(shm_back_end)
-        .wait();
+    let provider =
+        ShmProviderBuilder::default_backend(SHM_BUF_SIZE).wait().unwrap();
 
     let (config, key_expr, resolution, delay, reliability, congestion_ctrl, image_quality) =
         parse_args();
@@ -76,7 +69,7 @@ async fn main() {
                     let mut buf = opencv::core::Vector::<u8>::new();
                     opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();                    
                     let shm_len = ((buf.len() >> 8) + 1) << 8;                    
-                    let mut shm_buf = shm_provider
+                    let mut shm_buf = provider
                         .alloc(shm_len)
                         .with_policy::<BlockOn<Defragment<GarbageCollect>>>()
                         .wait().expect("Failed to allocate SHM buffer");                                    
