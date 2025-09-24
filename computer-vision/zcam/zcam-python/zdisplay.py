@@ -34,7 +34,7 @@ if args.listen is not None:
 cams = {}
 
 def frames_listener(sample):
-    npImage = np.frombuffer(bytes(sample.value.payload), dtype=np.uint8)
+    npImage = np.frombuffer(bytes(sample.payload), dtype=np.uint8)
     matImage = cv2.imdecode(npImage, 1)
 
     cams[sample.key_expr] = matImage
