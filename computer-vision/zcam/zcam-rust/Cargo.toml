@@ -23,7 +23,9 @@ opencv = { version = "0.94.4", default-features = false, features = [
     "imgproc",
     "highgui",
     "clang-runtime",
+    "objdetect"
 ] }
+rkyv = { version = "0.8.16", features = ["unaligned"] } 
 
 [[bin]]
 name = "zdisplay"
@@ -32,10 +34,22 @@ bench = false
 path = "src/display.rs"
 
 [[bin]]
+name = "zencode"
+test = false
+bench = false
+path = "src/encode.rs"
+
+[[bin]]
 name = "zcapture"
 test = false
 bench = false
 path = "src/capture.rs"
+
+[[bin]]
+name = "zface_detect"
+test = false
+bench = false
+path = "src/face_detect.rs"
 
 [profile.release]
 debug = false     # If you want debug symbol in release mode, set the env variable: RUSTFLAGS=-g

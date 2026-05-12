@@ -14,7 +14,9 @@
 use clap::Parser;
 use futures::{select, FutureExt};
 use opencv::{prelude::*, videoio};
+use rkyv::rancor::Error;
 use serde_json::json;
+use zcam::{FrameMeta, RawFrameMeta};
 use zenoh::{config::Config, shm::*, Wait};
 
 const SHM_BUF_SIZE: usize = 64 * 1024 * 1024;
@@ -46,35 +48,51 @@ async fn main() {
         .await
         .unwrap();
 
+    // open camera
     let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap();
-
-    let opened = videoio::VideoCapture::is_opened(&cam).unwrap();
-
-    if !opened {
+    if !videoio::VideoCapture::is_opened(&cam).unwrap() {
         panic!("Unable to open default camera!");
     }
-    let mut encode_options = opencv::core::Vector::<i32>::new();
-    encode_options.push(opencv::imgcodecs::IMWRITE_JPEG_QUALITY);
-    encode_options.push(image_quality);
 
-    let mut buf = opencv::core::Vector::<u8>::new();
+    // query the layout of the frame to use for SHM buffers allocation
+    let (size_in_bytes, raw_meta, meta, encoded_meta) = {
+        let mut frame = Mat::default();
+        cam.read(&mut frame).unwrap();
+
+        if frame.empty() {
+            panic!("Camera returned empty frame!");
+        }
+
+        let raw_meta = RawFrameMeta::new(&frame);
+        let meta= FrameMeta::Raw(raw_meta.clone());
+        let encoded_meta = rkyv::to_bytes::<Error>(&meta).unwrap().to_vec();
+
+        (
+            frame.size().unwrap().area() as usize * frame.elem_size().unwrap() as usize,
+            raw_meta,
+            meta,
+            encoded_meta,
+        )
+    };
+
+    println!("Will publish frames: {meta}...");
+
     loop {
         select!(
             _ = tokio::time::sleep(std::time::Duration::from_millis(delay)).fuse() => {
-                let mut frame = Mat::default();
+                let mut shm_buf = shm_provider
+                    .alloc(size_in_bytes)
+                    .with_policy::<BlockOn<GarbageCollect>>()
+                    .await
+                    .expect("Failed to allocate SHM buffer");
+
+                let mut frame = unsafe {
+                    raw_meta.mat_mut(shm_buf.as_mut_ptr())
+                };
+
                 cam.read(&mut frame).unwrap();
-
                 if !frame.empty() {
-                    let mut reduced = Mat::default();
-                    opencv::imgproc::resize(&frame, &mut reduced, opencv::core::Size::new(resolution[0], resolution[1]), 0.0, 0.0 , opencv::imgproc::INTER_LINEAR).unwrap();
-
-                    opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, &encode_options).unwrap();
-                    let mut shm_buf = shm_provider
-                        .alloc(buf.len())
-                        .with_policy::<BlockOn<Defragment<GarbageCollect>>>()
-                        .wait().expect("Failed to allocate SHM buffer");
-                    shm_buf.copy_from_slice(buf.as_slice());
-                    publ.put(shm_buf).wait().unwrap();
+                    publ.put(shm_buf).attachment(&encoded_meta).await.unwrap();
                 } else {
                     println!("Reading empty buffer from camera... Waiting some more....");
                 }

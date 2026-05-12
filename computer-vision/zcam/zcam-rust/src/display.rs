@@ -13,8 +13,10 @@
 //
 use clap::Parser;
 use futures::{select, FutureExt};
-use opencv::{highgui, prelude::*};
+use opencv::highgui;
+use rkyv::rancor::Error;
 use serde_json::json;
+use zcam::{ArchivedFrameMeta, FrameMeta};
 use zenoh::{config::Config, Wait};
 
 #[tokio::main]
@@ -33,31 +35,40 @@ async fn main() {
 
     loop {
         select!(
-            sample = sub.recv_async().fuse() => {
-                let sample = sample.unwrap();
-                let bs = opencv::core::Vector::<u8>::from(sample.payload().to_bytes().to_vec());
-                let decoded = opencv::imgcodecs::imdecode(
-                    &bs,
-                    opencv::imgcodecs::IMREAD_COLOR,
-                ).unwrap();
+               sample = sub.recv_async().fuse() => {
 
-                if decoded.size().unwrap().width > 0 {
-                    highgui::imshow(sample.key_expr().as_str(), &decoded).unwrap();
-                }
-                if highgui::wait_key(10).unwrap() == 113 {
-                    // 'q'
-                    break;
-                }
-                drop(sample)
-            },
+               let sample = sample.unwrap();
 
-            sample = conf_sub.recv_async().fuse() => {
-                let sample = sample.unwrap();
-                let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
-                let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
-                let _ = z.config().insert_json5(conf_key, &conf_val);
-            },
-        );
+
+
+               let attachment_bytes = sample.attachment().unwrap().to_bytes();
+                let meta =  rkyv::access::<ArchivedFrameMeta, Error>(&attachment_bytes).unwrap();
+        let meta = rkyv::deserialize:: <FrameMeta,Error>(meta).unwrap();
+
+
+
+                   if let FrameMeta::Raw(raw_meta) = meta {
+                       let shm_buf = sample.payload().as_shm().unwrap();
+                       let frame = unsafe { raw_meta.mat(shm_buf.as_ptr()) };
+
+                       highgui::imshow(sample.key_expr().as_str(), &frame).unwrap();
+                       if highgui::wait_key(10).unwrap() == 113 {
+                           // 'q'
+                           break;
+                       }
+                       drop(sample)
+                   } else {
+                          eprintln!("Unsupported frame meta: {:?}", meta);
+                   }
+               },
+
+                   sample = conf_sub.recv_async().fuse() => {
+                       let sample = sample.unwrap();
+                       let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
+                       let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
+                       let _ = z.config().insert_json5(conf_key, &conf_val);
+                   },
+               );
     }
     conf_sub.undeclare().wait().unwrap();
     sub.undeclare().wait().unwrap();
@@ -69,7 +80,7 @@ struct Args {
     #[arg(short, long)]
     mode: Option<String>,
 
-    #[arg(short, long, default_value = "demo/zcam")]
+    #[arg(short, long, default_value = "demo/zcam/facedetect")]
     key: String,
 
     #[arg(short('e'), long)]
