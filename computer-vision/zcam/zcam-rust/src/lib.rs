@@ -15,23 +15,29 @@
 use std::fmt::Display;
 
 use opencv::core::{Mat, MatTraitConst, ToInputArray};
-
 use rkyv::{Archive, Deserialize, Serialize};
+use zenoh::sample::Sample;
 
 #[derive(Archive, Deserialize, Serialize, Debug, Clone)]
 pub struct RawFrameMeta {
     rows: u16,
     cols: u16,
     typ: u8,
+    size: usize,
 }
 
 impl RawFrameMeta {
-pub fn new(frame: &Mat) -> Self {
-        Self {
+    pub fn new(frame: &Mat) -> zenoh::Result<Self> {
+        Ok(Self {
             rows: frame.rows() as u16,
             cols: frame.cols() as u16,
             typ: frame.typ() as u8,
-        }
+            size: frame.size()?.area() as usize * frame.elem_size()? as usize,
+        })
+    }
+
+    pub fn size(&self) -> usize {
+        self.size
     }
 
     pub unsafe fn mat_mut(&self, data: *mut u8) -> Mat {
@@ -58,7 +64,23 @@ pub fn new(frame: &Mat) -> Self {
 #[derive(Archive, Deserialize, Serialize, Debug)]
 pub enum FrameMeta {
     Raw(RawFrameMeta),
-    Jpeg,
+    Jpeg(RawFrameMeta),
+}
+
+impl FrameMeta {
+    pub fn decode_from_sample(sample: &Sample) -> zenoh::Result<Self> {
+        let attachment = sample.attachment().ok_or("Missing attachment")?;
+        let attachment_bytes = attachment.to_bytes();
+        let meta = rkyv::access::<ArchivedFrameMeta, rkyv::rancor::Error>(&attachment_bytes)?;
+        let meta = rkyv::deserialize::<FrameMeta, rkyv::rancor::Error>(meta)?;
+        Ok(meta)
+    }
+
+    pub fn encode_to_sample(&self, sample: &mut Sample) -> zenoh::Result<()> {
+        let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(self)?;
+        sample.set_attachment(Some(bytes.as_slice().into()));
+        Ok(())
+    }
 }
 
 impl Display for FrameMeta {
@@ -69,7 +91,11 @@ impl Display for FrameMeta {
                 "FrameMeta::Raw {{ rows: {}, cols: {}, typ: {} }}",
                 meta.rows, meta.cols, meta.typ
             ),
-            FrameMeta::Jpeg => write!(f, "FrameMeta::Jpeg"),
+            FrameMeta::Jpeg(meta) => write!(
+                f,
+                "FrameMeta::Jpeg {{ rows: {}, cols: {}, typ: {} }}",
+                meta.rows, meta.cols, meta.typ
+            ),
         }
     }
 }

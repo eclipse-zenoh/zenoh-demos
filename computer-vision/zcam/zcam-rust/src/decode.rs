@@ -13,11 +13,12 @@
 //
 use clap::Parser;
 use serde_json::json;
+use std::ops::Deref;
 
 use futures::StreamExt;
 use tokio::select;
 use zcam::FrameMeta;
-use zenoh::{config::Config, sample::Sample, Wait};
+use zenoh::{config::Config, sample::Sample, shm::*, Wait};
 
 #[tokio::main]
 async fn main() {
@@ -33,7 +34,7 @@ async fn main() {
     // Declare subscriber for frames
     let sub = z.declare_subscriber(&key_sub).await.unwrap();
 
-    // Declare publisher for encoded frames
+    // Declare publisher for decoded frames
     let publ = z
         .declare_publisher(&key_pub)
         .reliability(reliability)
@@ -43,26 +44,25 @@ async fn main() {
 
     // Declare subscriber for configuration updates
     let conf_sub = z
-        .declare_subscriber(format!("{}/zencode/conf/**", key_sub))
+        .declare_subscriber(format!("{}/zdecode/conf/**", key_sub))
         .wait()
         .unwrap();
 
-    // Prepare jpg encoder options
-    let mut encode_options = opencv::core::Vector::<i32>::new();
-    encode_options.push(opencv::imgcodecs::IMWRITE_JPEG_QUALITY);
-    encode_options.push(90);
+    // )btain SHM provider from the session to allocate SHM buffers for frames.
+    let shm_provider = z
+        .get_shm_provider()
+        .await
+        .expect("Failed to get transport SHM provider");
 
     select!(
         stream_result =  sub
             .stream()
             .map(|mut sample| -> zenoh::Result<Sample> {
-                // Encode sample as jpg if necessary
-                ensure_jpg(&mut sample, &encode_options).and_then(|_| {
+                // Decode frame into SHM.
+                ensure_raw(&shm_provider, &mut sample,).and_then(|_| {
                     Ok(sample)
                 })
             })
-            // Encoded sample still may be republished as SHM due to zenoh's ability to transparently
-            // convert non-SHM payloads ("implicit SHM optimization") into SHM ones when applicable.
             .forward(publ) => { stream_result.unwrap(); }
 
         _ = async {
@@ -79,10 +79,10 @@ struct Args {
     #[arg(short, long)]
     mode: Option<String>,
 
-    #[arg(short, long, default_value = "demo/zcam")]
+    #[arg(short, long, default_value = "demo/zcam/encoded")]
     key_sub: String,
 
-    #[arg(long, default_value = "demo/zcam/encoded")]
+    #[arg(long, default_value = "demo/zcam/decoded")]
     key_pub: String,
 
     #[arg(short('e'), long)]
@@ -139,34 +139,40 @@ fn parse_args() -> (
     )
 }
 
-fn ensure_jpg(
+fn ensure_raw<Backend: ShmProviderBackend>(
+    shm_provider: &ShmProvider<Backend>,
     sample: &mut Sample,
-    encode_options: &opencv::core::Vector<i32>,
 ) -> zenoh::Result<()> {
     let meta = FrameMeta::decode_from_sample(sample)?;
     match meta {
-        FrameMeta::Raw(raw_meta) => {
-            let jpeg_buf = {
-                // This Cow accessor provides immutable access to contained data.
-                // Access will be zero-copy if data is contiguous.
-                let contiguous_bytes = sample.payload().to_bytes();
+        FrameMeta::Raw(_) => {}
+        FrameMeta::Jpeg(raw_meta) => {
+            // Allocate SHM buffer for decoded frames with layout that is taken from the frame metadata.
+            let mut shmbuf = shm_provider
+                .alloc(raw_meta.size())
+                .with_policy::<BlockOn<Defragment<GarbageCollect>>>()
+                .wait()
+                .expect("Failed to allocate SHM buffer");
 
-                // interpret the contiguous payload bytes as OpenCV Mat
-                let frame = unsafe { raw_meta.mat(contiguous_bytes.as_ptr()) };
+            // Map opencv Mat into shared memory
+            let mut decoded_frame = unsafe { raw_meta.mat_mut(shmbuf.as_mut_ptr()) };
 
-                // encode as jpeg
-                let mut buf = opencv::core::Vector::<u8>::new();
-                opencv::imgcodecs::imencode(".jpeg", &frame, &mut buf, &encode_options)?;
+            // This Cow accessor provides immutable access to contained data.
+            // Access will be zero-copy if data is contiguous.
+            let contiguous_bytes = sample.payload().to_bytes();
 
-                buf
-            };
+            // Decode frame into SHM buffer using shm-backed Mat
+            opencv::imgcodecs::imdecode_to(
+                &contiguous_bytes.deref(),
+                opencv::imgcodecs::IMREAD_COLOR,
+                &mut decoded_frame,
+            )?;
 
-            // Replace sample metadata because now it is jpeg-encoded.
-            FrameMeta::Jpeg(raw_meta).encode_to_sample(sample)?;
+            // Replace sample metadata because now it is raw
+            FrameMeta::Raw(raw_meta).encode_to_sample(sample)?;
             // Update sample payload.
-            sample.set_payload(jpeg_buf.as_slice().into());
+            sample.set_payload(shmbuf.into());
         }
-        FrameMeta::Jpeg(_) => {}
     }
     Ok(())
 }

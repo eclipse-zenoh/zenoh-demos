@@ -12,67 +12,56 @@
 //   The Zenoh Team, <zenoh@zettascale.tech>
 //
 use clap::Parser;
-use futures::{select, FutureExt};
+use futures::{select, FutureExt, StreamExt};
 use opencv::highgui;
-use rkyv::rancor::Error;
 use serde_json::json;
-use zcam::{ArchivedFrameMeta, FrameMeta};
-use zenoh::{config::Config, Wait};
+use zcam::FrameMeta;
+use zenoh::{config::Config, sample::Sample, Wait};
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
+    // Initiate logging
+    zenoh::init_log_from_env_or("error");
+
+    // Parse command line arguments
     let (config, key_expr) = parse_args();
 
     println!("Opening session...");
     let z = zenoh::open(config).wait().unwrap();
+
+    // Declare subscriber for frames
     let sub = z.declare_subscriber(&key_expr).await.unwrap();
 
+    // Declare subscriber for configuration updates
     let conf_sub = z
         .declare_subscriber(format!("{}/zdisplay/conf/**", key_expr))
         .wait()
         .unwrap();
 
+    // Handle exit from GUI
+    let _ = std::thread::spawn(|| {
+        if highgui::wait_key(10).unwrap() == 113 {
+            // 'q'
+            std::process::exit(0);
+        }
+    });
+
     loop {
         select!(
-               sample = sub.recv_async().fuse() => {
-
-               let sample = sample.unwrap();
-
-
-
-               let attachment_bytes = sample.attachment().unwrap().to_bytes();
-                let meta =  rkyv::access::<ArchivedFrameMeta, Error>(&attachment_bytes).unwrap();
-        let meta = rkyv::deserialize:: <FrameMeta,Error>(meta).unwrap();
-
-
-
-                   if let FrameMeta::Raw(raw_meta) = meta {
-                       let shm_buf = sample.payload().as_shm().unwrap();
-                       let frame = unsafe { raw_meta.mat(shm_buf.as_ptr()) };
-
-                       highgui::imshow(sample.key_expr().as_str(), &frame).unwrap();
-                       if highgui::wait_key(10).unwrap() == 113 {
-                           // 'q'
-                           break;
-                       }
-                       drop(sample)
-                   } else {
-                          eprintln!("Unsupported frame meta: {:?}", meta);
-                   }
-               },
-
-                   sample = conf_sub.recv_async().fuse() => {
-                       let sample = sample.unwrap();
-                       let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
-                       let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
-                       let _ = z.config().insert_json5(conf_key, &conf_val);
-                   },
-               );
+            _ =  sub.stream().for_each(async |sample| {
+                // Read frames from stream and display them
+                if let Err(e) = display(&sample) {
+                    tracing::error!("{e}");
+                }
+            }) => {},
+            sample = conf_sub.recv_async().fuse() => {
+                let sample = sample.unwrap();
+                let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
+                let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
+                let _ = z.config().insert_json5(conf_key, &conf_val);
+            },
+        );
     }
-    conf_sub.undeclare().wait().unwrap();
-    sub.undeclare().wait().unwrap();
-    z.close().wait().unwrap();
 }
 
 #[derive(clap::Parser, Clone, PartialEq, Eq, Hash)]
@@ -80,7 +69,7 @@ struct Args {
     #[arg(short, long)]
     mode: Option<String>,
 
-    #[arg(short, long, default_value = "demo/zcam/facedetect")]
+    #[arg(short, long, default_value = "demo/zcam/haarcascade")]
     key: String,
 
     #[arg(short('e'), long)]
@@ -106,4 +95,22 @@ fn parse_args() -> (Config, String) {
     }
 
     (c, args.key)
+}
+
+fn display(sample: &Sample) -> zenoh::Result<()> {
+    let meta = FrameMeta::decode_from_sample(&sample)?;
+    if let FrameMeta::Raw(raw_meta) = meta {
+        // This Cow accessor provides immutable access to contained data.
+        // Access will be zero-copy if data is contiguous.
+        let contiguous_bytes = sample.payload().to_bytes();
+
+        // Map opencv Mat into shared memory
+        let frame = unsafe { raw_meta.mat(contiguous_bytes.as_ptr()) };
+
+        // Display the frame directly from shared memory
+        highgui::imshow(sample.key_expr().as_str(), &frame).unwrap();
+        Ok(())
+    } else {
+        Err(format!("Unsupported frame meta: {:?}", meta).into())
+    }
 }
