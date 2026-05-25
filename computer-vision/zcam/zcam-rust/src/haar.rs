@@ -14,16 +14,25 @@
 use clap::Parser;
 use serde_json::json;
 
-use futures::StreamExt;
 use opencv::{
     core::{Scalar, ToInputArray, ToInputOutputArray},
-    imgproc, objdetect,
+    imgproc,
+    objdetect::{self, CascadeClassifier},
     prelude::*,
 };
-use std::convert::TryInto;
+use std::{convert::TryInto, io::Read, sync::Arc};
 use tokio::select;
-use zcam::FrameMeta;
-use zenoh::{config::Config, sample::Sample, shm::zshmmut};
+use zcam::{config_update_loop, FrameMeta};
+use zenoh::{
+    config::Config,
+    qos::{CongestionControl, Reliability},
+    sample::Sample,
+    shm::{
+        zshm, zshmmut, BlockOn, Defragment, GarbageCollect, PosixShmProviderBackend, ShmProvider,
+        ZShm,
+    },
+    Session,
+};
 
 #[tokio::main]
 async fn main() {
@@ -34,54 +43,16 @@ async fn main() {
     let (haarcascade_file, config, key_sub, key_pub, reliability, congestion_ctrl) = parse_args();
 
     // Load cascade
-    let mut cascade = objdetect::CascadeClassifier::new(&haarcascade_file).unwrap();
+    let cascade = objdetect::CascadeClassifier::new(&haarcascade_file).unwrap();
 
     println!("Opening session...");
     let z = zenoh::open(config).await.unwrap();
 
-    // Declare subscriber for frames
-    let sub = z.declare_subscriber(&key_sub).await.unwrap();
-
-    // Declare publisher for processed frames
-    let publ = z
-        .declare_publisher(&key_pub)
-        .reliability(reliability)
-        .congestion_control(congestion_ctrl)
-        .await
-        .unwrap();
-
-    // Declare subscriber for configuration updates
-    let conf_sub = z
-        .declare_subscriber(format!("{}/zhaar/conf/**", key_sub))
-        .await
-        .unwrap();
-
     select!(
-        stream_result =  sub
-            .stream()
-            .map(|mut sample| -> zenoh::Result<Sample> {
-                // Map the incoming sample into a _mutable_ OpenCV Mat, trying to do it in-place via SHM when possible,
-                // and falling back to copying if any of the SHM steps fail
-                sample_to_frame(&mut sample).and_then(|mut frame| {
-                    detect_objects(&mut frame, &mut cascade)?;
-                    Ok(sample)
-                })
-            })
-            // Forward the processed samples to the publisher, ensuring that any errors in the stream are propagated
-            // NOTE: depening on the initial sample structure (SHM, SHM mutable, or non-SHM),
-            // each forwarded sample may involve
-            // 1. zero-copy, if the original sample was SHM mutable: we in-place mutate it and republish without copying
-            // 2. one copy if scenario 1 fails
-            // Additionally, for option 2 sample still may be republished as SHM due to zenoh's ability to transparently
-            // convert non-SHM payloads ("implicit SHM optimization") into SHM ones when applicable
-            .forward(publ) => { stream_result.unwrap(); }
-
-        _ = async {
-            let sample = conf_sub.recv_async().await.unwrap();
-            let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
-            let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
-            let _ = z.config().insert_json5(conf_key, &conf_val);
-         } => {},
+        // Processing loop
+        _ = process_loop(&z,key_sub.clone(), key_pub, reliability, congestion_ctrl, cascade) => {}
+        // Config update loop
+        _ = config_update_loop(&z, format!("{}/zhaar/conf/**", key_sub)) => {},
     );
 }
 
@@ -155,52 +126,122 @@ fn parse_args() -> (
     )
 }
 
-fn sample_to_frame(
-    sample: &mut Sample,
-) -> zenoh::Result<impl MatTraitConst + ToInputArray + ToInputOutputArray> {
-    let meta = FrameMeta::decode_from_sample(&sample)?;
-    if let FrameMeta::Raw(raw_meta) = meta {
-        fn try_shm_inplace(
-            raw_meta: &zcam::RawFrameMeta,
-            sample: &mut Sample,
-        ) -> zenoh::Result<Mat> {
-            // Try to interpret the payload as SHM buffer
-            let shm_buf = sample
-                .payload_mut()
-                .as_shm_mut()
-                .ok_or("Missing SHM buffer")?;
+/// Processing loop that subscribes to frames, detects objects using Haar cascades and republishes the processed frames.
+/// Frames are processed in-place directly in SHM without copying whenever possible, leveraging Zenoh's zero-copy accessors
+/// and metadata information to map OpenCV Mats into SHM buffers. This makes the processing efficient even for large frames,
+/// as it avoids unnecessary copying of frame data. If in-place processing is not possible for any reason, the code falls back
+/// to copying the frame into a new SHM buffer for processing and republishing, ensuring that the processing is robust in all cases.
+async fn process_loop(
+    session: &Session,
+    key_sub: String,
+    key_pub: String,
+    reliability: Reliability,
+    congestion_ctrl: CongestionControl,
+    mut cascade: CascadeClassifier,
+) {
+    // Declare subscriber for frames
+    let sub = session.declare_subscriber(&key_sub).await.unwrap();
 
-            // Try to get mutable access to the SHM buffer
-            let shm_buf_mut: &mut zshmmut = shm_buf
-                .try_into()
-                .map_err(|_| "Unable to mutate SHM data")?;
+    // Declare publisher for processed frames
+    let publ = session
+        .declare_publisher(&key_pub)
+        .reliability(reliability)
+        .congestion_control(congestion_ctrl)
+        .await
+        .unwrap();
 
-            // Interpret the SHM buffer as OpenCV Mat
-            let frame = unsafe { raw_meta.mat_mut(shm_buf_mut.as_mut_ptr()) };
+    // Obtain SHM provider from the session to allocate SHM buffers for frames
+    let shm_provider = session
+        .get_shm_provider()
+        .await
+        .expect("Failed to get transport SHM provider");
 
-            Ok(frame)
+    loop {
+        // Receive sample with frame
+        let mut sample = sub.recv_async().await.unwrap();
+
+        // Prcess the recieved frame and obtain the processed frame in SHM
+        if let Ok(processed_frame_in_shm) =
+            process_frame(&mut sample, &shm_provider, &mut cascade).await
+        {
+            // Publish SHM frame
+            // NOTE:
+            //      - Will be published as SHM payload for SHM-compatible subscribers
+            //      - will be published as Raw payload in other cases
+            publ.put(processed_frame_in_shm)
+                .attachment(sample.attachment().cloned())
+                .await
+                .unwrap();
         }
+    }
+}
 
-        // First try to interpret the payload as SHM buffer and map it directly without copying
-        try_shm_inplace(&raw_meta, sample).or_else(|err| {
-            // If any of the SHM steps fail, fall back to copying the data into a new buffer
-            tracing::debug!("SHM inplace failed: {err}. Falling back to copy...");
+async fn process_frame(
+    sample: &mut Sample,
+    shm_provider: &Arc<ShmProvider<PosixShmProviderBackend>>,
+    cascade: &mut objdetect::CascadeClassifier,
+) -> zenoh::Result<ZShm> {
+    // Decode frame metadata
+    let meta = FrameMeta::decode(&sample)
+        .expect("Unable to decode frame metadata: probably wrong data format");
 
-            // Copy the payload bytes into a new contiguous buffer
-            let mut contiguous_bytes = sample.payload().to_bytes().to_vec();
+    match meta {
+        FrameMeta::Raw(raw_meta) => {
+            fn try_mutate_shm_inplace<'a>(sample: &'a mut Sample) -> Option<&'a mut zshmmut> {
+                // Try to interpret the payload as SHM buffer
+                let shm_buf = sample.payload_mut().as_shm_mut()?;
 
-            // Interpret the new buffer as OpenCV Mat
-            let frame = unsafe { raw_meta.mat_mut(contiguous_bytes.as_mut_ptr()) };
+                // Try to get mutable access to the SHM buffer
+                shm_buf.try_into().ok()
+            }
 
-            // Update the sample payload to point to the new contiguous buffer
-            sample.set_payload(contiguous_bytes.into());
+            // First, try to process the frame in-place without copying if the payload is already an SHM buffer
+            // and if we can get mutable access to it. This is the most efficient path as it avoids any copying.
+            match try_mutate_shm_inplace(sample) {
+                Some(shm_mut_inplace) => {
+                    // Map opencv Mat into shared memory
+                    let mut frame = unsafe { raw_meta.mat_mut(shm_mut_inplace.as_mut_ptr()) };
 
-            Ok(frame)
-        })
-    } else {
-        let err = format!("Unsupported frame meta: {:?}", meta);
-        eprintln!("{err}");
-        Err(err.into())
+                    // Detect objects and draw rectangles in-place directly on the SHM buffer
+                    detect_objects(&mut frame, cascade)?;
+
+                    let shm_immut: &mut zshm = shm_mut_inplace.into();
+
+                    // Return the processed frame as SHM without copying
+                    return Ok(shm_immut.to_owned());
+                }
+                None => {
+                    // If any of the in-place SHM mutation steps fail, fall back to copying the data into a new SHM buffer
+                    tracing::debug!("SHM inplace failed, falling back to copy...");
+
+                    let payload = sample.payload();
+
+                    // Allocate SHM buffer for contiguous payload bytes
+                    let mut shmbuf: zenoh::shm::ZShmMut = shm_provider
+                        .alloc(payload.len())
+                        .with_policy::<BlockOn<Defragment<GarbageCollect>>>()
+                        .await
+                        .expect("Failed to allocate SHM buffer");
+
+                    // Read bytes directly into SHM buffer
+                    payload.reader().read_exact(&mut shmbuf)?;
+
+                    // Map opencv Mat into allocated shared memory
+                    let mut frame = unsafe { raw_meta.mat_mut(shmbuf.as_mut_ptr()) };
+
+                    // Detect objects and draw rectangles directly on the SHM buffer
+                    detect_objects(&mut frame, cascade)?;
+
+                    // Return the processed frame as SHM
+                    return Ok(shmbuf.into());
+                }
+            }
+        }
+        FrameMeta::Jpeg(_) => {
+            let err = format!("Unsupported frame meta: {:?}", meta);
+            tracing::error!("{err}");
+            Err(err.into())
+        }
     }
 }
 

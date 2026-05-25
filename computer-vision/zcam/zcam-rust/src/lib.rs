@@ -12,11 +12,12 @@
 //   The Zenoh Team, <zenoh@zettascale.tech>
 //
 
-use std::fmt::Display;
+use std::{convert::TryInto, fmt::Display};
 
+use futures::StreamExt;
 use opencv::core::{Mat, MatTraitConst, ToInputArray};
 use rkyv::{Archive, Deserialize, Serialize};
-use zenoh::sample::Sample;
+use zenoh::{bytes::ZBytes, key_expr::KeyExpr, sample::Sample, Session};
 
 #[derive(Archive, Deserialize, Serialize, Debug, Clone)]
 pub struct RawFrameMeta {
@@ -68,7 +69,7 @@ pub enum FrameMeta {
 }
 
 impl FrameMeta {
-    pub fn decode_from_sample(sample: &Sample) -> zenoh::Result<Self> {
+    pub fn decode(sample: &Sample) -> zenoh::Result<Self> {
         let attachment = sample.attachment().ok_or("Missing attachment")?;
         let attachment_bytes = attachment.to_bytes();
         let meta = rkyv::access::<ArchivedFrameMeta, rkyv::rancor::Error>(&attachment_bytes)?;
@@ -76,10 +77,9 @@ impl FrameMeta {
         Ok(meta)
     }
 
-    pub fn encode_to_sample(&self, sample: &mut Sample) -> zenoh::Result<()> {
+    pub fn encode(&self) -> zenoh::Result<ZBytes> {
         let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(self)?;
-        sample.set_attachment(Some(bytes.as_slice().into()));
-        Ok(())
+        Ok(bytes.as_slice().into())
     }
 }
 
@@ -98,4 +98,26 @@ impl Display for FrameMeta {
             ),
         }
     }
+}
+
+pub async fn config_update_loop<'a, TryIntoKeyExpr>(
+    session: &Session,
+    config_keyexpr: TryIntoKeyExpr,
+) where
+    TryIntoKeyExpr: TryInto<KeyExpr<'a>>,
+    <TryIntoKeyExpr as TryInto<KeyExpr<'a>>>::Error: Into<zenoh::Error>,
+{
+    // Declare subscriber for configuration updates
+    let conf_sub = session.declare_subscriber(config_keyexpr).await.unwrap();
+
+    // Loop to receive and apply config updates
+
+    conf_sub
+        .stream()
+        .for_each(async |sample| {
+            let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
+            let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
+            let _ = session.config().insert_json5(conf_key, &conf_val);
+        })
+        .await;
 }

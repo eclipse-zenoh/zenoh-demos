@@ -12,12 +12,17 @@
 //   The Zenoh Team, <zenoh@zettascale.tech>
 //
 use clap::Parser;
-use futures::{select, FutureExt};
 use opencv::{prelude::*, videoio};
 use rkyv::rancor::Error;
 use serde_json::json;
-use zcam::{FrameMeta, RawFrameMeta};
-use zenoh::{config::Config, shm::*};
+use tokio::select;
+use zcam::{config_update_loop, FrameMeta, RawFrameMeta};
+use zenoh::{
+    config::Config,
+    qos::{CongestionControl, Reliability},
+    shm::*,
+    Session,
+};
 
 #[tokio::main]
 async fn main() {
@@ -25,87 +30,17 @@ async fn main() {
     zenoh::init_log_from_env_or("error");
 
     // Parse command line arguments
-    let (config, key_expr, delay, reliability, congestion_ctrl) = parse_args();
+    let (config, key_pub, delay, reliability, congestion_ctrl) = parse_args();
 
     println!("Opening session...");
     let z = zenoh::open(config).await.unwrap();
 
-    // Declare publisher for camera frames
-    let publ = z
-        .declare_publisher(&key_expr)
-        .reliability(reliability)
-        .congestion_control(congestion_ctrl)
-        .await
-        .unwrap();
-
-    // Declare subscriber for configuration updates
-    let conf_sub = z
-        .declare_subscriber(format!("{}/zcapture/conf/**", key_expr))
-        .await
-        .unwrap();
-
-    // Open camera
-    let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap();
-    if !videoio::VideoCapture::is_opened(&cam).unwrap() {
-        panic!("Unable to open default camera!");
-    }
-
-    // Query the layout of the frame to use for SHM buffers allocation
-    let (raw_meta, meta, encoded_meta) = {
-        let mut frame = Mat::default();
-        cam.read(&mut frame).unwrap();
-
-        if frame.empty() {
-            panic!("Camera returned empty frame!");
-        }
-
-        let raw_meta = RawFrameMeta::new(&frame).unwrap();
-        let meta = FrameMeta::Raw(raw_meta.clone());
-        let encoded_meta = rkyv::to_bytes::<Error>(&meta).unwrap().to_vec();
-
-        (raw_meta, meta, encoded_meta)
-    };
-
-    // Obtain SHM provider from the session to allocate SHM buffers for frames
-    let shm_provider = z
-        .get_shm_provider()
-        .await
-        .expect("Failed to get transport SHM provider");
-
-    println!("Will publish frames: {meta}...");
-    loop {
-        select!(
-            _ = tokio::time::sleep(std::time::Duration::from_millis(delay)).fuse() => {
-                // Allocate SHM buffer for decoded frames with layout that is taken from the frame metadata
-                let mut shm_buf = shm_provider
-                    .alloc(raw_meta.size())
-                    .with_policy::<BlockOn<GarbageCollect>>()
-                    .await
-                    .expect("Failed to allocate SHM buffer");
-
-                // Map opencv Mat into shared memory
-                let mut frame = unsafe {
-                    raw_meta.mat_mut(shm_buf.as_mut_ptr())
-                };
-
-                // Capture frame into SHM buffer using shm-backed Mat
-                cam.read(&mut frame).expect("Failed to read camera frame!");
-
-                if !frame.empty() {
-                    // Publish the frame with the encoded meta as attachment
-                    publ.put(shm_buf).attachment(&encoded_meta).await.expect("Failed to publish camera frame!");
-                } else {
-                    tracing::error!("Reading empty buffer from camera... Waiting some more....");
-                }
-            },
-            sample = conf_sub.recv_async().fuse() => {
-                let sample = sample.unwrap();
-                let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
-                let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
-                let _ = z.config().insert_json5(conf_key, &conf_val);
-            },
-        );
-    }
+    select!(
+        // Processing loop
+        _ = process_loop(&z, key_pub.clone(), delay, reliability, congestion_ctrl) => {}
+        // Config update loop
+        _ = config_update_loop(&z, format!("{}/zcapture/conf/**", key_pub)) => {},
+    );
 }
 
 #[derive(clap::Parser, Clone, PartialEq, Eq, Hash, Debug)]
@@ -165,4 +100,79 @@ fn parse_args() -> (
     };
 
     (c, args.key, args.delay, reliability, congestion_control)
+}
+
+/// Processing loop that captures frames from camera directly into Zenoh SHM and publishes them without copying.
+async fn process_loop(
+    session: &Session,
+    key_pub: String,
+    delay: u64,
+    reliability: Reliability,
+    congestion_ctrl: CongestionControl,
+) {
+    // Declare publisher for camera frames
+    let publ = session
+        .declare_publisher(key_pub)
+        .reliability(reliability)
+        .congestion_control(congestion_ctrl)
+        .await
+        .unwrap();
+
+    // Open camera
+    let mut cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap();
+    if !videoio::VideoCapture::is_opened(&cam).unwrap() {
+        panic!("Unable to open default camera!");
+    }
+
+    // Query the layout of the frame to use for SHM buffers allocation
+    let (raw_meta, meta, encoded_meta) = {
+        let mut frame = Mat::default();
+        cam.read(&mut frame)
+            .expect("Failed to read camera frame for detecting layout!");
+
+        if frame.empty() {
+            panic!("Camera returned empty frame!");
+        }
+
+        let raw_meta = RawFrameMeta::new(&frame).unwrap();
+        let meta = FrameMeta::Raw(raw_meta.clone());
+        let encoded_meta = rkyv::to_bytes::<Error>(&meta).unwrap().to_vec();
+
+        (raw_meta, meta, encoded_meta)
+    };
+
+    // Obtain SHM provider from the session to allocate SHM buffers for frames
+    let shm_provider = session
+        .get_shm_provider()
+        .await
+        .expect("Failed to get transport SHM provider");
+
+    tracing::info!("Will publish frames: {meta}...");
+    loop {
+        // Allocate SHM buffer for decoded frames with layout that is taken from the frame metadata
+        let mut shm_buf = shm_provider
+            .alloc(raw_meta.size())
+            .with_policy::<BlockOn<GarbageCollect>>()
+            .await
+            .expect("Failed to allocate SHM buffer");
+
+        // Map opencv Mat into shared memory
+        let mut frame = unsafe { raw_meta.mat_mut(shm_buf.as_mut_ptr()) };
+
+        // Capture frame directly into SHM buffer using shm-backed Mat
+        cam.read(&mut frame).expect("Failed to read camera frame!");
+
+        if !frame.empty() {
+            // Publish the frame with the encoded meta as attachment
+            publ.put(shm_buf)
+                .attachment(&encoded_meta)
+                .await
+                .expect("Failed to publish camera frame!");
+        } else {
+            tracing::error!("Reading empty buffer from camera... Waiting some more....");
+        }
+
+        // Wait before capturing next frame to maintin the desired frame rate
+        tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+    }
 }

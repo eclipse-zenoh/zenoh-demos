@@ -14,63 +14,30 @@
 use clap::Parser;
 use serde_json::json;
 
-use futures::StreamExt;
 use tokio::select;
-use zcam::FrameMeta;
-use zenoh::{config::Config, sample::Sample, Wait};
+use zcam::{config_update_loop, FrameMeta};
+use zenoh::{
+    config::Config,
+    qos::{CongestionControl, Reliability},
+    Session, Wait,
+};
 
 #[tokio::main]
 async fn main() {
-    // Initiate logging.
+    // Initiate logging
     zenoh::init_log_from_env_or("error");
 
-    // Parse command line arguments.
+    // Parse command line arguments
     let (config, key_sub, key_pub, reliability, congestion_ctrl) = parse_args();
 
     println!("Opening session...");
     let z = zenoh::open(config).wait().unwrap();
 
-    // Declare subscriber for frames
-    let sub = z.declare_subscriber(&key_sub).await.unwrap();
-
-    // Declare publisher for encoded frames
-    let publ = z
-        .declare_publisher(&key_pub)
-        .reliability(reliability)
-        .congestion_control(congestion_ctrl)
-        .await
-        .unwrap();
-
-    // Declare subscriber for configuration updates
-    let conf_sub = z
-        .declare_subscriber(format!("{}/zencode/conf/**", key_sub))
-        .wait()
-        .unwrap();
-
-    // Prepare jpg encoder options
-    let mut encode_options = opencv::core::Vector::<i32>::new();
-    encode_options.push(opencv::imgcodecs::IMWRITE_JPEG_QUALITY);
-    encode_options.push(90);
-
     select!(
-        stream_result =  sub
-            .stream()
-            .map(|mut sample| -> zenoh::Result<Sample> {
-                // Encode sample as jpg if necessary
-                ensure_jpg(&mut sample, &encode_options).and_then(|_| {
-                    Ok(sample)
-                })
-            })
-            // Encoded sample still may be republished as SHM due to zenoh's ability to transparently
-            // convert non-SHM payloads ("implicit SHM optimization") into SHM ones when applicable.
-            .forward(publ) => { stream_result.unwrap(); }
-
-        _ = async {
-            let sample = conf_sub.recv_async().await.unwrap();
-            let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
-            let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
-            let _ = z.config().insert_json5(conf_key, &conf_val);
-         } => {},
+        // Processing loop
+        _ = process_loop(&z,key_sub.clone(), key_pub, reliability, congestion_ctrl) => {}
+        // Config update loop
+        _ = config_update_loop(&z, format!("{}/zencode/conf/**", key_sub)) => {},
     );
 }
 
@@ -139,34 +106,84 @@ fn parse_args() -> (
     )
 }
 
-fn ensure_jpg(
-    sample: &mut Sample,
-    encode_options: &opencv::core::Vector<i32>,
-) -> zenoh::Result<()> {
-    let meta = FrameMeta::decode_from_sample(sample)?;
-    match meta {
-        FrameMeta::Raw(raw_meta) => {
-            let jpeg_buf = {
-                // This Cow accessor provides immutable access to contained data.
-                // Access will be zero-copy if data is contiguous.
-                let contiguous_bytes = sample.payload().to_bytes();
+/// Processing loop that subscribes to frames, encodes them and republishes encoded frames.
+async fn process_loop(
+    session: &Session,
+    key_sub: String,
+    key_pub: String,
+    reliability: Reliability,
+    congestion_ctrl: CongestionControl,
+) {
+    // Declare subscriber for frames
+    let sub = session.declare_subscriber(&key_sub).await.unwrap();
 
-                // interpret the contiguous payload bytes as OpenCV Mat
-                let frame = unsafe { raw_meta.mat(contiguous_bytes.as_ptr()) };
+    // Declare publisher for encoded frames
+    let publ = session
+        .declare_publisher(&key_pub)
+        .reliability(reliability)
+        .congestion_control(congestion_ctrl)
+        .await
+        .unwrap();
 
-                // encode as jpeg
-                let mut buf = opencv::core::Vector::<u8>::new();
-                opencv::imgcodecs::imencode(".jpeg", &frame, &mut buf, &encode_options)?;
+    // Prepare jpg encoder options
+    let mut encode_options = opencv::core::Vector::<i32>::new();
+    encode_options.push(opencv::imgcodecs::IMWRITE_JPEG_QUALITY);
+    encode_options.push(90);
 
-                buf
-            };
+    loop {
+        // Receive sample with frame
+        let sample = sub.recv_async().await.unwrap();
 
-            // Replace sample metadata because now it is jpeg-encoded.
-            FrameMeta::Jpeg(raw_meta).encode_to_sample(sample)?;
-            // Update sample payload.
-            sample.set_payload(jpeg_buf.as_slice().into());
+        // Decode frame metadata
+        let meta = FrameMeta::decode(&sample)
+            .expect("Unable to decode frame metadata: probably wrong data format");
+
+        match meta {
+            FrameMeta::Raw(raw_meta) => {
+                let jpeg_buf = {
+                    // This Cow accessor provides immutable access to contained data.
+                    // Access will be zero-copy if data is contiguous (including SHM case).
+                    let contiguous_bytes = sample.payload().to_bytes();
+
+                    // Map opencv Mat into contiguous payload bytes
+                    let frame = unsafe { raw_meta.mat(contiguous_bytes.as_ptr()) };
+
+                    // Encode as jpeg
+                    let mut buf = opencv::core::Vector::<u8>::new();
+                    opencv::imgcodecs::imencode(".jpeg", &frame, &mut buf, &encode_options)
+                        .expect("Failed to encode frame to Jpeg");
+
+                    buf
+                };
+
+                // Encode frame metadata
+                let attachment = FrameMeta::Jpeg(raw_meta).encode().unwrap();
+
+                // Publish encoded frame
+                // NOTE:
+                //      - may leverage Zenoh's implicit SHM optimization and be published as SHM payload
+                //        for SHM-compatible subscribers
+                //      - will be published as Raw payload in other cases
+                publ.put(jpeg_buf.as_slice())
+                    .attachment(attachment)
+                    .await
+                    .unwrap();
+            }
+            FrameMeta::Jpeg(_) => {
+                // Already encoded - republish sample as it is
+                // NOTE: depending on initial sample's payload, the following options available:
+                // 1, SHM payload:
+                //      - will be published as 100% zerocopy SHM payload for SHM-compatible subscribers
+                //      - will be published as Raw payload in other cases
+                // 2. Raw payload:
+                //      - may leverage Zenoh's implicit SHM optimization and be published as SHM payload
+                //        for SHM-compatible subscribers
+                //      - will be published as Raw payload in other cases
+                publ.put(sample.payload().to_owned())
+                    .attachment(sample.attachment().cloned())
+                    .await
+                    .unwrap();
+            }
         }
-        FrameMeta::Jpeg(_) => {}
     }
-    Ok(())
 }
