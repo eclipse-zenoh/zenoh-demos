@@ -18,6 +18,8 @@ parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='appe
                     help='zenoh endpoints to listen on.')
 parser.add_argument('-a', '--camera', type=str, default='default', choices=['default', 'picameraV1', 'picameraV2'],
                     help='The type of camera to use.')
+parser.add_argument('-s', '--source', type=str,
+                    help='Video source: camera ID (e.g., 0) or URL (e.g., http://example.com/stream.m3u8)')
 parser.add_argument('-w', '--width', type=int, default=500,
                     help='width of the published frames')
 parser.add_argument('-q', '--quality', type=int, default=95,
@@ -59,8 +61,17 @@ elif args.camera == 'picameraV2':
     vs.configure(vs.create_preview_configuration({'format': 'XRGB8888', 'size': (1640, 1232)}))
     vs.start()
 else:
-    from imutils.video import VideoStream
-    vs = VideoStream(src=CAMERA_ID).start()
+    if args.source:
+        if args.source.startswith(('http://', 'https://', 'rtmp://', 'rtsp://')):
+            vs = cv2.VideoCapture(args.source)
+        else:
+            try:
+                camera_id = int(args.source)
+                vs = cv2.VideoCapture(camera_id)
+            except ValueError:
+                vs = cv2.VideoCapture(args.source)
+    else:
+        vs = cv2.VideoCapture(CAMERA_ID)
 
 time.sleep(1.0)
 
@@ -68,7 +79,16 @@ while True:
     if picamera:
         raw = vs.capture_array()
     else:
-        raw = vs.read()
+        if hasattr(vs, 'read') and callable(vs.read):
+            if isinstance(vs, cv2.VideoCapture):
+                ret, raw = vs.read()
+                if not ret:
+                    raw = None
+            else:
+                raw = vs.read()
+        else:
+            raw = None
+    
     if raw is not None:
         frame = imutils.resize(raw, width=args.width)
         _, jpeg = cv2.imencode('.jpg', frame, jpeg_opts)
