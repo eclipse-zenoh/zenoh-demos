@@ -162,11 +162,13 @@ async fn process_loop(
                 // Encoded as Jpeg - decode it directly to Zenoh SHM and publish
 
                 // Allocate SHM buffer for decoded frames with layout that is taken from the frame metadata.
-                let mut shmbuf = shm_provider
-                    .alloc(jpeg_meta.size())
-                    .with_policy::<BlockOn<Defragment<GarbageCollect>>>()
-                    .await
-                    .expect("Failed to allocate SHM buffer");
+                let mut shmbuf = unsafe {
+                    shm_provider
+                        .alloc(jpeg_meta.size())
+                        .with_unsafe_policy::<BlockOn<Defragment<GarbageCollect>>>()
+                        .await
+                        .expect("Failed to allocate SHM buffer")
+                };
 
                 // Map opencv Mat into allocated shared memory
                 let mut decoded_frame = unsafe { jpeg_meta.mat_mut(shmbuf.as_mut_ptr()) };

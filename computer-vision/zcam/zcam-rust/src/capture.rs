@@ -150,11 +150,13 @@ async fn process_loop(
     tracing::info!("Will publish frames: {meta}...");
     loop {
         // Allocate SHM buffer for decoded frames with layout that is taken from the frame metadata
-        let mut shm_buf = shm_provider
-            .alloc(raw_meta.size())
-            .with_policy::<BlockOn<GarbageCollect>>()
-            .await
-            .expect("Failed to allocate SHM buffer");
+        let mut shm_buf = unsafe {
+            shm_provider
+                .alloc(raw_meta.size())
+                .with_unsafe_policy::<BlockOn<GarbageCollect>>()
+                .await
+                .expect("Failed to allocate SHM buffer")
+        };
 
         // Map opencv Mat into shared memory
         let mut frame = unsafe { raw_meta.mat_mut(shm_buf.as_mut_ptr()) };
@@ -173,6 +175,8 @@ async fn process_loop(
         }
 
         // Wait before capturing next frame to maintin the desired frame rate
-        tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+        if delay > 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+        }
     }
 }

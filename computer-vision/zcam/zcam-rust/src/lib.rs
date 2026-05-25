@@ -21,18 +21,18 @@ use zenoh::{bytes::ZBytes, key_expr::KeyExpr, sample::Sample, Session};
 
 #[derive(Archive, Deserialize, Serialize, Debug, Clone)]
 pub struct RawFrameMeta {
-    rows: u16,
-    cols: u16,
-    typ: u8,
+    rows: i32,
+    cols: i32,
+    typ: i32,
     size: usize,
 }
 
 impl RawFrameMeta {
     pub fn new(frame: &Mat) -> zenoh::Result<Self> {
         Ok(Self {
-            rows: frame.rows() as u16,
-            cols: frame.cols() as u16,
-            typ: frame.typ() as u8,
+            rows: frame.rows(),
+            cols: frame.cols(),
+            typ: frame.typ(),
             size: frame.size()?.area() as usize * frame.elem_size()? as usize,
         })
     }

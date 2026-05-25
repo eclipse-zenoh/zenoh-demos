@@ -78,16 +78,6 @@ async fn process_loop(session: &Session, key_sub: String) {
     // Declare subscriber for frames
     let sub = session.declare_subscriber(key_sub).await.unwrap();
 
-    // Handle exit from GUI
-    let _ = tokio::task::spawn_blocking(|| {
-        loop {
-            if highgui::wait_key(0).unwrap() == 113 {
-                // 'q' key
-                std::process::exit(0);
-            }
-        }
-    });
-
     // Process incoming frames: read frames from stream and display them
     sub.stream()
         .for_each(async |sample| {
@@ -107,6 +97,10 @@ async fn process_loop(session: &Session, key_sub: String) {
                     // Display the frame
                     highgui::imshow(sample.key_expr().as_str(), &frame)
                         .expect("Failed to display frame!");
+                    if highgui::poll_key().unwrap() == 113 {
+                        // 'q' key
+                        std::process::exit(0);
+                    }
                 }
                 other_meta => {
                     tracing::error!("Unsupported frame meta: {:?}", other_meta);

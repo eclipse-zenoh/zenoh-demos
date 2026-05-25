@@ -217,11 +217,13 @@ async fn process_frame(
                     let payload = sample.payload();
 
                     // Allocate SHM buffer for contiguous payload bytes
-                    let mut shmbuf: zenoh::shm::ZShmMut = shm_provider
-                        .alloc(payload.len())
-                        .with_policy::<BlockOn<Defragment<GarbageCollect>>>()
-                        .await
-                        .expect("Failed to allocate SHM buffer");
+                    let mut shmbuf: zenoh::shm::ZShmMut = unsafe {
+                        shm_provider
+                            .alloc(payload.len())
+                            .with_unsafe_policy::<BlockOn<Defragment<GarbageCollect>>>()
+                            .await
+                            .expect("Failed to allocate SHM buffer")
+                    };
 
                     // Read bytes directly into SHM buffer
                     payload.reader().read_exact(&mut shmbuf)?;
