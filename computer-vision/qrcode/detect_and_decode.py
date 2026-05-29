@@ -1,5 +1,4 @@
 import argparse
-import imutils
 import time
 import cv2
 import json
@@ -16,8 +15,6 @@ parser.add_argument('-e', '--connect', type=str, metavar='ENDPOINT', action='app
                     help='zenoh endpoints to connect to.')
 parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='append',
                     help='zenoh endpoints to listen on.')
-parser.add_argument('-i', '--id', type=int, default=random.randint(1, 999),
-                    help='The Camera ID.')
 parser.add_argument('-d', '--delay', type=float, default=0.05,
                     help='delay between each frame in seconds')
 parser.add_argument('-p', '--prefix', type=str, default='demo/qrcode',

@@ -2,14 +2,13 @@ import argparse
 import time
 import cv2
 import json
-import random
 import zenoh
 import numpy as np
 import json
 
 parser = argparse.ArgumentParser(
     prog='display_video',
-    description='zenoh face recognition example display')
+    description='zenoh qrcode detection example display')
 parser.add_argument('-m', '--mode', type=str, choices=['peer', 'client'],
                     help='The zenoh session mode.')
 parser.add_argument('-e', '--connect', type=str, metavar='ENDPOINT', action='append',
