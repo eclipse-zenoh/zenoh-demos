@@ -1,0 +1,5 @@
+eclipse-zenoh
+imutils
+face_recognition
+numpy
+opencv_python
