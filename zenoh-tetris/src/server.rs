@@ -1,6 +1,7 @@
 mod common;
 use common::{start_read_key_thread, start_tetris_thread, render_game_field};
 use console::Term;
+use flume;
 use human_hash::humanize;
 use zenoh::{Config, Wait};
 
@@ -34,13 +35,15 @@ fn main() {
         .wait()
         .unwrap();
 
-    let subscriber = session
+    let (action_tx, action_rx) = flume::unbounded::<zenoh::sample::Sample>();
+    let _subscriber = session
         .declare_subscriber(&action_keyexpr)
+        .callback(move |sample| { let _ = action_tx.send(sample); })
         .wait()
         .unwrap();
 
     let (action_rx_player, _) = start_read_key_thread();
-    let state_rx = start_tetris_thread(action_rx_player, subscriber);
+    let state_rx = start_tetris_thread(action_rx_player, action_rx);
 
     term.clear_screen().unwrap();
     let text_player = vec!["PLAYER","", "<- Move Left", "-> Move Right", "^ Rotate", "v Accelerate", "Space: Drop"];
