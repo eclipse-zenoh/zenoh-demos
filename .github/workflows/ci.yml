@@ -39,6 +39,10 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            extra-substituters = https://zenoh-demos.cachix.org
+            extra-trusted-public-keys = zenoh-demos.cachix.org-1:baraQ3XIIgG575MordmLG+jQ21dLQB0JH30LFPQ/Xdg=
 
       - name: Setup Cachix
         uses: cachix/cachix-action@v15
@@ -74,6 +78,10 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            extra-substituters = https://zenoh-demos.cachix.org
+            extra-trusted-public-keys = zenoh-demos.cachix.org-1:baraQ3XIIgG575MordmLG+jQ21dLQB0JH30LFPQ/Xdg=
 
       - name: Setup Cachix
         uses: cachix/cachix-action@v15
