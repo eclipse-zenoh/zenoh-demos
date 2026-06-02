@@ -1,0 +1,5 @@
+eclipse-zenoh
+imutils
+numpy
+opencv_python
+ultralytics
