@@ -40,7 +40,7 @@ async fn main() {
     zenoh::init_log_from_env_or("error");
 
     // Parse command line arguments
-    let (haarcascade_file, config, key_sub, key_pub, reliability, congestion_ctrl) = parse_args();
+    let (haarcascade_file, config, key_sub, key_pub, reliability, congestion_ctrl, min_weight) = parse_args();
 
     // Load cascade
     let cascade = objdetect::CascadeClassifier::new(&haarcascade_file).unwrap();
@@ -50,16 +50,19 @@ async fn main() {
 
     select!(
         // Processing loop
-        _ = process_loop(&z,key_sub.clone(), key_pub, reliability, congestion_ctrl, cascade) => {}
+        _ = process_loop(&z,key_sub.clone(), key_pub, reliability, congestion_ctrl, cascade, min_weight) => {}
         // Config update loop
         _ = config_update_loop(&z, format!("{}/zhaar/conf/**", key_sub)) => {},
     );
 }
 
-#[derive(clap::Parser, Clone, PartialEq, Eq, Hash)]
+#[derive(clap::Parser, Clone, PartialEq)]
 struct Args {
     #[arg(long, default_value = "haarcascade_frontalface_default.xml")]
     haarcascade_file: String,
+
+    #[arg(long, default_value = "3.5")]
+    min_weight: f64,
 
     #[arg(short, long)]
     mode: Option<String>,
@@ -90,6 +93,7 @@ fn parse_args() -> (
     String,
     zenoh::qos::Reliability,
     zenoh::qos::CongestionControl,
+    f64,
 ) {
     let args = Args::parse();
     let mut c = if let Some(f) = args.config {
@@ -123,6 +127,7 @@ fn parse_args() -> (
         args.key_pub,
         reliability,
         congestion_control,
+        args.min_weight,
     )
 }
 
@@ -138,6 +143,7 @@ async fn process_loop(
     reliability: Reliability,
     congestion_ctrl: CongestionControl,
     mut cascade: CascadeClassifier,
+    min_weight: f64,
 ) {
     // Declare subscriber for frames
     let sub = session.declare_subscriber(&key_sub).await.unwrap();
@@ -162,7 +168,7 @@ async fn process_loop(
 
         // Prcess the recieved frame and obtain the processed frame in SHM
         if let Ok(processed_frame_in_shm) =
-            process_frame(&mut sample, &shm_provider, &mut cascade).await
+            process_frame(&mut sample, &shm_provider, &mut cascade, min_weight).await
         {
             // Publish SHM frame
             // NOTE:
@@ -180,6 +186,7 @@ async fn process_frame(
     sample: &mut Sample,
     shm_provider: &Arc<ShmProvider<PosixShmProviderBackend>>,
     cascade: &mut objdetect::CascadeClassifier,
+    min_weight: f64,
 ) -> zenoh::Result<ZShm> {
     // Decode frame metadata
     let meta = FrameMeta::decode(sample)
@@ -203,7 +210,7 @@ async fn process_frame(
                     let mut frame = unsafe { raw_meta.mat_mut(shm_mut_inplace.as_mut_ptr()) };
 
                     // Detect objects and draw rectangles in-place directly on the SHM buffer
-                    detect_objects(&mut frame, cascade)?;
+                    detect_objects(&mut frame, cascade, min_weight)?;
 
                     let shm_immut: &mut zshm = shm_mut_inplace.into();
 
@@ -232,7 +239,7 @@ async fn process_frame(
                     let mut frame = unsafe { raw_meta.mat_mut(shmbuf.as_mut_ptr()) };
 
                     // Detect objects and draw rectangles directly on the SHM buffer
-                    detect_objects(&mut frame, cascade)?;
+                    detect_objects(&mut frame, cascade, min_weight)?;
 
                     // Return the processed frame as SHM
                     Ok(shmbuf.into())
@@ -250,30 +257,40 @@ async fn process_frame(
 fn detect_objects<F: MatTraitConst + ToInputArray + ToInputOutputArray>(
     frame: &mut F,
     cascade: &mut objdetect::CascadeClassifier,
+    min_weight: f64,
 ) -> opencv::Result<()> {
     // Detect directly on the color Mat – no cvt_color needed
     let mut objects = opencv::core::Vector::new();
-    cascade.detect_multi_scale(
+    let mut reject_levels = opencv::core::Vector::new();
+    let mut level_weights = opencv::core::Vector::new();
+    cascade.detect_multi_scale3(
         frame, // color image here
         &mut objects,
+        &mut reject_levels,
+        &mut level_weights,
         1.1,
         3,
         objdetect::CASCADE_SCALE_IMAGE,
         opencv::core::Size::new(30, 30),
         opencv::core::Size::new(0, 0),
+        true,
     )?;
 
     // Draw green rectangles around found objects
-    for object in objects {
-        imgproc::rectangle(
-            frame,
-            object,
-            Scalar::new(0.0, 255.0, 0.0, 0.0), // BGR green
-            2,
-            imgproc::LINE_8,
-            0,
-        )
-        .unwrap();
+    for i in 0..objects.len() {
+        if level_weights.get(i).is_ok_and(|i| i >= min_weight) {
+            if let Ok(object) = objects.get(i) {
+                imgproc::rectangle(
+                    frame,
+                    object,
+                    Scalar::new(0.0, 255.0, 0.0, 0.0), // BGR green
+                    2,
+                    imgproc::LINE_8,
+                    0,
+                )
+                .unwrap();
+            }
+        }
     }
     Ok(())
 }
