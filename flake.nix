@@ -175,12 +175,13 @@
 
         devShells = {
           # Base shell: Rust toolchain + cargo tools, no native deps beyond openssl.
-          # Use for: zenoh-tetris, zenoh-shamir, ROS2 demos (after upgrade).
+          # openssh included so whippet-cli (which calls ssh) works from inside the sandbox.
           default = craneLib.devShell ({
             packages = with pkgs; [
               cargo-watch
               cargo-expand
               mold
+              openssh
             ];
             inputsFrom = [ ];
           } // commonEnv);
