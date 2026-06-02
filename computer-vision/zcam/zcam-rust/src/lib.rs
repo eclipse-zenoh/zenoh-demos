@@ -41,10 +41,18 @@ impl RawFrameMeta {
         self.size
     }
 
+    // SAFETY: the caller must ensure that:
+    // - the data pointer is valid and points to a buffer of the correct size
+    // - the data buffer is not modified while the Mat is in use
+    // - the Mat is not used after the data buffer is deallocated
     pub unsafe fn mat_mut(&self, data: *mut u8) -> Mat {
         unsafe { self._mat(data) }
     }
 
+    // SAFETY: the caller must ensure that:
+    // - the data pointer is valid and points to a buffer of the correct size
+    // - the data buffer is not modified while the Mat is in use
+    // - the Mat is not used after the data buffer is deallocated
     pub unsafe fn mat(&self, data: *const u8) -> impl MatTraitConst + ToInputArray {
         unsafe { self._mat(data as *mut u8) }
     }

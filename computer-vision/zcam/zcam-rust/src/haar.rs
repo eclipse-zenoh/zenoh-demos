@@ -40,7 +40,8 @@ async fn main() {
     zenoh::init_log_from_env_or("error");
 
     // Parse command line arguments
-    let (haarcascade_file, config, key_sub, key_pub, reliability, congestion_ctrl, min_weight) = parse_args();
+    let (haarcascade_file, config, key_sub, key_pub, reliability, congestion_ctrl, min_weight) =
+        parse_args();
 
     // Load cascade
     let cascade = objdetect::CascadeClassifier::new(&haarcascade_file).unwrap();
