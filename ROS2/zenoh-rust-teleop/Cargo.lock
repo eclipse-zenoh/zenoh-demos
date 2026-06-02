@@ -2181,9 +2181,9 @@ dependencies = [
  "clap",
  "crossterm",
  "env_logger",
- "futures",
  "serde",
  "serde_derive",
+ "serde_json",
  "tokio",
  "zenoh",
 ]

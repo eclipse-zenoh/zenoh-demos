@@ -18,7 +18,6 @@ use crossterm::{
     event::{Event, KeyCode, KeyEvent, KeyModifiers},
     ExecutableCommand,
 };
-use futures::StreamExt;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
@@ -137,10 +136,9 @@ async fn main() {
     write!(stdout(), "Arrow keys / space to move. ESC or 'q' to quit. 'd' to delete stored data.\r\n")
         .unwrap_or_default();
 
-    let mut sub_stream = subscriber.into_stream();
     loop {
         tokio::select!(
-            Some(sample) = sub_stream.next() => {
+            Ok(sample) = subscriber.recv_async() => {
                 match cdr::deserialize_from::<_, Log, _>(sample.payload().reader(), cdr::size::Infinite) {
                     Ok(log) => { println!("{}", log); stdout().execute(MoveToColumn(0)).unwrap(); }
                     Err(e) => eprintln!("Error decoding Log: {}", e),
