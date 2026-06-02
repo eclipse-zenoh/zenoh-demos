@@ -25,3 +25,21 @@ Once build you can run it as follows:
 ./target/release/zcapture -k 'demo/zcam/yourname'
 ./target/release/zdisplay -k 'demo/zcam/*'
 ```
+
+Or with face detection (fully zero-copy):
+
+```bash
+./target/release/zcapture -k 'demo/zcam/yourname'
+./target/release/zhaar -k 'demo/zcam/yourname' --key-pub 'demo/zcam/yourname/facedetect'
+./target/release/zdisplay -k 'demo/zcam/yourname/facedetect'
+```
+
+Or with face detection and jpg encoding/decoding:
+
+```bash
+./target/release/zcapture -k 'demo/zcam/yourname'
+./target/release/zhaar -k 'demo/zcam/yourname' --key-pub  'demo/zcam/yourname/facedetect'
+./target/release/zencode -k 'demo/zcam/yourname/facedetect' --key-pub  'demo/zcam/yourname/facedetect/encoded'
+./target/release/zdecode -k 'demo/zcam/yourname/facedetect/encoded' --key-pub  'demo/zcam/yourname/facedetect/decoded'
+./target/release/zdisplay -k 'demo/zcam/yourname/facedetect/decoded'
+```

@@ -12,56 +12,30 @@
 //   The Zenoh Team, <zenoh@zettascale.tech>
 //
 use clap::Parser;
-use futures::{select, FutureExt};
-use opencv::{highgui, prelude::*};
+use futures::StreamExt;
+use opencv::highgui;
 use serde_json::json;
-use zenoh::{config::Config, Wait};
+use tokio::select;
+use zcam::{config_update_loop, FrameMeta};
+use zenoh::{config::Config, Session, Wait};
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
-    let (config, key_expr) = parse_args();
+    // Initiate logging
+    zenoh::init_log_from_env_or("error");
+
+    // Parse command line arguments
+    let (config, key_sub) = parse_args();
 
     println!("Opening session...");
     let z = zenoh::open(config).wait().unwrap();
-    let sub = z.declare_subscriber(&key_expr).await.unwrap();
 
-    let conf_sub = z
-        .declare_subscriber(format!("{}/zdisplay/conf/**", key_expr))
-        .wait()
-        .unwrap();
-
-    loop {
-        select!(
-            sample = sub.recv_async().fuse() => {
-                let sample = sample.unwrap();
-                let bs = opencv::core::Vector::<u8>::from(sample.payload().to_bytes().to_vec());
-                let decoded = opencv::imgcodecs::imdecode(
-                    &bs,
-                    opencv::imgcodecs::IMREAD_COLOR,
-                ).unwrap();
-
-                if decoded.size().unwrap().width > 0 {
-                    highgui::imshow(sample.key_expr().as_str(), &decoded).unwrap();
-                }
-                if highgui::wait_key(10).unwrap() == 113 {
-                    // 'q'
-                    break;
-                }
-                drop(sample)
-            },
-
-            sample = conf_sub.recv_async().fuse() => {
-                let sample = sample.unwrap();
-                let conf_key = sample.key_expr().as_str().split("/conf/").last().unwrap();
-                let conf_val = String::from_utf8_lossy(&sample.payload().to_bytes()).to_string();
-                let _ = z.config().insert_json5(conf_key, &conf_val);
-            },
-        );
-    }
-    conf_sub.undeclare().wait().unwrap();
-    sub.undeclare().wait().unwrap();
-    z.close().wait().unwrap();
+    select!(
+        // Processing loop
+        _ = process_loop(&z, key_sub.clone()) => {}
+        // Config update loop
+        _ = config_update_loop(&z, format!("{}/zdisplay/conf/**", key_sub)) => {},
+    );
 }
 
 #[derive(clap::Parser, Clone, PartialEq, Eq, Hash)]
@@ -95,4 +69,43 @@ fn parse_args() -> (Config, String) {
     }
 
     (c, args.key)
+}
+
+/// Processing loop that subscribes to frames and displays them using OpenCV's highgui module.
+/// Frames are mapped into OpenCV Mats without copying using metadata information and Zenoh's
+/// zero-copy accessors, so the processing is efficient even for large frames.
+async fn process_loop(session: &Session, key_sub: String) {
+    // Declare subscriber for frames
+    let sub = session.declare_subscriber(key_sub).await.unwrap();
+
+    // Process incoming frames: read frames from stream and display them
+    sub.stream()
+        .for_each(async |sample| {
+            // Decode frame metadata
+            let meta = FrameMeta::decode(&sample)
+                .expect("Unable to decode frame metadata: probably wrong data format");
+
+            match meta {
+                FrameMeta::Raw(raw_frame_meta) => {
+                    // This Cow accessor provides immutable access to contained data.
+                    // Access will be zero-copy if data is contiguous (including SHM case).
+                    let contiguous_bytes = sample.payload().to_bytes();
+
+                    // Map opencv Mat into contiguous payload bytes
+                    let frame = unsafe { raw_frame_meta.mat(contiguous_bytes.as_ptr()) };
+
+                    // Display the frame
+                    highgui::imshow(sample.key_expr().as_str(), &frame)
+                        .expect("Failed to display frame!");
+                    if highgui::poll_key().unwrap() == 113 {
+                        // 'q' key
+                        std::process::exit(0);
+                    }
+                }
+                other_meta => {
+                    tracing::error!("Unsupported frame meta: {:?}", other_meta);
+                }
+            }
+        })
+        .await;
 }
