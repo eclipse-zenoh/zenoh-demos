@@ -59,8 +59,8 @@ parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='appe
                     help='zenoh endpoints to listen on.')
 parser.add_argument('-k', '--key', type=str, default='rt/turtle1/lidar',
                     help='The key expression to subscribe for LaserReadings.')
-parser.add_argument('--intensity-treshold', type=float, default=250.0,
-                    help='The intensity treshold.')
+parser.add_argument('--intensity-threshold', type=float, default=250.0,
+                    help='The intensity threshold.')
 parser.add_argument('-c', '--config', type=str, metavar='FILE',
                     help='A zenoh configuration file.')
 
@@ -83,12 +83,12 @@ ax.set_ylim(-4, 4)
 
 def lidar_listener(sample):
     print('[DEBUG] Received frame: {}'.format(sample.key_expr))
-    scan = LaserScan.deserialize(sample.payload)
+    scan = LaserScan.deserialize(sample.payload.to_bytes())
     angles = list(map(lambda x: x*1j+cmath.pi/2j, np.arange(scan.angle_min, scan.angle_max, scan.angle_increment)))
 
     complexes = []
     for (angle, distance, intensity) in list(zip(angles, scan.ranges, scan.intensities)):
-        complexes.append(distance * cmath.exp(angle) if intensity >= args.intensity_treshold else 1024 * cmath.exp(angle))
+        complexes.append(distance * cmath.exp(angle) if intensity >= args.intensity_threshold else 1024 * cmath.exp(angle))
     X = [i.real for i in complexes]
     Y = [i.imag for i in complexes]
     XY = [[i.real, i.imag] for i in complexes]
@@ -96,7 +96,7 @@ def lidar_listener(sample):
     patch.set_xy(XY)
     line.set_data(X, Y)
 
-print("[INFO] Openning zenoh session...")
+print("[INFO] Opening zenoh session...")
 zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 
