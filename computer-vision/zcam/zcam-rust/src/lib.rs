@@ -33,7 +33,7 @@ impl RawFrameMeta {
             rows: frame.rows(),
             cols: frame.cols(),
             typ: frame.typ(),
-            size: frame.size()?.area() as usize * frame.elem_size()? as usize,
+            size: frame.size()?.area() as usize * frame.elem_size()?,
         })
     }
 
@@ -52,9 +52,9 @@ impl RawFrameMeta {
     unsafe fn _mat(&self, data: *mut u8) -> Mat {
         unsafe {
             Mat::new_rows_cols_with_data_unsafe_def(
-                self.rows as i32,
-                self.cols as i32,
-                self.typ as i32,
+                self.rows,
+                self.cols,
+                self.typ,
                 data as *mut std::ffi::c_void,
             )
             .unwrap()

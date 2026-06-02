@@ -182,12 +182,12 @@ async fn process_frame(
     cascade: &mut objdetect::CascadeClassifier,
 ) -> zenoh::Result<ZShm> {
     // Decode frame metadata
-    let meta = FrameMeta::decode(&sample)
+    let meta = FrameMeta::decode(sample)
         .expect("Unable to decode frame metadata: probably wrong data format");
 
     match meta {
         FrameMeta::Raw(raw_meta) => {
-            fn try_mutate_shm_inplace<'a>(sample: &'a mut Sample) -> Option<&'a mut zshmmut> {
+            fn try_mutate_shm_inplace(sample: &mut Sample) -> Option<&mut zshmmut> {
                 // Try to interpret the payload as SHM buffer
                 let shm_buf = sample.payload_mut().as_shm_mut()?;
 
@@ -208,7 +208,7 @@ async fn process_frame(
                     let shm_immut: &mut zshm = shm_mut_inplace.into();
 
                     // Return the processed frame as SHM without copying
-                    return Ok(shm_immut.to_owned());
+                    Ok(shm_immut.to_owned())
                 }
                 None => {
                     // If any of the in-place SHM mutation steps fail, fall back to copying the data into a new SHM buffer
@@ -235,7 +235,7 @@ async fn process_frame(
                     detect_objects(&mut frame, cascade)?;
 
                     // Return the processed frame as SHM
-                    return Ok(shmbuf.into());
+                    Ok(shmbuf.into())
                 }
             }
         }
