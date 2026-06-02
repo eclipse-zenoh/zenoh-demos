@@ -4,15 +4,14 @@ version = "0.0.1"
 authors = ["Julien Loudet <julien.loudet@zettascale.tech>"]
 license = " EPL-2.0 OR Apache-2.0"
 categories = ["network-programming"]
-description = "A simple way of using Shamir’s Secret Sharing Scheme on top of Zenoh"
+description = "A simple way of using Shamir's Secret Sharing Scheme on top of Zenoh"
 readme = "../README.md"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 zenoh = { workspace = true }
-async-std = { workspace = true }
-futures = { workspace = true }
-log = { workspace = true }
+tokio = { workspace = true }
 env_logger = { workspace = true }
 clap = { workspace = true }
+serde_json = { workspace = true }
 sharks = { workspace = true }

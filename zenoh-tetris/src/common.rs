@@ -24,9 +24,8 @@ impl TryFrom<Action> for TetrisThreadAction {
 impl TryFrom<Sample> for TetrisThreadAction {
     type Error = ();
     fn try_from(value: Sample) -> Result<Self, Self::Error> {
-        let s = value.value.to_string();
-        let action = serde_json::from_str(s.as_str());
-        match action {
+        let s = String::from_utf8_lossy(&value.payload().to_bytes()).to_string();
+        match serde_json::from_str(s.as_str()) {
             Ok(action) => Ok(TetrisThreadAction(action)),
             Err(_) => Err(()),
         }
@@ -43,8 +42,6 @@ pub fn start_tetris_thread<
     let (tx, rx) = flume::unbounded();
     thread::spawn(move || {
         let mut tetris_pair = TetrisPair::new(10, 20);
-
-        // Setup ganme speed
         let step_delay = time::Duration::from_millis(10);
         tetris_pair.set_fall_speed(1, 30);
         tetris_pair.set_drop_speed(1, 1);
@@ -113,8 +110,11 @@ pub fn key_to_action_opponent(key: &Key) -> Option<Action> {
 }
 
 pub fn render_game_field(term: &Term, state: TetrisPairState, text_player: &[&str], text_opponent: &[&str]) {
-    // Cloning every time is highly inoptimal, but dont't care for now
-    let field = GameFieldPair::new(state, text_player.iter().map(|s| s.to_string()).collect(), text_opponent.iter().map(|s| s.to_string()).collect());
+    let field = GameFieldPair::new(
+        state,
+        text_player.iter().map(|s| s.to_string()).collect(),
+        text_opponent.iter().map(|s| s.to_string()).collect(),
+    );
     let lines = field.render(&AnsiTermStyle);
     term.move_cursor_to(0, 0).unwrap();
     for line in lines {

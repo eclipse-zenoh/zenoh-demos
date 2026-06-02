@@ -1,0 +1,2 @@
+eclipse-zenoh==1.9.0
+opencv-python

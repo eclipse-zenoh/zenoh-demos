@@ -1,7 +1,5 @@
-//! Examples on using Zenoh.
-//! See the code in ../examples/
-//! Check ../README.md for usage.
-//!
+//! Common CLI args shared across Zenoh examples.
+use serde_json::json;
 use zenoh::config::Config;
 
 #[derive(clap::ValueEnum, Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -33,7 +31,7 @@ pub struct CommonArgs {
     /// Disable the multicast-based scouting mechanism.
     no_multicast_scouting: bool,
     #[arg(long)]
-    /// Disable the multicast-based scouting mechanism.
+    /// Enable shared-memory feature.
     enable_shm: bool,
 }
 
@@ -48,30 +46,30 @@ impl From<&CommonArgs> for Config {
             Some(path) => Config::from_file(path).unwrap(),
             None => Config::default(),
         };
-        match value.mode {
-            Some(Wai::Peer) => config.set_mode(Some(zenoh::scouting::WhatAmI::Peer)),
-            Some(Wai::Client) => config.set_mode(Some(zenoh::scouting::WhatAmI::Client)),
-            Some(Wai::Router) => config.set_mode(Some(zenoh::scouting::WhatAmI::Router)),
-            None => Ok(None),
+        if let Some(mode) = value.mode {
+            config
+                .insert_json5("mode", &json!(mode.to_string().to_lowercase()).to_string())
+                .unwrap();
         }
-        .unwrap();
         if !value.connect.is_empty() {
-            config.connect.endpoints = value.connect.iter().map(|v| v.parse().unwrap()).collect();
+            config
+                .insert_json5("connect/endpoints", &json!(value.connect).to_string())
+                .unwrap();
         }
         if !value.listen.is_empty() {
-            config.listen.endpoints = value.listen.iter().map(|v| v.parse().unwrap()).collect();
+            config
+                .insert_json5("listen/endpoints", &json!(value.listen).to_string())
+                .unwrap();
         }
         if value.no_multicast_scouting {
-            config.scouting.multicast.set_enabled(Some(false)).unwrap();
+            config
+                .insert_json5("scouting/multicast/enabled", "false")
+                .unwrap();
         }
         if value.enable_shm {
-            //#[cfg(feature = "shared-memory")]
-            config.transport.shared_memory.set_enabled(true).unwrap();
-            // #[cfg(not(feature = "shared-memory"))]
-            // {
-            //     println!("enable-shm argument: SHM cannot be enabled, because Zenoh is compiled without shared-memory feature!");
-            //     std::process::exit(-1);
-            // }
+            config
+                .insert_json5("transport/shared_memory/enabled", "true")
+                .unwrap();
         }
         config
     }

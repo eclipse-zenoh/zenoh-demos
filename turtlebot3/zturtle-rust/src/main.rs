@@ -11,15 +11,13 @@
 // Contributors:
 //   The Zenoh Team, <zenoh@zettascale.tech>
 //
-use clap::{App, Arg};
+use clap::Parser;
 use opencv::{core, prelude::*, videoio};
 use serde_derive::Deserialize;
 use serde_json::Value;
 use std::thread::sleep;
 use std::time::Duration;
-use zenoh::config::{Config, ValidatedMap};
-use zenoh::prelude::sync::SyncResolve;
-use zenoh::prelude::*;
+use zenoh::{Config, Wait};
 
 mod addresses;
 use addresses::*;
@@ -37,105 +35,68 @@ struct Twist {
     angular: Vector3,
 }
 
+#[derive(Parser, Debug)]
+#[command(about = "Zenoh TurtleBot3 teleoperation")]
+struct Args {
+    #[arg(short, long)]
+    mode: Option<String>,
+    #[arg(short = 'e', long, required = true)]
+    endpoints: String,
+    #[arg(short, long)]
+    listen: Vec<String>,
+    #[arg(short, long, default_value = "rt/turtle1")]
+    prefix: String,
+    #[arg(short, long)]
+    config: Option<String>,
+    #[arg(short, long, default_value = "/dev/ttyACM0")]
+    serial: String,
+    #[arg(short, long, default_value = "640x360")]
+    resolution: String,
+    #[arg(short, long, default_value = "95")]
+    quality: i32,
+    #[arg(short, long, default_value = "0.05")]
+    delay: f32,
+    #[arg(long)]
+    no_multicast_scouting: bool,
+}
+
 fn main() {
-    let args = App::new("zenoh turtlebot3 example")
-        .arg(
-            Arg::from_usage("-m, --mode=[MODE]  'The zenoh session mode (peer by default).")
-                .possible_values(["peer", "client"]),
-        )
-        .arg(
-            Arg::from_usage("-e, --endpoints=[FILE]   'A BSSID/endpoint mapping json file.'")
-                .required(true),
-        )
-        .arg(Arg::from_usage(
-            "-l, --listen=[ENDPOINT]...   'Endpoints to listen on.'",
-        ))
-        .arg(
-            Arg::from_usage("-p, --prefix=[KEYEXPR] 'The robot prefix'")
-                .default_value("rt/turtle1"),
-        )
-        .arg(Arg::from_usage(
-            "-c, --config=[FILE]      'A configuration file.'",
-        ))
-        .arg(
-            Arg::from_usage("-s, --serial=[FILE]      'A serial port.'")
-                .default_value("/dev/ttyACM0"),
-        )
-        .arg(
-            Arg::from_usage(
-                "-r, --resolution=[RESOLUTION] 'The resolution of the published video.",
-            )
-            .default_value("640x360"),
-        )
-        .arg(
-            Arg::from_usage(
-                "-q, --quality=[QUALITY] 'The quality of the published frames (0 - 100).",
-            )
-            .default_value("95"),
-        )
-        .arg(
-            Arg::from_usage("-d, --delay=[TIME] 'The delay between each iteration in seconds.")
-                .default_value("0.05"),
-        )
-        .arg(Arg::from_usage(
-            "--no-multicast-scouting 'Disable the multicast-based scouting mechanism.'",
-        ))
-        .get_matches();
+    let args = Args::parse();
 
-    let endpoints: Value = serde_json::from_str(
-        &std::fs::read_to_string(args.value_of("endpoints").unwrap()).unwrap(),
-    )
-    .unwrap();
+    let endpoints: Value =
+        serde_json::from_str(&std::fs::read_to_string(&args.endpoints).unwrap()).unwrap();
 
-    let mut config = if let Some(conf_file) = args.value_of("config") {
-        Config::from_file(conf_file).unwrap()
-    } else {
-        Config::default()
-    };
-    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
-        config.set_mode(Some(mode)).unwrap();
-    }
-    if let Some(values) = args.values_of("listen") {
-        config
-            .listen
-            .endpoints
-            .extend(values.map(|v| v.parse().unwrap()))
-    }
-    if args.is_present("no-multicast-scouting") {
-        config.scouting.multicast.set_enabled(Some(false)).unwrap();
-    }
-
-    let prefix = args.value_of("prefix").unwrap().to_string();
-    let serial = args.value_of("serial").unwrap().to_string();
-    let delay = (args.value_of("delay").unwrap().parse::<f32>().unwrap() * 1000.0) as u64;
+    let prefix = args.prefix.clone();
+    let serial = args.serial.clone();
+    let delay = (args.delay * 1000.0) as u64;
     let resolution = args
-        .value_of("resolution")
-        .unwrap()
+        .resolution
         .split('x')
         .map(|s| s.parse::<i32>().unwrap())
         .collect::<Vec<i32>>();
-    let quality: i32 = args.value_of("quality").unwrap().parse().unwrap();
+    let quality = args.quality;
 
     let mut bssid = get_bssid().unwrap_or_else(|| "default".to_string());
+    let mut config = build_config(&args);
     update_config(&mut config, &endpoints, &bssid);
 
     println!("[INFO] Open zenoh session...");
-    let session = zenoh::open(config).res().unwrap();
+    let session = zenoh::open(config).wait().unwrap();
 
-    let heartbeat_pubsliher = session
+    let heartbeat_publisher = session
         .declare_publisher(format!("{}/heartbeat", prefix))
-        .res()
+        .wait()
         .unwrap();
 
     println!("[INFO] Connect to motor...");
-    let mut cmd = match dynamixel2::Bus::open(serial, 115200, Duration::from_secs(3)) {
+    let mut cmd = match dynamixel2::Bus::open(&serial, 115200, Duration::from_secs(3)) {
         Ok(mut bus) => {
             let _ = bus.write_u8(200, IMU_RE_CALIBRATION, 1);
             Some((
                 bus,
                 session
-                    .declare_subscriber(&format!("{}/cmd_vel", prefix))
-                    .res()
+                    .declare_subscriber(format!("{}/cmd_vel", prefix))
+                    .wait()
                     .unwrap(),
             ))
         }
@@ -147,19 +108,16 @@ fn main() {
 
     println!("[INFO] Open camera...");
     let mut camera = {
-        let camer_publisher = session
+        let cam_publisher = session
             .declare_publisher(format!("{}/cams/0", prefix))
-            .res()
+            .wait()
             .unwrap();
-        #[cfg(feature = "opencv-32")]
-        let cam = videoio::VideoCapture::new_default(0).unwrap();
-        #[cfg(not(feature = "opencv-32"))]
         let cam = videoio::VideoCapture::new(0, videoio::CAP_ANY).unwrap();
-        if videoio::VideoCapture::is_opened(&cam).is_ok() {
-            let mut encode_options = opencv::types::VectorOfi32::new();
+        if videoio::VideoCapture::is_opened(&cam).unwrap_or(false) {
+            let mut encode_options = opencv::core::Vector::<i32>::new();
             encode_options.push(opencv::imgcodecs::IMWRITE_JPEG_QUALITY);
             encode_options.push(quality);
-            Some((cam, encode_options, camer_publisher))
+            Some((cam, encode_options, cam_publisher))
         } else {
             println!("[WARN] Unable to open camera!");
             None
@@ -167,15 +125,14 @@ fn main() {
     };
 
     sleep(Duration::from_secs(3));
-
-    let mut count = 0;
+    let mut count: u8 = 0;
 
     println!("[INFO] Running!");
     loop {
         if let Some((bus, sub)) = &mut cmd {
             let mut twist = Twist::default();
             while let Ok(recv) = sub.try_recv() {
-                twist = cdr::deserialize::<Twist>(&recv.value.payload.contiguous()).unwrap();
+                twist = cdr::deserialize::<Twist>(&recv.payload().to_bytes()).unwrap();
             }
 
             let _ = bus.write_u8(200, HEARTBEAT, count);
@@ -187,7 +144,7 @@ fn main() {
             let _ = bus.write_u32(200, CMD_VELOCITY_ANGULAR_Z, (twist.angular.z as i32) as u32);
         }
 
-        heartbeat_pubsliher.put(count as i64).res().unwrap();
+        heartbeat_publisher.put(count as i64).wait().unwrap();
 
         if let Some((cam, encode_options, cam_pub)) = &mut camera {
             let mut frame = core::Mat::default();
@@ -203,15 +160,16 @@ fn main() {
                 opencv::imgproc::INTER_LINEAR,
             )
             .unwrap();
-            let mut buf = opencv::types::VectorOfu8::new();
+            let mut buf = opencv::core::Vector::<u8>::new();
             opencv::imgcodecs::imencode(".jpeg", &reduced, &mut buf, encode_options).unwrap();
-            cam_pub.put(buf.to_vec()).res().unwrap();
+            cam_pub.put(buf.to_vec()).wait().unwrap();
         }
 
         let new_bssid = get_bssid().unwrap_or_else(|| "default".to_string());
         if bssid != new_bssid {
-            println!("[info] New access point detected");
-            update_config(&mut session.config(), &endpoints, &new_bssid);
+            println!("[INFO] New access point detected");
+            let mut runtime_config = session.config().lock();
+            update_config(&mut *runtime_config, &endpoints, &new_bssid);
             bssid = new_bssid;
         }
 
@@ -220,7 +178,29 @@ fn main() {
     }
 }
 
-fn update_config<T: ValidatedMap>(config: &mut T, mapping: &Value, new_bssid: &str) {
+fn build_config(args: &Args) -> Config {
+    use serde_json::json;
+    let mut config = match &args.config {
+        Some(path) => Config::from_file(path).unwrap(),
+        None => Config::default(),
+    };
+    if let Some(mode) = &args.mode {
+        config.insert_json5("mode", &json!(mode).to_string()).unwrap();
+    }
+    if !args.listen.is_empty() {
+        config
+            .insert_json5("listen/endpoints", &json!(args.listen).to_string())
+            .unwrap();
+    }
+    if args.no_multicast_scouting {
+        config
+            .insert_json5("scouting/multicast/enabled", "false")
+            .unwrap();
+    }
+    config
+}
+
+fn update_config(config: &mut zenoh::config::Config, mapping: &Value, new_bssid: &str) {
     if let Some(endpoints) = mapping
         .as_object()
         .unwrap()

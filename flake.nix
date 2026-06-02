@@ -60,24 +60,114 @@
         };
 
         # ── Packages ───────────────────────────────────────────────────────────
-        #
-        # Only demos that currently compile against their pinned zenoh version
-        # are exposed as packages. Demos undergoing API rewrite (phase 3) will
-        # be added here once their Cargo.toml is updated.
 
-        # computer-vision/zcam/zcam-rust — zenoh 1.9.0, already current
+        # computer-vision/zcam/zcam-rust — zenoh 1.9.0
         zcam = craneLib.buildPackage ({
           src = craneLib.cleanCargoSource ./computer-vision/zcam/zcam-rust;
           pname = "zcam";
           version = "0.1.0";
-
           nativeBuildInputs = commonNativeBuildInputs;
           buildInputs = commonBuildInputs ++ [ opencvPkg ];
         } // commonEnv // opencvEnv);
 
+        # turtlebot3/zlidar-rust — 1.4.0 → 1.9.0 (version bump)
+        zlidar = craneLib.buildPackage ({
+          src = craneLib.cleanCargoSource ./turtlebot3/zlidar-rust;
+          pname = "zlidar";
+          version = "0.1.0";
+          nativeBuildInputs = commonNativeBuildInputs;
+          buildInputs = commonBuildInputs ++ [ pkgs.udev ];
+        } // commonEnv);
+
+        # ROS2/zenoh-rust-replay — 1.0.3 → 1.9.0 (async-std → tokio)
+        zenoh-rust-replay = craneLib.buildPackage ({
+          src = craneLib.cleanCargoSource ./ROS2/zenoh-rust-replay;
+          pname = "ros2-replay";
+          version = "0.0.1";
+          nativeBuildInputs = commonNativeBuildInputs;
+          buildInputs = commonBuildInputs;
+        } // commonEnv);
+
+        # zenoh-dds-interop/shapes_demo — 0.11 → 1.9.0 (drop zenoh-util)
+        zenoh-dds-shapes = craneLib.buildPackage ({
+          src = craneLib.cleanCargoSource ./zenoh-dds-interop/shapes_demo;
+          pname = "shapes-demo";
+          version = "0.1.0";
+          nativeBuildInputs = commonNativeBuildInputs;
+          buildInputs = commonBuildInputs;
+        } // commonEnv);
+
+        # zenoh-shamir — 0.10.0-rc → 1.9.0 (full async rewrite)
+        zenoh-shamir-put = craneLib.buildPackage ({
+          src = craneLib.cleanCargoSource ./zenoh-shamir;
+          pname = "zenoh_put_shamir";
+          version = "0.0.1";
+          cargoExtraArgs = "--bin zenoh_put_shamir";
+          nativeBuildInputs = commonNativeBuildInputs;
+          buildInputs = commonBuildInputs;
+        } // commonEnv);
+
+        zenoh-shamir-queryable = craneLib.buildPackage ({
+          src = craneLib.cleanCargoSource ./zenoh-shamir;
+          pname = "zenoh_queryable_shamir";
+          version = "0.0.1";
+          cargoExtraArgs = "--bin zenoh_queryable_shamir";
+          nativeBuildInputs = commonNativeBuildInputs;
+          buildInputs = commonBuildInputs;
+        } // commonEnv);
+
+        # zenoh-tetris — 0.10.0-rc → 1.9.0 (sync .wait() API)
+        zenoh-tetris-server = craneLib.buildPackage ({
+          src = craneLib.cleanCargoSource ./zenoh-tetris;
+          pname = "zenoh-tetris-server";
+          version = "0.1.0";
+          cargoExtraArgs = "--bin server";
+          nativeBuildInputs = commonNativeBuildInputs;
+          buildInputs = commonBuildInputs;
+        } // commonEnv);
+
+        zenoh-tetris-client = craneLib.buildPackage ({
+          src = craneLib.cleanCargoSource ./zenoh-tetris;
+          pname = "zenoh-tetris-client";
+          version = "0.1.0";
+          cargoExtraArgs = "--bin client";
+          nativeBuildInputs = commonNativeBuildInputs;
+          buildInputs = commonBuildInputs;
+        } // commonEnv);
+
+        zenoh-tetris-hotseat = craneLib.buildPackage ({
+          src = craneLib.cleanCargoSource ./zenoh-tetris;
+          pname = "zenoh-tetris-hotseat";
+          version = "0.1.0";
+          cargoExtraArgs = "--bin hot_seat";
+          nativeBuildInputs = commonNativeBuildInputs;
+          buildInputs = commonBuildInputs;
+        } // commonEnv);
+
+        # ROS2/zenoh-rust-teleop — 0.10.0-rc → 1.9.0 (async rewrite, clap v4)
+        zenoh-rust-teleop = craneLib.buildPackage ({
+          src = craneLib.cleanCargoSource ./ROS2/zenoh-rust-teleop;
+          pname = "ros2-teleop";
+          version = "0.0.1";
+          nativeBuildInputs = commonNativeBuildInputs;
+          buildInputs = commonBuildInputs;
+        } // commonEnv);
+
+        # turtlebot3/zturtle-rust — 0.10.0-rc → 1.9.0 (sync .wait() + opencv 0.94)
+        zturtle = craneLib.buildPackage ({
+          src = craneLib.cleanCargoSource ./turtlebot3/zturtle-rust;
+          pname = "zturtle";
+          version = "0.1.0";
+          nativeBuildInputs = commonNativeBuildInputs;
+          buildInputs = commonBuildInputs ++ [ opencvPkg pkgs.udev ];
+        } // commonEnv // opencvEnv);
+
       in {
         packages = {
-          inherit zcam;
+          inherit zcam zlidar zenoh-rust-replay zenoh-dds-shapes
+            zenoh-shamir-put zenoh-shamir-queryable
+            zenoh-tetris-server zenoh-tetris-client zenoh-tetris-hotseat
+            zenoh-rust-teleop zturtle;
           default = zcam;
         };
 

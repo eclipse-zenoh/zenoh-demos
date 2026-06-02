@@ -11,7 +11,6 @@
 // Contributors:
 //   The Zenoh Team, <zenoh@zettascale.tech>
 //
-use async_std::task;
 use cdr::CdrLe;
 use cdr::Infinite;
 use clap::Parser;
@@ -33,7 +32,7 @@ struct Twist {
     angular: Vector3,
 }
 
-#[async_std::main]
+#[tokio::main]
 async fn main() {
     // Initiate logging
     zenoh::init_log_from_env_or("error");
@@ -94,7 +93,7 @@ async fn main() {
         // compute time difference and sleep (*time_scale)
         let now = match (ts, s.timestamp()) {
             (Some(t1), Some(t2)) => {
-                task::sleep(t2.get_diff_duration(&t1).mul_f64(args.time_scale)).await;
+                tokio::time::sleep(t2.get_diff_duration(&t1).mul_f64(args.time_scale)).await;
                 t2
             }
             (None, Some(t2)) => t2,

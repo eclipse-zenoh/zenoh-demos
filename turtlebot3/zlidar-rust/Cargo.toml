@@ -17,7 +17,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-zenoh = { version = "1.4.0", default-features = false, features = ["transport_tcp", "transport_udp"] }
+zenoh = { version = "1.9.0", default-features = false, features = ["transport_tcp", "transport_udp"] }
 hls_lfcd_lds_driver = { default-features = false, features = ["async_smol", "ser_de"], version = "0.1.5" }
 cdr = "0.2.4"
 clap = { version = "4.5.39", features = ["derive"] }

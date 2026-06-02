@@ -1,103 +1,85 @@
-use clap::{App, Arg};
+use clap::Parser;
 use sharks::{Share, Sharks};
 use std::convert::TryInto;
-use zenoh::config::Config;
-use zenoh::prelude::sync::SyncResolve;
+use zenoh::Config;
 
-fn main() {
-    env_logger::init();
+#[derive(Parser, Debug)]
+#[command(about = "Zenoh + Shamir put example")]
+struct Args {
+    #[arg(short, long)]
+    mode: Option<String>,
+    #[arg(short = 'e', long)]
+    connect: Vec<String>,
+    #[arg(short, long)]
+    listen: Vec<String>,
+    #[arg(short, long)]
+    config: Option<String>,
+    #[arg(long)]
+    no_multicast_scouting: bool,
+    #[arg(short, long, default_value = "demo/example/zenoh-shamir-put")]
+    key: String,
+    #[arg(short, long, default_value = "Enigm@")]
+    value: String,
+    #[arg(short, long, default_value = "2")]
+    threshold: u8,
+    #[arg(short, long, default_value = "2")]
+    redundancy: u8,
+}
 
-    let (config, key_expr, value, threshold, redundancy) = parse_args();
+#[tokio::main]
+async fn main() {
+    zenoh::init_log_from_env_or("error");
+    let args = Args::parse();
+
+    let config = build_config(&args);
 
     println!("Open zenoh session");
-    let session = zenoh::open(config).res().unwrap();
+    let session = zenoh::open(config).await.unwrap();
 
-    // 1. Split the secret in as many shares as necessary
-    let sharks = Sharks(threshold);
-    let dealer = sharks.dealer(value.as_bytes());
-    let shares: Vec<Share> = dealer.take((threshold * redundancy) as usize).collect();
+    let sharks = Sharks(args.threshold);
+    let dealer = sharks.dealer(args.value.as_bytes());
+    let shares: Vec<Share> = dealer
+        .take((args.threshold * args.redundancy) as usize)
+        .collect();
 
-    let mut normalized_expr = key_expr;
+    let mut normalized_expr = args.key.clone();
     if !normalized_expr.starts_with('/') {
         normalized_expr = format!("/{}", normalized_expr);
     }
 
-    // 2. Send the shares to the storages
     for (index, share) in shares.iter().enumerate() {
         let share_expr = format!("share/{}{}", index, normalized_expr);
-
         println!("Putting share {} of '{}'. ", index, share_expr);
         let share_as_bytes: Vec<u8> = share.try_into().unwrap();
-        session.put(&share_expr, share_as_bytes).res().unwrap();
+        session.put(&share_expr, share_as_bytes).await.unwrap();
     }
-
-    session.close().res().unwrap();
 }
 
-fn parse_args() -> (Config, String, String, u8, u8) {
-    let args = App::new("zenoh + shamir put example")
-        .arg(
-            Arg::from_usage("-m, --mode=[MODE]  'The zenoh session mode (peer by default).")
-                .possible_values(["peer", "client"]),
-        )
-        .arg(Arg::from_usage(
-            "-e, --connect=[ENDPOINT]...   'Endpoints to connect to.'",
-        ))
-        .arg(Arg::from_usage(
-            "-l, --listen=[ENDPOINT]...   'Endpoints to listen on.'",
-        ))
-        .arg(Arg::from_usage(
-            "-c, --config=[FILE]      'A configuration file.'",
-        ))
-        .arg(Arg::from_usage(
-            "--no-multicast-scouting 'Disable the multicast-based scouting mechanism.'",
-        ))
-        .arg(
-            Arg::from_usage("-k, --key=[KEYEXPR]        'The key expression to write.'")
-                .default_value("demo/example/zenoh-shamir-put"),
-        )
-        .arg(
-            Arg::from_usage("-v, --value=[VALUE]      'The value of the resource to put.'")
-                .default_value("Enigm@"),
-        )
-        .arg(
-            Arg::from_usage("-t, --threshold=[INTEGER]...   'The numbers of different shares needed to reconstruct the secret.'")
-                .default_value("2")
-        )
-        .arg(
-            Arg::from_usage("-r, --redundancy=[INTEGER]...   'The redundancy for each share (the total number of share is thus equal to threshold × redundancy).'")
-                .default_value("2")
-        )
-        .get_matches();
-
-    let mut config = if let Some(conf_file) = args.value_of("config") {
-        Config::from_file(conf_file).unwrap()
-    } else {
-        Config::default()
+fn build_config(args: &Args) -> Config {
+    use serde_json::json;
+    let mut config = match &args.config {
+        Some(path) => Config::from_file(path).unwrap(),
+        None => Config::default(),
     };
-    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
-        config.set_mode(Some(mode)).unwrap();
-    }
-    if let Some(values) = args.values_of("connect") {
+    if let Some(mode) = &args.mode {
         config
-            .connect
-            .endpoints
-            .extend(values.map(|v| v.parse().unwrap()))
+            .insert_json5("mode", &json!(mode).to_string())
+            .unwrap();
     }
-    if let Some(values) = args.values_of("listen") {
+    if !args.connect.is_empty() {
         config
-            .listen
-            .endpoints
-            .extend(values.map(|v| v.parse().unwrap()))
+            .insert_json5("connect/endpoints", &json!(args.connect).to_string())
+            .unwrap();
     }
-    if args.is_present("no-multicast-scouting") {
-        config.scouting.multicast.set_enabled(Some(false)).unwrap();
+    if !args.listen.is_empty() {
+        config
+            .insert_json5("listen/endpoints", &json!(args.listen).to_string())
+            .unwrap();
     }
-
-    let key_expr = args.value_of("key").unwrap().to_string();
-    let value = args.value_of("value").unwrap().to_string();
-    let threshold: u8 = args.value_of("threshold").unwrap().parse().unwrap();
-    let redundancy: u8 = args.value_of("redundancy").unwrap().parse().unwrap();
-
-    (config, key_expr, value, threshold, redundancy)
+    if args.no_multicast_scouting {
+        config
+            .insert_json5("scouting/multicast/enabled", "false")
+            .unwrap();
+    }
+    config
 }
