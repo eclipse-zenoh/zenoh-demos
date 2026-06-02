@@ -45,10 +45,9 @@
         ];
 
         # OpenCV configured for the features used by zcam and zturtle-rust.
-        # highgui requires a GUI backend; gtk3 is the smallest option on Linux.
+        # nixpkgs opencv enables highgui by default; we just need the gtk3 backend.
         opencvPkg = pkgs.opencv.override {
           enableGtk3 = true;
-          enableHighgui = true;
           enableVtk = false;
         };
 
