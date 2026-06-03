@@ -59,7 +59,7 @@ parser.add_argument('-l', '--listen', type=str, metavar='ENDPOINT', action='appe
                     help='zenoh endpoints to listen on.')
 parser.add_argument('-k', '--key', type=str, default='rt/turtle1/lidar',
                     help='The key expression to subscribe for LaserReadings.')
-parser.add_argument('--intensity-threshold', type=float, default=250.0,
+parser.add_argument('--intensity-threshold', type=float, default=100.0,
                     help='The intensity threshold.')
 parser.add_argument('-c', '--config', type=str, metavar='FILE',
                     help='A zenoh configuration file.')

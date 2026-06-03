@@ -2,6 +2,8 @@
 
 A demo for turtlebot3 robots using [zenoh](http://zenoh.io) rust.
 
+Note: this demo only works with turtlebot3 LDS-01 lidars
+
 ## Dependencies
 
 - [Rust](http://rust-lang.org) installation instructions are available [here](https://www.rust-lang.org/tools/install)
