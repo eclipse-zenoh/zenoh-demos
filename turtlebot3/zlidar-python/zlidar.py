@@ -1,12 +1,21 @@
 import argparse
 import json
 import math
+import time
 from dataclasses import dataclass
 import serial
 from pycdr2 import IdlStruct
 from pycdr2.types import uint32, float32
 from typing import List
 import zenoh
+
+# LD-series lidar serial frame format constants
+FRAME_HEADER = 0x54       # Start-of-frame marker byte
+FRAME_VERLEN = 0x2C       # Version/length byte (12 measurement points per frame)
+FRAME_DATA_LEN = 45       # Bytes following the header+verlen (data + CRC)
+POINTS_PER_FRAME = 12     # Measurement points contained in each frame
+DEG100_TO_RAD = 0.00017453293  # pi / (180 * 100): converts hundredths of a degree to radians
+TWO_PI = math.pi * 2
 
 @dataclass
 class Time(IdlStruct, typename="Time"):
@@ -46,7 +55,7 @@ parser.add_argument('-c', '--config', type=str, metavar='FILE',
                     help='A zenoh configuration file.')
 parser.add_argument('-p', '--port', type=str, default='/dev/ttyUSB0',
                     help='The serial port to read LaserReadings from.')
-parser.add_argument('-b', '--baud-rate', type=int, default='115200',
+parser.add_argument('-b', '--baud-rate', type=int, default=115200,
                     help='The baud rate.')
 
 args = parser.parse_args()
@@ -58,13 +67,36 @@ if args.connect is not None:
 if args.listen is not None:
     conf.insert_json5('listen/endpoints', json.dumps(args.listen))
 
-ser = serial.Serial (args.port, baudrate=args.baud_rate)
+# A read timeout keeps read() from blocking forever if the device stalls.
+ser = serial.Serial(args.port, baudrate=args.baud_rate, timeout=1.0)
 
-print("[INFO] Openning zenoh session...")
+print("[INFO] Opening zenoh session...")
 zenoh.init_log_from_env_or("error")
 z = zenoh.open(conf)
 
 p = z.declare_publisher(args.key)
+
+
+def read_frame(ser):
+    """Read one lidar frame, resynchronizing on the header byte.
+
+    Returns the FRAME_DATA_LEN-byte payload (measurement data + CRC), or None
+    if the read timed out before a complete frame was available.
+    """
+    while True:
+        b = ser.read(1)
+        if not b:
+            return None  # timeout
+        if b[0] != FRAME_HEADER:
+            continue  # not a frame start, keep scanning
+        b = ser.read(1)
+        if not b or b[0] != FRAME_VERLEN:
+            continue  # bad length byte, resync from next header
+        payload = ser.read(FRAME_DATA_LEN)
+        if len(payload) == FRAME_DATA_LEN:
+            return payload
+        # short read (timeout): resync
+
 
 print("[INFO] Publishing laser scans on", args.key, "...")
 ranges = []
@@ -72,47 +104,53 @@ intensities = []
 angle_min = -1.0
 angle_max = -1.0
 
-while 1:
-    if ser.read()[0] != 0x54: # Header
-        break
-    if ser.read()[0] != 0x2c: # Length
-        break
-    bs = ser.read(45) # Length + CRC
-    read_angle_min = int.from_bytes(bs[2:4], 'little') * 0.00017453293 # pi/(180 * 100)
-    read_angle_max = int.from_bytes(bs[40:42], 'little') * 0.00017453293 # pi/(180 * 100)
-    if angle_min == -1.0:
-        angle_min = read_angle_min
-    if read_angle_max < read_angle_min:
-        read_angle_max = read_angle_max + math.pi * 2
-    
-    for i in range(12):
-        angle = (read_angle_min + i * ((read_angle_max - read_angle_min) / 11)) % (math.pi * 2)
-        range_ = int.from_bytes(bs[i*3+4:i*3+6], 'little') * 0.001
-        intensity =  bs[i*3+6] * 1.0
-        if angle > angle_max:
-            angle_max = angle
-        else:
-            stamp = Time(0, 0) # TODO
-            header = Header(stamp, "laser")
-            interval = angle_max - angle_min
-            if len(ranges) > 1:
-                interval = (angle_max - angle_min) / (len(ranges) - 1)
-            scan = LaserScan(
-                header,
-                angle_min,
-                angle_max,
-                interval,
-                0.0, # TODO
-                0.0, # TODO
-                0.16,
-                8.0,
-                ranges,
-                intensities)
-            p.put(scan.serialize())
+try:
+    while True:
+        bs = read_frame(ser)
+        if bs is None:
+            continue  # timed out waiting for a frame, try again
+        read_angle_min = int.from_bytes(bs[2:4], 'little') * DEG100_TO_RAD
+        read_angle_max = int.from_bytes(bs[40:42], 'little') * DEG100_TO_RAD
+        if angle_min == -1.0:
+            angle_min = read_angle_min
+        if read_angle_max < read_angle_min:
+            read_angle_max = read_angle_max + TWO_PI
 
-            ranges = []
-            intensities = []
-            angle_min = angle
-            angle_max = angle
-        ranges.append(range_)
-        intensities.append(intensity)
+        for i in range(POINTS_PER_FRAME):
+            angle = (read_angle_min + i * ((read_angle_max - read_angle_min) / (POINTS_PER_FRAME - 1))) % TWO_PI
+            range_ = int.from_bytes(bs[i*3+4:i*3+6], 'little') * 0.001
+            intensity = bs[i*3+6] * 1.0
+            if angle > angle_max:
+                angle_max = angle
+            else:
+                now = time.time()
+                stamp = Time(int(now), int((now % 1) * 1e9))
+                header = Header(stamp, "laser")
+                interval = angle_max - angle_min
+                if len(ranges) > 1:
+                    interval = (angle_max - angle_min) / (len(ranges) - 1)
+                scan = LaserScan(
+                    header,
+                    angle_min,
+                    angle_max,
+                    interval,
+                    0.0, # TODO
+                    0.0, # TODO
+                    0.16,
+                    8.0,
+                    ranges,
+                    intensities)
+                p.put(scan.serialize())
+
+                ranges = []
+                intensities = []
+                angle_min = angle
+                angle_max = angle
+            ranges.append(range_)
+            intensities.append(intensity)
+except KeyboardInterrupt:
+    print("[INFO] Shutting down...")
+finally:
+    p.undeclare()
+    z.close()
+    ser.close()
