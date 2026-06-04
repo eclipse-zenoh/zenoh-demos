@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" />
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body class="w3-container">
+    <div class="w3-container w3-bar w3-card-4 w3-blue w3-margin-bottom">
+        <h3 class="w3-bar-item">Zenoh ROS2 teleop for Turtlebot3</h3>
+    </div>
+
+    <div class="w3-row">
+        <div class="w3-col s2 m2 l2">
+            <label for="rest_api">Zenoh REST API:</label>
+        </div>
+        <div class="w3-col s10 m10 l10">
+            <input id="rest_api" class="w3-input w3-border w3-padding-small" type="text" required
+                value="http://localhost:8000/">
+        </div>
+    </div>
+    <div class="w3-row">
+        <div class="w3-col s2 m2 l2">
+            <label for="rest_api">Namespace : </label>
+        </div>
+        <div class="w3-col s2 m2 l2">
+            <input id="namespace_input" class="w3-input w3-border w3-padding-small w3-margin-right" type="text"
+                value="">
+        </div>
+    </div>
+
+    <br />
+
+    <div class="w3-card-4 w3-margin-bottom">
+        <header class="w3-bar w3-blue" onclick="document.getElementById('Drive').classList.toggle('w3-hide');">
+            <h5 id="drive_label" class="w3-bar-item" style="margin: 0;">Drive</h5>
+            <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-gamepad'></i></h5>
+        </header>
+        <div id="Drive" class="w3-container w3-padding">
+            <div class="w3-auto" style="display: grid; width:15em; height:9em; ">
+                <button onmousedown="loopPubTwist(1.0, 0.0);" onmouseup="stopLoopPubTwist();"
+                    ontouchstart="loopPubTwist(1.0, 0.0);" ontouchend="stopLoopPubTwist();"
+                    style='font-size:2em; grid-column: 2; grid-row: 1;'>
+                    <i class='fas fa-caret-up'></i>
+                </button>
+                <button onmousedown="loopPubTwist(0.0, 1.0);" onmouseup="stopLoopPubTwist();"
+                    ontouchstart="loopPubTwist(0.0, 1.0);" ontouchend="stopLoopPubTwist();"
+                    style='font-size:2em; grid-column: 1; grid-row: 2;'>
+                    <i class='fas fa-caret-left'></i>
+                </button>
+                <button onmousedown="loopPubTwist(-1.0, 0.0);" onmouseup="stopLoopPubTwist();"
+                    ontouchstart="loopPubTwist(-1.0, 0.0);" ontouchend="stopLoopPubTwist();"
+                    style='font-size:2em; grid-column: 2; grid-row: 2;'>
+                    <i class='fas fa-caret-down'></i>
+                </button>
+                <button onmousedown="loopPubTwist(0.0, -1.0);" onmouseup="stopLoopPubTwist();"
+                    ontouchstart="loopPubTwist(0.0, -1.0);" ontouchend="stopLoopPubTwist();"
+                    style='font-size:2em; grid-column: 3; grid-row: 2;'>
+                    <i class='fas fa-caret-right'></i>
+                </button>
+                <button onmousedown="loopPubTwist(0.0, 0.0);" onmouseup="stopLoopPubTwist();"
+                    ontouchstart="loopPubTwist(0.0, 0.0);" ontouchend="stopLoopPubTwist();"
+                    style='font-size:2em; grid-column: 1 / 4; grid-row: 3;'>
+                    STOP
+                </button>
+                <button onmousedown="rotate(Math.PI);" ontouchstart="rotate();"
+                    style='font-size:2em; grid-column: 5; grid-row: 2;'>
+                    <i class='fas fa-rotate-left'></i>
+                </button>
+                <button onmousedown="rotate(0);" ontouchstart="rotate();"
+                    style='font-size:2em; grid-column: 5; grid-row: 3;'>
+                    <i class='fas fa-rotate-right'></i>
+                </button>
+            </div>
+            <br />
+        </div>
+    </div>
+
+    <div class="w3-card-4 w3-margin-bottom">
+        <header class="w3-bar w3-blue" onclick="document.getElementById('Logs').classList.toggle('w3-hide');">
+            <h5 id="logs_label" class="w3-bar-item" style="margin: 0;">Logs</h5>
+            <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-envelope'></i></h5>
+        </header>
+        <div id="Logs" class="w3-container w3-padding">
+            <div style="overflow:auto; height:200px; border:1px solid black;" id="rosout_logs"></div>
+        </div>
+    </div>
+
+    <div class="w3-card-4 w3-margin-bottom">
+        <header class="w3-bar w3-blue" onclick="document.getElementById('Config').classList.toggle('w3-hide');">
+            <h5 class="w3-bar-item" style="margin: 0;">Config</h5>
+            <h5 class="w3-bar-item w3-right" style="margin: 0;"><i class='fa fa-gear'></i></h5>
+        </header>
+        <form id="Config" class="w3-container w3-hide">
+            <label for="linear_scale">Linear scale:</label>
+            <input id="linear_scale" class="w3-input w3-border w3-padding-small" type="number" required
+                value="0.2"><br />
+            <label for="angular_scale">Angular scale:</label>
+            <input id="angular_scale" class="w3-input w3-border w3-padding-small" type="number" required
+                value="0.2"><br />
+            <input type="submit" class="w3-btn w3-blue" value="Reset subscriptions"
+                onclick="resetAllSubscriptions(); return false"><br />
+            <br />
+        </form>
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bytebuffer@5.0.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jscdr@0.0.1"></script>
+    <script>
+        // ROS2 topic names
+        const TOPIC_DRIVE = "cmd_vel";
+        const TOPIC_LOGS = "rosout";
+        const ACTION_ROTATE = "rotate_absolute/_action/send_goal";
+
+        // Get "rest" and "namespace" from URL params, and set "rest_api" and "namespace_input" elements accordingly
+        const urlParams = new URLSearchParams(window.location.search);
+        const restParam = urlParams.get('rest');
+        if (restParam != null && restParam.length > 0) {
+            console.log("Set REST API from URL params: " + restParam);
+            document.getElementById("rest_api").value = restParam;
+        }
+        const namespaceParam = urlParams.get('namespace');
+        if (namespaceParam != null && namespaceParam.length > 0) {
+            console.log("Set custom namespace from URL params: " + namespaceParam);
+            document.getElementById("namespace_input").value = namespaceParam;
+        }
+
+        // Add listener for input changes REST API and Namespace inputs
+        document.getElementById("rest_api").addEventListener('change', (event) => {
+            reloadPage(event.target.value, document.getElementById("namespace_input").value);
+        });
+        document.getElementById("namespace_input").addEventListener('change', (event) => {
+            reloadPage(document.getElementById("rest_api").value, event.target.value);
+        });
+        function reloadPage(rest, s) {
+            window.location.search = 'rest=' + rest + "&namespace=" + s;
+        }
+
+        // The REST API URL
+        var rest_api = document.getElementById("rest_api").value;
+
+        // The namespace (used as a prefix for all Zenoh keys to publish and subscribe if not containing '*')
+        var namespace = document.getElementById("namespace_input").value;
+        if (namespace.length > 0 && !namespace.endsWith("/")) { namespace += "/" }
+
+        /////////////////////////
+        //  Twist publication  //
+        /////////////////////////
+
+        // Update Drive label
+        let elem = document.getElementById("drive_label");
+        elem.innerHTML = "Drive ( " + namespace + TOPIC_DRIVE + " )"
+
+        // HTTP client to call the REST API
+        const Http = new XMLHttpRequest();
+
+        // Function to publish a Twist to cmd_vel topic
+        function pubTwist(linear, angular) {
+            // Get scales from HTML
+            var linear_scale = document.getElementById("linear_scale").value
+            var angular_scale = document.getElementById("angular_scale").value
+
+            // Create a Twist message
+            var twist = new Twist(
+                new Vector3(linear * linear_scale, 0.0, 0.0),
+                new Vector3(0.0, 0.0, angular * angular_scale));
+            console.log(twist);
+            // Since it's going to DDS, encode it using a jscdr.CDRWriter
+            var writer = new jscdr.CDRWriter();
+            twist.encode(writer);
+
+            // The key expression for publication
+            var key_expr = namespace + TOPIC_DRIVE;
+            console.log("Send cmd_vel to " + rest_api + key_expr);
+
+            // PUT it to zenoh via its REST API
+            Http.open('PUT', rest_api + key_expr, true);
+            Http.setRequestHeader('Content-Type', 'application/octet-stream');
+            Http.send(writer.buf.buffer);
+        }
+
+        var pubTwistTimer;
+        // Function publishing Twists in loop at 200ms interval
+        function loopPubTwist(linear, angular) {
+            if (pubTwistTimer) return;
+            console.log("start publishing Twists (" + linear + "," + angular + ")");
+            clearInterval(pubTwistTimer);
+            pubTwistTimer = setInterval(pubTwist, 200, linear, angular);
+        }
+        // Function stopping the publication loop of Twists
+        function stopLoopPubTwist() {
+            console.log("stop publishing Twists");
+            clearInterval(pubTwistTimer);
+            pubTwistTimer = null;
+        }
+
+
+        // callback on keyboard's down key event
+        function onkeydown(e) {
+            e = e || window.event;
+            console.log("KeyPressed: " + e);
+            if (e.keyCode == '38') {
+                // up arrow
+                loopPubTwist(1.0, 0.0);
+            }
+            else if (e.keyCode == '40') {
+                // down arrow
+                loopPubTwist(-1.0, 0.0);
+            }
+            else if (e.keyCode == '37') {
+                console.log("LEFT => setInterval")
+                // left arrow
+                loopPubTwist(0.0, 1.0);
+            }
+            else if (e.keyCode == '39') {
+                console.log("RIGHT => setInterval")
+                // right arrow
+                loopPubTwist(0.0, -1.0);
+            }
+            else if (e.keyCode == '32') {
+                // spacebar
+                stopLoopPubTwist();
+            }
+        }
+        // register callback on key down
+        document.onkeydown = onkeydown;
+
+        // callback on keyboard's up key event
+        function onkeyup(e) {
+            // if key pressed was an arrow, send a Twist(0,0) to stop the robot
+            if (e.keyCode == '37' || e.keyCode == '38' || e.keyCode == '39' || e.keyCode == '40') {
+                stopLoopPubTwist();
+            }
+        }
+        // register callback on key up
+        document.onkeyup = onkeyup;
+
+        /////////////////////////
+        //    Rotate action    //
+        /////////////////////////
+        function rotate(theta) {
+            // Action type: https://github.com/iRobotEducation/irobot_create_msgs/blob/rolling/action/RotateAngle.action
+            // The request body is CDR-encoded with:
+            //  - random goal UUID
+            //  - theta: float32 in radians
+            //  - max_rotation_speed: float32
+            var writer = new jscdr.CDRWriter();
+            for (let i = 0; i < 16; i++) {
+                writer.writeByte(Math.floor(Math.random() * 256));
+            }
+            writer.writeFloat32(theta);
+
+            var key_expr = namespace + ACTION_ROTATE;
+            console.log("Send rotate request to " + rest_api + key_expr);
+
+            // send the Request with a POST HTTP method
+            Http.open('POST', rest_api + key_expr, true);
+            Http.setRequestHeader('Content-Type', 'application/octet-stream');
+            Http.send(writer.buf.buffer);
+        }
+
+        //////////////////////////////////
+        //    Logs subscription (ROS2)  //
+        //////////////////////////////////
+        var ros2_logs_source = null;
+
+        // Test if Server-Source Event is supported
+        if (typeof (EventSource) !== "undefined") {
+            // the key expression to subscribe
+            var key_expr = /*sub_namespace +*/ TOPIC_LOGS;  // (Note: turtlesim don't prepend "rosout" with the namespace)
+
+            // update Lidar label
+            let elem = document.getElementById("logs_label");
+            elem.innerHTML = "Logs ( " + key_expr + " )";
+
+            // Create EventSource for subscription to key_expr
+            console.log("Subscribe to EventSource: " + rest_api + key_expr);
+            ros2_logs_source = new EventSource(rest_api + key_expr);
+            ros2_logs_source.addEventListener("PUT", function (e) {
+                console.log("Received sample: " + e.data);
+                // The zenoh REST API sends JSON objects
+                // that includes "key", "value", "encoding" and "time" (same than a result to GET)
+                let sample = JSON.parse(e.data)
+                // The payload buffer is in "value" field, encoded as base64.
+                // Since it's comming from DDS, we decode it using a jscdr.CDRReader.
+                let reader = new jscdr.CDRReader(dcodeIO.ByteBuffer.fromBase64(sample.value));
+                // Decode the buffer as a Log message
+                let log = Log.decode(reader);
+                // Add it to "rosout_logs" HTML element
+                let elem = document.getElementById("rosout_logs");
+                elem.innerHTML += "ROS2: [" + log.time.sec + "." + log.time.nsec + "] [" + log.name + "]: " + log.msg + "<br>";
+                // Auto-scroll to the bottom
+                elem.scrollTop = elem.scrollHeight;
+            }, false);
+
+        } else {
+            document.getElementById("rosout_logs").innerHTML = "Sorry, your browser does not support server-sent events...";
+        }
+
+        /////////////////////////////////////////////////////////////
+        // ROS2 Types declaration with CDR encode/decode functions //
+        /////////////////////////////////////////////////////////////
+
+        // ROS2 Time type
+        class Time {
+            constructor(sec, nsec) {
+                this.sec = sec;
+                this.nsec = nsec;
+            }
+
+            static decode(cdrReader) {
+                let sec = cdrReader.readInt32();
+                let nsec = cdrReader.readUint32();
+                return new Time(sec, nsec);
+            }
+        }
+
+        // ROS2 Log type (received in 'rosout' topic)
+        class Log {
+            constructor(time, level, name, msg, file, fn, line) {
+                this.time = time;
+                this.level = level;
+                this.name = name;
+                this.msg = msg;
+                this.file = file;
+                this.fn = fn;
+                this.line = line;
+            }
+
+            static decode(cdrReader) {
+                let time = Time.decode(cdrReader);
+                let level = cdrReader.readByte();
+                let name = cdrReader.readString();
+                let msg = cdrReader.readString();
+                let file = cdrReader.readString();
+                let fn = cdrReader.readString();
+                let line = cdrReader.readUint32();
+                return new Log(time, level, name, msg, file, fn, line);
+            }
+        }
+
+        // ROS2 Vector3 type
+        class Vector3 {
+            constructor(x, y, z) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+
+            encode(cdrWriter) {
+                cdrWriter.writeFloat64(this.x);
+                cdrWriter.writeFloat64(this.y);
+                cdrWriter.writeFloat64(this.z);
+            }
+
+            static decode(cdrReader) {
+                let x = cdrReader.readFloat64();
+                let y = cdrReader.readFloat64();
+                let z = cdrReader.readFloat64();
+                return new Vector3(x, y, z);
+            }
+        }
+
+        // ROS2 Quaternion type
+        class Quaternion {
+            constructor(x, y, z, w) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+                this.w = w;
+            }
+
+            static decode(cdrReader) {
+                let x = cdrReader.readFloat64();
+                let y = cdrReader.readFloat64();
+                let z = cdrReader.readFloat64();
+                let w = cdrReader.readFloat64();
+                return new Quaternion(x, y, z, w);
+            }
+        }
+
+        // ROS2 Twist type (published in 'cmd_vel' topic)
+        class Twist {
+            constructor(linear, angular) {
+                this.linear = linear;
+                this.angular = angular;
+            }
+
+            encode(cdrWriter) {
+                this.linear.encode(cdrWriter);
+                this.angular.encode(cdrWriter);
+            }
+        }
+
+        // ROS2 Header type
+        class Header {
+            constructor(time, frame_id) {
+                this.time = time;
+                this.frame_id = frame_id;
+            }
+
+            static decode(cdrReader) {
+                let time = Time.decode(cdrReader);
+                let frame_id = cdrReader.readString();
+            }
+        }
+
+
+    </script>
+
+    <script type="text/javascript">
+    </script>
+
+</body>
+
+</html>
