@@ -73,9 +73,13 @@ angle_min = -1.0
 angle_max = -1.0
 
 while 1:
-    b = ser.read(47)
-    read_angle_min = int.from_bytes(b[4:6], 'little') * 0.00017453293 # pi/(180 * 100)
-    read_angle_max = int.from_bytes(b[42:44], 'little') * 0.00017453293 # pi/(180 * 100)
+    if ser.read()[0] != 0x54: # Header
+        break
+    if ser.read()[0] != 0x2c: # Length
+        break
+    bs = ser.read(45) # Length + CRC
+    read_angle_min = int.from_bytes(bs[2:4], 'little') * 0.00017453293 # pi/(180 * 100)
+    read_angle_max = int.from_bytes(bs[40:42], 'little') * 0.00017453293 # pi/(180 * 100)
     if angle_min == -1.0:
         angle_min = read_angle_min
     if read_angle_max < read_angle_min:
@@ -83,8 +87,8 @@ while 1:
     
     for i in range(12):
         angle = (read_angle_min + i * ((read_angle_max - read_angle_min) / 11)) % (math.pi * 2)
-        range_ = int.from_bytes(b[i*3+6:i*3+8], 'little') * 0.001
-        intensity =  b[i*3+8] * 1.0
+        range_ = int.from_bytes(bs[i*3+4:i*3+6], 'little') * 0.001
+        intensity =  bs[i*3+6] * 1.0
         if angle > angle_max:
             angle_max = angle
         else:
