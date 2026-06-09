@@ -1,4 +1,4 @@
-eclipse-zenoh
+eclipse-zenoh==1.9.0
 imutils
 face_recognition
 numpy

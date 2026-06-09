@@ -1,168 +1,129 @@
-use clap::{App, Arg};
+use clap::Parser;
 use sharks::Sharks;
-use std::borrow::Cow;
-use std::convert::TryFrom;
-use zenoh::config::Config;
-use zenoh::prelude::sync::SyncResolve;
-use zenoh::prelude::{Sample, SplitBuffer};
-use zenoh::selector::Selector;
+use zenoh::Config;
 
-fn main() {
-    env_logger::init();
+#[derive(Parser, Debug)]
+#[command(about = "Zenoh + Shamir queryable example")]
+struct Args {
+    #[arg(short, long)]
+    mode: Option<String>,
+    #[arg(short = 'e', long)]
+    connect: Vec<String>,
+    #[arg(short, long)]
+    listen: Vec<String>,
+    #[arg(short, long)]
+    config: Option<String>,
+    #[arg(long)]
+    no_multicast_scouting: bool,
+    #[arg(short, long, default_value = "demo/example/zenoh-shamir-queryable")]
+    key: String,
+    #[arg(short, long, default_value = "2")]
+    threshold: u8,
+    #[arg(short, long, default_value = "2")]
+    redundancy: u8,
+}
 
-    let (config, key_expr, threshold, redundancy) = parse_args();
+#[tokio::main]
+async fn main() {
+    zenoh::init_log_from_env_or("error");
+    let args = Args::parse();
+
+    let config = build_config(&args);
+    let threshold = args.threshold;
+    let redundancy = args.redundancy;
+    let key_expr = args.key.clone();
 
     println!("Open zenoh session");
-    let session = zenoh::open(config).res().unwrap();
+    let session = zenoh::open(config).await.unwrap();
 
-    let queryable = session.declare_queryable(&key_expr).res().unwrap();
-
+    let queryable = session.declare_queryable(&key_expr).await.unwrap();
     let sharks = Sharks(threshold);
 
-    while let Ok(query) = queryable.recv() {
+    while let Ok(query) = queryable.recv_async().await {
         println!(
-            ">> [zenoh_queryable_shamir listener] received query with selector: {}",
-            query.selector()
+            ">> [zenoh_queryable_shamir] received query: {}",
+            query.key_expr()
         );
 
         let name = query
-            .selector()
-            .parameters_cowmap()
-            .ok()
-            .and_then(|map| map.get("name").cloned())
-            .unwrap_or_else(|| Cow::from("Rust!"))
-            .into_owned();
+            .parameters()
+            .get("name")
+            .unwrap_or("Rust!")
+            .to_string();
 
-        let mut secret = "Error".to_string();
-
-        if name.starts_with('/') {
+        let secret = if name.starts_with('/') {
             let mut shares: Vec<sharks::Share> = Vec::with_capacity(threshold as usize);
-            let mut index = 0;
+            let mut index = 0u8;
             while shares.len() < threshold as usize && index < threshold * redundancy {
                 let share_expr = format!("share/{}{}", index, name);
-                print!(
-                    "\t>> [zenoh_queryable_shamir] Fetching share '{}': ",
-                    share_expr
-                );
-                if let Some(share) = get_share(&session, &share_expr) {
+                print!("\t>> Fetching share '{}': ", share_expr);
+                if let Some(share) = get_share(&session, &share_expr).await {
                     shares.push(share);
-                    println!(" OK.");
+                    println!("OK.");
+                } else {
+                    println!("not found.");
                 }
-
                 index += 1;
             }
 
             if shares.len() < threshold as usize {
-                secret = format!(
-                    "Not enough shares were retrieved ({}/{})",
+                let msg = format!(
+                    "Not enough shares ({}/{})",
                     shares.len(),
                     threshold
                 );
-                println!("\t>> [zenoh_queryable_shamir] {}. Aborting.", secret);
+                println!("\t>> {}. Aborting.", msg);
+                msg
             } else {
-                // Reconstruct the secret
-                secret = String::from_utf8(sharks.recover(&shares).unwrap()).unwrap();
-                println!("\t>> [zenoh_queryable_shamir] Sending back reconstructed secret.");
+                let secret = String::from_utf8(sharks.recover(&shares).unwrap()).unwrap();
+                println!("\t>> Sending back reconstructed secret.");
+                secret
             }
         } else {
-            println!(
-                "\t>> [zenoh_queryable_shamir] A key expression starting with a '/' is expected."
-            );
-        }
+            println!("\t>> Expected a key expression starting with '/'.");
+            "Error: key must start with '/'".to_string()
+        };
 
-        query
-            .reply(Ok(Sample::try_from(key_expr.clone(), secret).unwrap()))
-            .res()
+        query.reply(query.key_expr(), secret).await.unwrap();
+    }
+}
+
+async fn get_share(session: &zenoh::Session, path: &str) -> Option<sharks::Share> {
+    let replies = session.get(path).await.unwrap();
+    while let Ok(reply) = replies.recv_async().await {
+        if let Ok(sample) = reply.into_result() {
+            let bytes = sample.payload().to_bytes().to_vec();
+            return Some(sharks::Share::try_from(bytes.as_ref()).unwrap());
+        }
+    }
+    None
+}
+
+fn build_config(args: &Args) -> Config {
+    use serde_json::json;
+    let mut config = match &args.config {
+        Some(path) => Config::from_file(path).unwrap(),
+        None => Config::default(),
+    };
+    if let Some(mode) = &args.mode {
+        config
+            .insert_json5("mode", &json!(mode).to_string())
             .unwrap();
     }
-
-    queryable.undeclare().res().unwrap();
-    session.close().res().unwrap();
-}
-
-fn get_share(session: &zenoh::Session, path: &str) -> Option<sharks::Share> {
-    let mut share: Option<sharks::Share> = None;
-
-    if let Ok(selector) = Selector::try_from(path) {
-        match session.get(&selector).res().unwrap().recv() {
-            Ok(reply) => {
-                let v_bytes = reply
-                    .sample
-                    .unwrap()
-                    .value
-                    .payload
-                    .contiguous()
-                    .into_owned();
-                share = Some(sharks::Share::try_from(v_bytes.as_ref()).unwrap());
-            }
-            Err(_) => println!("Failed to get share '{}': not found", path),
-        }
-    } else {
-        println!("Failed to get value from '{}': not a valid Selector", path);
-    }
-
-    share
-}
-
-fn parse_args() -> (Config, String, u8, u8) {
-    let args = App::new("zenoh + shamir queryable example")
-        .arg(
-            Arg::from_usage("-m, --mode=[MODE]  'The zenoh session mode (peer by default).")
-                .possible_values(["peer", "client"]),
-        )
-        .arg(Arg::from_usage(
-            "-e, --connect=[ENDPOINT]...   'Endpoints to connect to.'",
-        ))
-        .arg(Arg::from_usage(
-            "-l, --listen=[ENDPOINT]...   'Endpoints to listen on.'",
-        ))
-        .arg(Arg::from_usage(
-            "-c, --config=[FILE]      'A configuration file.'",
-        ))
-        .arg(Arg::from_usage(
-            "--no-multicast-scouting 'Disable the multicast-based scouting mechanism.'",
-        ))
-        .arg(
-            Arg::from_usage("-k, --key=[KEYEXPR]        'The key expression matching queries to reply to.'")
-                .default_value("demo/example/zenoh-shamir-queryable"),
-        )
-        .arg(
-            Arg::from_usage("-t, --threshold=[INTEGER]...   'The numbers of different shares needed to reconstruct the secret.'")
-                .default_value("2")
-        )
-        .arg(
-            Arg::from_usage("-r, --redundancy=[INTEGER]...   'The redundancy for each share (the total number of share is thus equal to threshold × redundancy).'")
-                .default_value("2")
-        )
-        .get_matches();
-
-    let mut config = if let Some(conf_file) = args.value_of("config") {
-        Config::from_file(conf_file).unwrap()
-    } else {
-        Config::default()
-    };
-    if let Some(Ok(mode)) = args.value_of("mode").map(|mode| mode.parse()) {
-        config.set_mode(Some(mode)).unwrap();
-    }
-    if let Some(values) = args.values_of("connect") {
+    if !args.connect.is_empty() {
         config
-            .connect
-            .endpoints
-            .extend(values.map(|v| v.parse().unwrap()))
+            .insert_json5("connect/endpoints", &json!(args.connect).to_string())
+            .unwrap();
     }
-    if let Some(values) = args.values_of("listen") {
+    if !args.listen.is_empty() {
         config
-            .listen
-            .endpoints
-            .extend(values.map(|v| v.parse().unwrap()))
+            .insert_json5("listen/endpoints", &json!(args.listen).to_string())
+            .unwrap();
     }
-    if args.is_present("no-multicast-scouting") {
-        config.scouting.multicast.set_enabled(Some(false)).unwrap();
+    if args.no_multicast_scouting {
+        config
+            .insert_json5("scouting/multicast/enabled", "false")
+            .unwrap();
     }
-
-    let key_expr = args.value_of("key").unwrap().to_string();
-    let threshold: u8 = args.value_of("threshold").unwrap().parse().unwrap();
-    let redundancy: u8 = args.value_of("redundancy").unwrap().parse().unwrap();
-
-    (config, key_expr, threshold, redundancy)
+    config
 }
